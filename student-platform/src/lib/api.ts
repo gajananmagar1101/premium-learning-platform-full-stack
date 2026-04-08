@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const defaultApiBaseUrl = import.meta.env.DEV
   ? 'http://localhost:5002/api'
-  : '/api'
+  : 'https://premium-learning-platform-full-stack.onrender.com/api'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? defaultApiBaseUrl,
