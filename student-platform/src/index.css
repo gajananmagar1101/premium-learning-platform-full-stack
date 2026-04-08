@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply font-sans antialiased;
+  }
+
+  body {
+    @apply bg-light-base text-light-ink-primary dark:bg-dark-base dark:text-dark-ink-primary transition-colors duration-300;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track {
+    @apply bg-light-card dark:bg-dark-card;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-light-border dark:bg-dark-border rounded;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-light-ink-muted dark:bg-dark-ink-muted;
+  }
+}
+
+@layer components {
+  /* Card */
+  .card {
+    @apply bg-light-card dark:bg-dark-card border border-light-border dark:border-dark-border rounded-xl shadow-card;
+  }
+
+  /* Input / Select */
+  .form-input {
+    @apply w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all bg-light-base dark:bg-dark-base border border-light-border dark:border-dark-border text-light-ink-primary dark:text-dark-ink-primary;
+  }
+  .form-input::placeholder {
+    @apply text-light-ink-muted dark:text-dark-ink-muted;
+  }
+  .form-input:focus {
+    @apply border-accent shadow-lg;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
+  }
+
+  /* Primary button */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all bg-accent text-white shadow-glow;
+  }
+  .btn-primary:hover {
+    @apply bg-accent-hover shadow-glow;
+    transform: translateY(-1px);
+  }
+  .btn-primary:active { transform: translateY(0); }
+
+  /* Ghost button */
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border border-light-border dark:border-dark-border text-light-ink-secondary dark:text-dark-ink-secondary bg-transparent;
+  }
+  .btn-ghost:hover {
+    @apply border-accent text-light-ink-primary dark:text-dark-ink-primary;
+    background-color: rgba(99,102,241,0.08);
+  }
+
+  /* Table */
+  .data-table { @apply w-full text-sm; }
+  .data-table thead tr {
+    @apply bg-light-base dark:bg-dark-base border-b-2 border-light-border dark:border-dark-border;
+  }
+  .data-table thead th {
+    @apply text-left py-3 px-4 font-semibold uppercase tracking-wide text-xs text-light-ink-muted dark:text-dark-ink-muted;
+  }
+  .data-table tbody tr {
+    @apply border-b border-light-border dark:border-dark-border transition-colors;
+  }
+  .data-table tbody tr:nth-child(even) {
+    @apply bg-light-card/50 dark:bg-dark-card/50;
+  }
+  .data-table tbody tr:hover {
+    @apply bg-light-hover dark:bg-dark-hover;
+  }
+  .data-table tbody td {
+    @apply py-3.5 px-4 text-light-ink-primary dark:text-dark-ink-primary;
+  }
+
+  /* Nav link */
+  .nav-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-light-ink-secondary dark:text-dark-ink-secondary;
+  }
+  .nav-link:hover {
+    @apply bg-light-hover dark:bg-dark-hover text-light-ink-primary dark:text-dark-ink-primary;
+  }
+  .nav-link.active {
+    @apply bg-accent/15 text-accent;
+    box-shadow: inset 3px 0 0 #6366f1;
+  }
+}
