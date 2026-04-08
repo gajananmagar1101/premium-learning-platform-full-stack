@@ -1,11 +1,18 @@
 import axios from 'axios'
 
-const defaultApiBaseUrl = import.meta.env.DEV
-  ? 'http://localhost:5002/api'
-  : 'https://premium-learning-platform-full-stack.onrender.com/api'
+const RENDER_URL = 'https://premium-learning-platform-full-stack.onrender.com/api'
+
+const getBaseURL = () => {
+  const envURL = import.meta.env.VITE_API_URL
+  if (envURL) {
+    // ensure it always ends with /api
+    return envURL.endsWith('/api') ? envURL : `${envURL.replace(/\/$/, '')}/api`
+  }
+  return import.meta.env.DEV ? 'http://localhost:5002/api' : RENDER_URL
+}
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? defaultApiBaseUrl,
+  baseURL: getBaseURL(),
   headers: { 'Content-Type': 'application/json' },
 })
 
