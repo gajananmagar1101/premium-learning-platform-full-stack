@@ -77,7 +77,7 @@ export function Register() {
               <div className="relative">
                 <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
-                  placeholder="John Doe"
+                  placeholder="Gajanan"
                   {...register('name', { required: 'Name is required', minLength: { value: 2, message: 'Min 2 characters' } })}
                   onChange={() => clearError()}
                   className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder-gray-400"
