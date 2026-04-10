@@ -1,92 +1,59 @@
 # Deployment Guide
 
-This repository currently runs in production with:
+This project is set up for:
 
-- Frontend: `student-platform` (React + Vite)
-- Backend: `server` (Node.js + Express)
+- Frontend: Netlify
+- Backend: Render
 - Database: MongoDB Atlas
 
-## 1. Push this repo to GitHub
+## 1. MongoDB Atlas
 
-Use your repository:
+Create a MongoDB Atlas cluster and copy the connection string.
 
-- `https://github.com/gajananm04/student-learning-platform-full-stack.git`
+Use this as:
 
-## 2. Deploy the backend on Render
+- `MONGODB_URI`
 
-Create a new Web Service and point it to this repo with:
+## 2. Render Backend
 
-- Root Directory: `server`
-- Build Command: `npm install`
-- Start Command: `npm start`
-- Health Check Path: `/api/health`
+The root `render.yaml` deploys the Spring backend from `spring-backend`.
 
-Set these environment variables:
+Set these environment variables in Render:
 
-```env
-PORT=5002
-MONGO_URI=your-atlas-uri
-JWT_SECRET=replace-with-a-long-random-secret
-JWT_EXPIRES_IN=7d
-NODE_ENV=production
-CLIENT_ORIGINS=https://your-frontend-domain
-ADMIN_EMAIL=gajananmagar.11.01@gmail.com
-ADMIN_PASSWORD=replace-with-a-strong-password
-ADMIN_NAME=Gajanan Admin
-TRUST_PROXY=true
-```
+- `MONGODB_URI`
+- `JWT_SECRET`
+- `FRONTEND_URL`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `ADMIN_NAME`
 
-## 3. Prepare MongoDB Atlas
+Recommended values:
 
-In Atlas:
+- `SEED_DEMO_DATA=false`
+- `JWT_EXPIRATION_DAYS=7`
 
-1. Make sure the cluster is active
-2. Create a database user
-3. Add an IP access rule
-4. For initial deployment, you can use `0.0.0.0/0`
-5. Use a URI that includes your database name, for example:
+Backend URL example:
 
-```env
-mongodb+srv://USERNAME:PASSWORD@cluster0.xxxxx.mongodb.net/student_platform?retryWrites=true&w=majority
-```
+- `https://student-learning-platform-api.onrender.com`
 
-## 4. Deploy the frontend on Vercel
+## 3. Netlify Frontend
 
-Create a new Vercel project from this repo with:
+The root `netlify.toml` deploys the Vite frontend from `student-platform`.
 
-- Root Directory: `student-platform`
-- Build Command: `npm run build`
-- Output Directory: `dist`
+Set this environment variable in Netlify:
 
-Set this environment variable:
+- `VITE_API_URL=https://student-learning-platform-api.onrender.com/api`
 
-```env
-VITE_API_URL=https://your-backend-domain/api
-```
+## 4. GitHub
 
-`student-platform/vercel.json` is already included so React Router routes work on refresh.
+Push the repository to GitHub after confirming these files:
 
-## 5. Update backend CORS
+- `render.yaml`
+- `netlify.toml`
+- `DEPLOYMENT.md`
 
-Once the frontend domain is live, set:
+## 5. Important
 
-```env
-CLIENT_ORIGINS=https://your-project.vercel.app
-```
-
-If you use more than one domain:
-
-```env
-CLIENT_ORIGINS=https://your-project.vercel.app,https://www.yourdomain.com
-```
-
-## 6. Verify production
-
-Check:
-
-1. Frontend loads
-2. Student registration works
-3. Admin login works
-4. Assessments load
-5. Grade assignment works
-6. Student dashboard shows grades
+- Do not commit real `.env` files
+- Do not commit MongoDB secrets
+- Set `FRONTEND_URL` in Render to your live Netlify domain so CORS works correctly

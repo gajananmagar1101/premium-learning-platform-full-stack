@@ -22,8 +22,10 @@ export const studentAPI = {
   getAll: () => api.get('/users/students'),
   getOne: (id: string) => api.get(`/users/students/${id}`),
   update: (id: string, data: object) => api.put(`/users/students/${id}`, data),
+  updateMe: (data: { name: string; email: string; grade?: string }) => api.put('/users/me', data),
   delete: (id: string) => api.delete(`/users/students/${id}`),
   getMyScores: () => api.get('/users/me/scores'),
+  getPerformance: (studentId: string) => api.get(`/student/performance/${studentId}`),
 }
 
 // ── Scores ────────────────────────────────────────────
@@ -34,4 +36,23 @@ export const scoreAPI = {
   getAnalytics: () => api.get('/scores/analytics'),
   getStudentScores: (id: string) => api.get(`/scores/student/${id}`),
   delete: (id: string) => api.delete(`/scores/${id}`),
+}
+
+// ── Assignments ───────────────────────────────────────
+export const adminAssignmentAPI = {
+  getAll: () => api.get('/admin/assignments'),
+  create: (data: object) => api.post('/admin/assignments', data),
+  update: (id: string, data: object) => api.put(`/admin/assignments/${id}`, data),
+  delete: (id: string) => api.delete(`/admin/assignments/${id}`),
+}
+
+export const studentAssignmentAPI = {
+  getAll: () => api.get('/student/assignments'),
+}
+
+export const submissionAPI = {
+  create: (data: object) => api.post('/student/submissions', data),
+  update: (id: string, data: object) => api.put(`/student/submissions/${id}`, data),
+  getAllForAdmin: () => api.get('/admin/submissions'),
+  grade: (id: string, data: { marks: number }) => api.put(`/admin/submissions/${id}/marks`, data),
 }

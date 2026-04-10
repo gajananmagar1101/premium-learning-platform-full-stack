@@ -4,19 +4,28 @@ import { GraduationCap, ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowLeft, AlertCi
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { useAuthStore } from '@/store/useAuthStore'
+import { useUIStore } from '@/store/useUIStore'
 
 interface FormData { email: string; password: string }
 
 export function AdminLogin() {
   const navigate = useNavigate()
   const { login, loginError, clearError, loading } = useAuthStore()
+  const { addNotification } = useUIStore()
   const [showPw, setShowPw] = useState(false)
+  const [localError, setLocalError] = useState<string | null>(null)
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>()
 
   const onSubmit = async (data: FormData) => {
+    setLocalError(null)
     const ok = await login(data.email, data.password)
     if (ok) {
       const user = useAuthStore.getState().user
+      addNotification({
+        title: 'Signed in',
+        message: `Welcome back, ${user?.name ?? 'admin'}.`,
+        type: 'success',
+      })
       navigate(user?.role === 'admin' ? '/dashboard' : '/student-dashboard')
     }
   }
@@ -41,7 +50,7 @@ export function AdminLogin() {
             <GraduationCap size={26} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-light-ink-primary dark:text-dark-ink-primary">Admin Sign In</h1>
-          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted mt-1">Access your teacher dashboard</p>
+          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted mt-1">Access your admin dashboard</p>
         </div>
 
         <div className="flex justify-center mb-5">
@@ -58,7 +67,10 @@ export function AdminLogin() {
                 <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-light-ink-muted dark:text-dark-ink-muted" />
                 <input type="email" placeholder="admin@school.edu"
                   {...register('email', { required: 'Required', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email' } })}
-                  onChange={() => clearError()}
+                  onChange={() => {
+                    clearError()
+                    setLocalError(null)
+                  }}
                   className="form-input pl-9" />
               </div>
               {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email.message}</p>}
@@ -70,7 +82,10 @@ export function AdminLogin() {
                 <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-light-ink-muted dark:text-dark-ink-muted" />
                 <input type={showPw ? 'text' : 'password'} placeholder="••••••••"
                   {...register('password', { required: 'Required', minLength: { value: 6, message: 'Min 6 chars' } })}
-                  onChange={() => clearError()}
+                  onChange={() => {
+                    clearError()
+                    setLocalError(null)
+                  }}
                   className="form-input pl-9 pr-10" />
                 <button type="button" onClick={() => setShowPw((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-light-ink-muted dark:text-dark-ink-muted hover:text-light-ink-primary dark:hover:text-dark-ink-primary transition-colors">
@@ -80,11 +95,11 @@ export function AdminLogin() {
               {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password.message}</p>}
             </div>
 
-            {loginError && (
+            {(localError || loginError) && (
               <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30">
                 <AlertCircle size={14} className="text-red-400 shrink-0" />
-                <p className="text-xs text-red-300">{loginError}</p>
+                <p className="text-xs text-red-300">{localError ?? loginError}</p>
               </motion.div>
             )}
 

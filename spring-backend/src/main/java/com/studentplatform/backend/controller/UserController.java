@@ -21,7 +21,6 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
-
     public UserController(UserService userService) {
         this.userService = userService;
     }
@@ -42,6 +41,14 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public Map<String, Object> updateStudent(@PathVariable String id, @Valid @RequestBody StudentUpdateRequest request) {
         return Map.of("success", true, "student", userService.updateStudent(id, request));
+    }
+
+    @PutMapping("/me")
+    public Map<String, Object> updateMe(
+            @AuthenticationPrincipal AppUserDetails userDetails,
+            @Valid @RequestBody StudentUpdateRequest request
+    ) {
+        return Map.of("success", true, "user", userService.updateCurrentUser(userDetails.getUser(), request));
     }
 
     @DeleteMapping("/students/{id}")

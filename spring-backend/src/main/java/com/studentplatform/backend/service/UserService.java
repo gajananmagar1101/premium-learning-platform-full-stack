@@ -7,6 +7,7 @@ import com.studentplatform.backend.entity.Role;
 import com.studentplatform.backend.entity.UserEntity;
 import com.studentplatform.backend.exception.ApiException;
 import com.studentplatform.backend.repository.ScoreRepository;
+import com.studentplatform.backend.repository.SubmissionRepository;
 import com.studentplatform.backend.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -14,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @Transactional
@@ -22,10 +22,16 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final ScoreRepository scoreRepository;
+    private final SubmissionRepository submissionRepository;
 
-    public UserService(UserRepository userRepository, ScoreRepository scoreRepository) {
+    public UserService(
+            UserRepository userRepository,
+            ScoreRepository scoreRepository,
+            SubmissionRepository submissionRepository
+    ) {
         this.userRepository = userRepository;
         this.scoreRepository = scoreRepository;
+        this.submissionRepository = submissionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -44,7 +50,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public Map<String, Object> getStudentDetails(String id) {
         UserEntity user = getStudentEntity(id);
-        List<ScoreResponse> scores = scoreRepository.findByStudentIdOrderBySubmittedAtDesc(user.getId()).stream()
+        List<ScoreResponse> scores = scoreRepository.findByStudent_IdOrderBySubmittedAtDesc(user.getId()).stream()
                 .map(ScoreResponse::from)
                 .toList();
         return Map.of("success", true, "student", UserResponse.from(user), "scores", scores);
@@ -52,27 +58,40 @@ public class UserService {
 
     public UserResponse updateStudent(String id, StudentUpdateRequest request) {
         UserEntity user = getStudentEntity(id);
+        applyUpdate(user, request);
+        return UserResponse.from(userRepository.save(user));
+    }
+
+    public UserResponse updateCurrentUser(UserEntity currentUser, StudentUpdateRequest request) {
+        applyUpdate(currentUser, request);
+        return UserResponse.from(userRepository.save(currentUser));
+    }
+
+    private void applyUpdate(UserEntity user, StudentUpdateRequest request) {
         user.setName(request.name().trim());
         user.setEmail(request.email().trim().toLowerCase());
-        user.setGrade(request.grade() == null ? "" : request.grade().trim());
-        return UserResponse.from(userRepository.save(user));
+        if (user.getRole() == Role.STUDENT) {
+            user.setGrade(request.grade() == null ? "" : request.grade().trim());
+        }
+        user.prepareForSave();
     }
 
     public void deleteStudent(String id) {
         UserEntity user = getStudentEntity(id);
-        scoreRepository.deleteByStudentId(user.getId());
+        scoreRepository.deleteByStudent_Id(user.getId());
+        submissionRepository.deleteByStudent_Id(user.getId());
         userRepository.delete(user);
     }
 
     @Transactional(readOnly = true)
     public List<ScoreResponse> getMyScores(UserEntity currentUser) {
-        return scoreRepository.findByStudentIdOrderBySubmittedAtDesc(currentUser.getId()).stream()
+        return scoreRepository.findByStudent_IdOrderBySubmittedAtDesc(currentUser.getId()).stream()
                 .map(ScoreResponse::from)
                 .toList();
     }
 
     public UserEntity getStudentEntity(String id) {
-        UserEntity user = userRepository.findById(UUID.fromString(id))
+        UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Student not found."));
         if (user.getRole() != Role.STUDENT) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Student not found.");

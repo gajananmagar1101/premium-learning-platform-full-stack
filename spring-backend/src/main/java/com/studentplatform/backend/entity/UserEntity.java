@@ -1,46 +1,31 @@
 package com.studentplatform.backend.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
-import java.util.UUID;
 
-@Entity
-@Table(name = "users")
+@Document(collection = "users")
 public class UserEntity {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    private String id;
 
-    @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 120)
+    @Indexed(unique = true)
     private String email;
 
-    @Column(nullable = false)
     private String password;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
     private Role role = Role.STUDENT;
 
-    @Column(nullable = false, length = 20)
     private String grade = "";
 
-    @Column(nullable = false)
     private Instant createdAt;
 
-    @PrePersist
-    void onCreate() {
+    public void prepareForSave() {
         if (createdAt == null) {
             createdAt = Instant.now();
         }
@@ -52,7 +37,7 @@ public class UserEntity {
         }
     }
 
-    public UUID getId() {
+    public String getId() {
         return id;
     }
 

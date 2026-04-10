@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import axios from 'axios'
 import type { User } from '@/types'
 import { authAPI } from '@/lib/services'
 
@@ -12,6 +13,7 @@ interface AuthState {
   markHydrated: () => void
   login: (email: string, password: string) => Promise<boolean>
   register: (data: { name: string; email: string; password: string; role: string; grade?: string }) => Promise<boolean>
+  setUser: (user: User | null) => void
   logout: () => void
   clearError: () => void
 }
@@ -42,7 +44,9 @@ export const useAuthStore = create<AuthState>()(
           set({ user: normalizedUser, token, loading: false, loginError: null })
           return true
         } catch (err: unknown) {
-          const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Login failed'
+          const msg = axios.isAxiosError(err)
+            ? err.response?.data?.message ?? (err.request ? 'Cannot reach the server. Make sure the backend is running on port 5002.' : err.message)
+            : 'Login failed'
           set({ loginError: msg, loading: false })
           return false
         }
@@ -58,11 +62,15 @@ export const useAuthStore = create<AuthState>()(
           set({ user: normalizedUser, token, loading: false, loginError: null })
           return true
         } catch (err: unknown) {
-          const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Registration failed'
+          const msg = axios.isAxiosError(err)
+            ? err.response?.data?.message ?? (err.request ? 'Cannot reach the server. Make sure the backend is running on port 5002.' : err.message)
+            : 'Registration failed'
           set({ loginError: msg, loading: false })
           return false
         }
       },
+
+      setUser: (user) => set({ user: user ? normalizeUser(user) : null }),
 
       logout: () => {
         localStorage.removeItem('token')

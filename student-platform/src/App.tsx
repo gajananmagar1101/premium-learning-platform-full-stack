@@ -31,7 +31,7 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const { user, hydrated, markHydrated } = useAuthStore()
-  const { darkMode } = useUIStore()
+  const { darkMode, syncNotifications, registerUsers } = useUIStore()
 
   useEffect(() => {
     if (darkMode) {
@@ -46,6 +46,16 @@ export default function App() {
       markHydrated()
     }
   }, [hydrated, markHydrated])
+
+  useEffect(() => {
+    syncNotifications(user?._id ?? user?.id ?? null)
+  }, [syncNotifications, user?._id, user?.id])
+
+  useEffect(() => {
+    if (user) {
+      registerUsers([user])
+    }
+  }, [registerUsers, user])
 
   return (
     <BrowserRouter>

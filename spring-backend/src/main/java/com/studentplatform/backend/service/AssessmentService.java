@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @Transactional
@@ -38,23 +37,24 @@ public class AssessmentService {
         AssessmentEntity entity = new AssessmentEntity();
         apply(entity, request);
         entity.setCreatedBy(createdBy);
+        entity.prepareForSave();
         return AssessmentResponse.from(assessmentRepository.save(entity));
     }
 
     public AssessmentResponse update(String id, AssessmentRequest request) {
-        AssessmentEntity entity = assessmentRepository.findById(UUID.fromString(id))
+        AssessmentEntity entity = assessmentRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Assessment not found."));
         apply(entity, request);
+        entity.prepareForSave();
         return AssessmentResponse.from(assessmentRepository.save(entity));
     }
 
     public void delete(String id) {
-        UUID assessmentId = UUID.fromString(id);
-        if (!assessmentRepository.existsById(assessmentId)) {
+        if (!assessmentRepository.existsById(id)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Assessment not found.");
         }
-        scoreRepository.deleteByAssessmentId(assessmentId);
-        assessmentRepository.deleteById(assessmentId);
+        scoreRepository.deleteByAssessment_Id(id);
+        assessmentRepository.deleteById(id);
     }
 
     private void apply(AssessmentEntity entity, AssessmentRequest request) {

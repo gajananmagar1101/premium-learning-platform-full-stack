@@ -20,6 +20,61 @@ export interface Assessment {
   status: 'upcoming' | 'completed' | 'grading'
 }
 
+export type AssignmentSubmissionStatus = 'pending' | 'submitted' | 'graded'
+
+export interface AssignmentSubmission {
+  _id?: string
+  id: string
+  content?: string | null
+  fileName?: string | null
+  fileContent?: string | null
+  marks?: number | null
+  status: Exclude<AssignmentSubmissionStatus, 'pending'>
+  submittedAt: string
+  updatedAt: string
+}
+
+export interface AssignmentItem {
+  _id?: string
+  id: string
+  title: string
+  subject: string
+  className: string
+  description: string
+  totalMarks: number
+  deadline: string
+  createdAt?: string
+}
+
+export interface StudentAssignmentItem extends AssignmentItem {
+  submissionClosed: boolean
+  canSubmit: boolean
+  canEdit: boolean
+  status: AssignmentSubmissionStatus
+  submission?: AssignmentSubmission | null
+}
+
+export interface AdminSubmission {
+  _id?: string
+  id: string
+  studentId: string
+  studentName: string
+  studentEmail: string
+  assignmentId: string
+  assignmentTitle: string
+  subject: string
+  totalMarks: number
+  deadline: string
+  content?: string | null
+  fileName?: string | null
+  fileContent?: string | null
+  marks?: number | null
+  status: Exclude<AssignmentSubmissionStatus, 'pending'>
+  submittedAt: string
+  updatedAt: string
+  late: boolean
+}
+
 export interface StudentScore {
   _id?: string
   studentId?: string
@@ -28,6 +83,26 @@ export interface StudentScore {
   score: number
   feedback?: string
   submittedAt: string
+}
+
+export interface StudentPerformance {
+  avgScore: number
+  avgPercentage: number
+  bestScore: number
+  bestPercentage: number
+  overallGrade: string
+  progressPercent: number
+  totalSubmissions: number
+  scoreHistory: {
+    submissionId: string
+    assignmentId: string
+    assignmentTitle: string
+    subject: string
+    marks: number
+    totalMarks: number
+    percentage: number
+    gradedAt: string
+  }[]
 }
 
 export interface SubjectProgress {

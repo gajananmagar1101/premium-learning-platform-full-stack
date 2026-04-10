@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Bell, CheckCheck, Info, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Bell, CheckCheck, Info, CheckCircle2, AlertTriangle, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useUIStore } from '@/store/useUIStore'
 import { cn } from '@/lib/utils'
@@ -13,7 +13,7 @@ const typeIcon = (type: Notification['type']) => {
 
 export function NotificationPanel() {
   const [open, setOpen] = useState(false)
-  const { notifications, markAllRead, markRead } = useUIStore()
+  const { notifications, markAllRead, markRead, deleteNotification } = useUIStore()
   const unread = notifications.filter((n) => !n.read).length
   const ref = useRef<HTMLDivElement>(null)
 
@@ -50,20 +50,41 @@ export function NotificationPanel() {
               )}
             </div>
             <div className="max-h-72 overflow-y-auto">
+              {notifications.length === 0 && (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">No notifications yet</p>
+                  <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted mt-1">
+                    Your updates will appear here for this account.
+                  </p>
+                </div>
+              )}
               {notifications.map((n) => (
-                <button key={n.id} onClick={() => markRead(n.id)}
+                <div key={n.id}
                   className={cn(
                     'w-full flex items-start gap-3 px-4 py-3 hover:bg-light-hover dark:hover:bg-dark-hover transition-colors text-left border-b border-light-border dark:border-dark-border last:border-0',
                     !n.read && 'bg-indigo-500/5'
                   )}>
-                  <div className="mt-0.5 p-1.5 rounded-lg bg-light-card2 dark:bg-dark-card2">{typeIcon(n.type)}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className={cn('text-sm text-light-ink-primary dark:text-dark-ink-primary', !n.read && 'font-semibold')}>{n.title}</p>
-                    <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted mt-0.5 truncate">{n.message}</p>
-                    <p className="text-xs text-light-ink-muted/60 dark:text-dark-ink-muted/60 mt-1">{n.time}</p>
-                  </div>
-                  {!n.read && <span className="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0" />}
-                </button>
+                  <button
+                    onClick={() => markRead(n.id)}
+                    className="flex items-start gap-3 flex-1 min-w-0 text-left"
+                  >
+                    <div className="mt-0.5 p-1.5 rounded-lg bg-light-card2 dark:bg-dark-card2">{typeIcon(n.type)}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn('text-sm text-light-ink-primary dark:text-dark-ink-primary', !n.read && 'font-semibold')}>{n.title}</p>
+                      <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted mt-0.5 truncate">{n.message}</p>
+                      <p className="text-xs text-light-ink-muted/60 dark:text-dark-ink-muted/60 mt-1">{n.time}</p>
+                    </div>
+                    {!n.read && <span className="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0" />}
+                  </button>
+                  <button
+                    onClick={() => deleteNotification(n.id)}
+                    className="p-1 rounded-md text-light-ink-muted dark:text-dark-ink-muted hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                    title="Delete notification"
+                    aria-label="Delete notification"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
               ))}
             </div>
           </motion.div>

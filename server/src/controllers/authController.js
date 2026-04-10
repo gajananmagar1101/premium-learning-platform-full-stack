@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 const { getEmailValidationMessage, isRealisticEmail, normalizeEmail } = require('../utils/emailValidation')
+const { normalizeRole } = require('../utils/roles')
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.toLowerCase().trim()
 
@@ -71,6 +72,8 @@ const login = async (req, res) => {
       console.log(`[login] ❌ Invalid credentials for: ${email}`)
       return res.status(401).json({ success: false, message: 'Invalid email or password.' })
     }
+
+    user.role = normalizeRole(user.role)
 
     if (user.role === 'admin' && user.email !== ADMIN_EMAIL) {
       console.log(`[login] ❌ Blocked non-authorized admin login for: ${email}`)

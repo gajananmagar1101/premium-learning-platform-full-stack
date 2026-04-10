@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 
 const adminLinks = [
   { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/assessments', icon: ClipboardList,   label: 'Assessments' },
+  { to: '/assessments', icon: ClipboardList,   label: 'Assignments' },
   { to: '/students',    icon: Users,           label: 'Students' },
   { to: '/reports',     icon: BarChart3,       label: 'Reports' },
   { to: '/profile',     icon: User,            label: 'Profile' },
@@ -15,7 +15,7 @@ const adminLinks = [
 
 const studentLinks = [
   { to: '/student-dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/assessments',       icon: ClipboardList,   label: 'Assessments' },
+  { to: '/assessments',       icon: ClipboardList,   label: 'Assignments' },
   { to: '/profile',           icon: User,            label: 'Profile' },
 ]
 
@@ -29,7 +29,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const handleLogout = () => { logout(); navigate('/login') }
 
   const content = (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col overflow-hidden">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-light-border dark:border-dark-border">
         <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center shadow-glow-sm">
@@ -63,7 +63,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       </nav>
 
       {/* User footer */}
-      <div className="px-3 py-4 border-t border-light-border dark:border-dark-border space-y-1">
+      <div className="mt-auto px-3 py-4 border-t border-light-border dark:border-dark-border space-y-1 bg-light-card dark:bg-dark-card">
         <div className="flex items-center gap-3 px-3 py-2 rounded-xl">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
             {user?.name.charAt(0)}
@@ -84,7 +84,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   return (
     <>
       {/* Desktop */}
-      <aside className="hidden lg:flex flex-col w-60 bg-light-card dark:bg-dark-card border-r border-light-border dark:border-dark-border h-screen sticky top-0 shrink-0">
+      <aside className="hidden lg:flex flex-col w-60 bg-light-card dark:bg-dark-card border-r border-light-border dark:border-dark-border h-screen overflow-hidden shrink-0">
         {content}
       </aside>
 

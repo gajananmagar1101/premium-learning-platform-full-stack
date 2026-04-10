@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const RENDER_URL = 'https://premium-learning-platform-full-stack.onrender.com/api'
+const RENDER_URL = 'https://student-learning-platform-api.onrender.com/api'
 
 const getBaseURL = () => {
   const envURL = import.meta.env.VITE_API_URL
@@ -8,7 +8,7 @@ const getBaseURL = () => {
     // ensure it always ends with /api
     return envURL.endsWith('/api') ? envURL : `${envURL.replace(/\/$/, '')}/api`
   }
-  return import.meta.env.DEV ? 'http://localhost:5002/api' : RENDER_URL
+  return import.meta.env.DEV ? 'http://localhost:5003/api' : RENDER_URL
 }
 
 const api = axios.create({

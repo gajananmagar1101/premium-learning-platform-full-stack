@@ -47,8 +47,9 @@ public class AuthService {
         user.setName(request.name().trim());
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setRole("admin".equalsIgnoreCase(request.role()) ? Role.ADMIN : Role.STUDENT);
+        user.setRole(Role.STUDENT);
         user.setGrade(request.grade() == null ? "" : request.grade().trim());
+        user.prepareForSave();
 
         UserEntity saved = userRepository.save(user);
         AppUserDetails userDetails = new AppUserDetails(saved);

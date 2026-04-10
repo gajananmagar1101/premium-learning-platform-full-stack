@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { DBStudent } from '@/types'
 import { studentAPI } from '@/lib/services'
+import { useUIStore } from './useUIStore'
 
 interface StudentState {
   students: DBStudent[]
@@ -25,6 +26,14 @@ export const useStudentStore = create<StudentState>((set) => ({
         ...s,
         id: s._id,
       }))
+      useUIStore.getState().registerUsers(students.map((student) => ({
+        id: student.id ?? student._id,
+        _id: student._id,
+        name: student.name,
+        email: student.email,
+        role: student.role === 'admin' ? 'admin' : 'student',
+        grade: student.grade,
+      })))
       set({ students, loading: false })
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to fetch students'

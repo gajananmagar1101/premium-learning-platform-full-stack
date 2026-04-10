@@ -1,196 +1,316 @@
-import { useState } from 'react'
-import { Download, TrendingUp, Users, Award, BarChart2 } from 'lucide-react'
-import type { PieLabelRenderProps } from 'recharts'
+import { useEffect, useMemo, useState } from 'react'
+import { Award, BarChart2, Download, TrendingUp, Users } from 'lucide-react'
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend, RadarChart, Radar,
-  PolarGrid, PolarAngleAxis, PieChart, Pie, Cell
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  PolarAngleAxis,
+  PolarGrid,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts'
-import { GlassCard } from '@/components/ui/GlassCard'
-import { performanceData, assessmentComparisonData } from '@/data/mockData'
-import { useStudentStore } from '@/store/useStudentStore'
 import { motion } from 'framer-motion'
+import { GlassCard } from '@/components/ui/GlassCard'
+import { useStudentStore } from '@/store/useStudentStore'
+import { adminAssignmentAPI, submissionAPI } from '@/lib/services'
+import type { AdminSubmission } from '@/types'
 
-const radarData = [
-  { subject: 'Math', A: 88 }, { subject: 'English', A: 82 },
-  { subject: 'Science', A: 75 }, { subject: 'History', A: 80 },
-]
+const gradeColor = ['#10B981', '#4F46E5', '#F59E0B', '#EF4444']
 
-const gradeDistribution = [
-  { name: 'A (90-100)', value: 2, color: '#10B981' },
-  { name: 'B (80-89)', value: 2, color: '#4F46E5' },
-  { name: 'C (70-79)', value: 1, color: '#F59E0B' },
-  { name: 'D (<70)', value: 0, color: '#EF4444' },
-]
-
-const RADIAN = Math.PI / 180
-const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: PieLabelRenderProps) => {
-  const cxN = Number(cx ?? 0)
-  const cyN = Number(cy ?? 0)
-  const irN = Number(innerRadius ?? 0)
-  const orN = Number(outerRadius ?? 0)
-  const r = irN + (orN - irN) * 0.5
-  const x = cxN + r * Math.cos(-Number(midAngle ?? 0) * RADIAN)
-  const y = cyN + r * Math.sin(-Number(midAngle ?? 0) * RADIAN)
-  return Number(percent ?? 0) > 0.05 ? (
-    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
-      {`${(Number(percent ?? 0) * 100).toFixed(0)}%`}
-    </text>
-  ) : null
-}
-
-const terms = ['Spring 2024', 'Summer 2024', 'Fall 2024']
+const monthKey = (value: string) => new Date(value).toLocaleString([], { month: 'short', year: '2-digit' })
 
 export function Reports() {
-  const { students } = useStudentStore()
-  const [term, setTerm] = useState('Summer 2024')
+  const { students, fetchStudents } = useStudentStore()
+  const [submissions, setSubmissions] = useState<AdminSubmission[]>([])
+  const [assignmentCount, setAssignmentCount] = useState(0)
 
-  const avgScore = Math.round(
-    students.reduce((a) => a + 75, 0) / Math.max(students.length, 1)
+  useEffect(() => {
+    fetchStudents()
+
+    const load = async () => {
+      try {
+        const [submissionsRes, assignmentsRes] = await Promise.all([
+          submissionAPI.getAllForAdmin(),
+          adminAssignmentAPI.getAll(),
+        ])
+        setSubmissions(submissionsRes.data.submissions ?? [])
+        setAssignmentCount((assignmentsRes.data.assignments ?? []).length)
+      } catch (error) {
+        console.error('[Reports] Failed to load report data:', error)
+      }
+    }
+
+    load()
+  }, [fetchStudents])
+
+  const gradedSubmissions = useMemo(
+    () => submissions.filter((submission) => typeof submission.marks === 'number'),
+    [submissions]
   )
 
-  const studentComparisonData = students.map((s) => ({
-    name: s.name.split(' ')[0],
-    avg: 75, // placeholder — real avg loaded via analytics API
+  const avgScore = useMemo(() => {
+    if (!gradedSubmissions.length) return 0
+    const total = gradedSubmissions.reduce(
+      (sum, submission) => sum + ((submission.marks ?? 0) / submission.totalMarks) * 100,
+      0
+    )
+    return Math.round(total / gradedSubmissions.length)
+  }, [gradedSubmissions])
+
+  const leaderboard = useMemo(() => {
+    const byStudent = new Map<string, { name: string; grade: string; total: number; count: number }>()
+
+    gradedSubmissions.forEach((submission) => {
+      const current = byStudent.get(submission.studentId) ?? {
+        name: submission.studentName,
+        grade: '',
+        total: 0,
+        count: 0,
+      }
+
+      const student = students.find((item) => item.id === submission.studentId || item._id === submission.studentId)
+      current.grade = student?.grade ?? current.grade
+      current.total += ((submission.marks ?? 0) / submission.totalMarks) * 100
+      current.count += 1
+      byStudent.set(submission.studentId, current)
+    })
+
+    return Array.from(byStudent.entries())
+      .map(([id, item]) => ({
+        id,
+        name: item.name,
+        grade: item.grade,
+        avg: Math.round(item.total / item.count),
+      }))
+      .sort((left, right) => right.avg - left.avg)
+      .slice(0, 5)
+  }, [gradedSubmissions, students])
+
+  const trendData = useMemo(() => {
+    const grouped = new Map<string, { total: number; count: number }>()
+
+    gradedSubmissions.forEach((submission) => {
+      const key = monthKey(submission.updatedAt)
+      const current = grouped.get(key) ?? { total: 0, count: 0 }
+      current.total += ((submission.marks ?? 0) / submission.totalMarks) * 100
+      current.count += 1
+      grouped.set(key, current)
+    })
+
+    return Array.from(grouped.entries()).map(([month, item]) => ({
+      month,
+      score: Math.round(item.total / item.count),
+    }))
+  }, [gradedSubmissions])
+
+  const gradeDistribution = useMemo(() => {
+    const distribution = [
+      { name: 'A (90-100)', value: 0 },
+      { name: 'B (80-89)', value: 0 },
+      { name: 'C (70-79)', value: 0 },
+      { name: 'D (<70)', value: 0 },
+    ]
+
+    gradedSubmissions.forEach((submission) => {
+      const percent = ((submission.marks ?? 0) / submission.totalMarks) * 100
+      if (percent >= 90) distribution[0].value += 1
+      else if (percent >= 80) distribution[1].value += 1
+      else if (percent >= 70) distribution[2].value += 1
+      else distribution[3].value += 1
+    })
+
+    return distribution
+  }, [gradedSubmissions])
+
+  const studentComparisonData = useMemo(() => {
+    return leaderboard.map((item) => ({
+      name: item.name.split(' ')[0],
+      avg: item.avg,
+    }))
+  }, [leaderboard])
+
+  const subjectAverages = useMemo(() => {
+    const bySubject = new Map<string, { total: number; count: number; topScore: number }>()
+
+    gradedSubmissions.forEach((submission) => {
+      const percent = ((submission.marks ?? 0) / submission.totalMarks) * 100
+      const current = bySubject.get(submission.subject) ?? { total: 0, count: 0, topScore: 0 }
+      current.total += percent
+      current.count += 1
+      current.topScore = Math.max(current.topScore, Math.round(percent))
+      bySubject.set(submission.subject, current)
+    })
+
+    return Array.from(bySubject.entries()).map(([subject, item]) => ({
+      subject,
+      classAvg: Math.round(item.total / item.count),
+      topScore: item.topScore,
+    }))
+  }, [gradedSubmissions])
+
+  const radarData = subjectAverages.map((item) => ({
+    subject: item.subject.slice(0, 6),
+    score: item.classAvg,
   }))
 
   const summaryStats = [
     { label: 'Class Average', value: `${avgScore}%`, icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { label: 'Top Performer', value: '95%', icon: Award, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Pass Rate', value: '92%', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { label: 'Improvement', value: '+8%', icon: BarChart2, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { label: 'Top Performer', value: leaderboard[0] ? `${leaderboard[0].avg}%` : '0%', icon: Award, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Students', value: `${students.length}`, icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'Assignments', value: `${assignmentCount}`, icon: BarChart2, color: 'text-purple-600', bg: 'bg-purple-50' },
   ]
+
+  const exportReport = () => {
+    const lines = [
+      ['Student', 'Assignment', 'Subject', 'Marks', 'Total Marks', 'Status', 'Updated At'],
+      ...submissions.map((submission) => [
+        submission.studentName,
+        submission.assignmentTitle,
+        submission.subject,
+        String(submission.marks ?? ''),
+        String(submission.totalMarks),
+        submission.status,
+        submission.updatedAt,
+      ]),
+    ]
+    const csv = lines.map((line) => line.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'report.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <p className="text-sm text-gray-500">Analytics overview ·</p>
-          <select
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            className="px-3 py-1.5 rounded-xl border border-gray-200 bg-white/60 backdrop-blur text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-          >
-            {terms.map((t) => <option key={t}>{t}</option>)}
-          </select>
-        </div>
+        <p className="text-sm text-gray-500">Live analytics generated from assignment submissions and published marks.</p>
         <motion.button
-          whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={exportReport}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium rounded-xl transition-colors shadow-lg shadow-indigo-500/25"
         >
           <Download size={15} /> Export Report
         </motion.button>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {summaryStats.map((item, i) => (
-          <motion.div key={item.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.07 }}>
-            <GlassCard hover className="p-4">
-              <div className={`inline-flex p-2 rounded-xl ${item.bg} mb-2`}>
-                <item.icon size={16} className={item.color} />
-              </div>
-              <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{item.label}</p>
-            </GlassCard>
-          </motion.div>
+        {summaryStats.map((item) => (
+          <GlassCard key={item.label} className="p-4">
+            <div className={`inline-flex p-2 rounded-xl ${item.bg} mb-2`}>
+              <item.icon size={16} className={item.color} />
+            </div>
+            <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{item.label}</p>
+          </GlassCard>
         ))}
       </div>
 
-      {/* Charts row 1 */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <GlassCard className="p-6">
           <h2 className="text-base font-semibold text-gray-900 mb-4">Score Trend</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={performanceData}>
-              <defs>
-                <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} domain={[60, 100]} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
-              <Area type="monotone" dataKey="score" stroke="#4F46E5" strokeWidth={2.5} fill="url(#scoreGrad)" name="Score" />
-              <Area type="monotone" dataKey="average" stroke="#10B981" strokeWidth={2} fill="none" strokeDasharray="4 4" name="Average" />
-            </AreaChart>
-          </ResponsiveContainer>
+          {!trendData.length ? (
+            <p className="text-sm text-gray-400 text-center py-16">No score trend available yet.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={trendData}>
+                <defs>
+                  <linearGradient id="reportsGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} />
+                <Tooltip />
+                <Area type="monotone" dataKey="score" stroke="#4F46E5" fill="url(#reportsGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </GlassCard>
 
         <GlassCard className="p-6">
           <h2 className="text-base font-semibold text-gray-900 mb-4">Grade Distribution</h2>
-          <div className="flex items-center gap-4">
-            <ResponsiveContainer width="60%" height={200}>
+          {!gradedSubmissions.length ? (
+            <p className="text-sm text-gray-400 text-center py-16">No graded submissions available yet.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie data={gradeDistribution} cx="50%" cy="50%" outerRadius={80} dataKey="value" labelLine={false} label={renderLabel}>
-                  {gradeDistribution.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
+                <Pie data={gradeDistribution} cx="50%" cy="50%" outerRadius={80} dataKey="value">
+                  {gradeDistribution.map((entry, index) => <Cell key={entry.name} fill={gradeColor[index]} />)}
                 </Pie>
-                <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                <Tooltip />
               </PieChart>
             </ResponsiveContainer>
-            <div className="space-y-2">
-              {gradeDistribution.map((g) => (
-                <div key={g.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
-                  <p className="text-xs text-gray-600">{g.name}</p>
-                  <span className="text-xs font-semibold text-gray-900 ml-auto">{g.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </GlassCard>
       </div>
 
-      {/* Charts row 2 */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <GlassCard className="p-6">
           <h2 className="text-base font-semibold text-gray-900 mb-4">Student Comparison</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={studentComparisonData} barSize={28}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
-              <Bar dataKey="avg" radius={[6, 6, 0, 0]} name="Avg Score">
-                {studentComparisonData.map((_, i) => (
-                  <Cell key={i} fill={['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][i % 5]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          {!studentComparisonData.length ? (
+            <p className="text-sm text-gray-400 text-center py-16">No student comparison available yet.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={studentComparisonData} barSize={28}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} />
+                <Tooltip />
+                <Bar dataKey="avg" radius={[6, 6, 0, 0]}>
+                  {studentComparisonData.map((entry, index) => <Cell key={`${entry.name}-${index}`} fill={gradeColor[index % gradeColor.length]} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </GlassCard>
 
         <GlassCard className="p-6">
           <h2 className="text-base font-semibold text-gray-900 mb-4">Subject Radar</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <RadarChart data={radarData}>
-              <PolarGrid stroke="#e5e7eb" />
-              <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
-              <Radar name="Score" dataKey="A" stroke="#4F46E5" fill="#4F46E5" fillOpacity={0.2} strokeWidth={2} />
-            </RadarChart>
-          </ResponsiveContainer>
+          {!radarData.length ? (
+            <p className="text-sm text-gray-400 text-center py-16">No subject radar available yet.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <RadarChart data={radarData}>
+                <PolarGrid stroke="#e5e7eb" />
+                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
+                <Radar dataKey="score" stroke="#4F46E5" fill="#4F46E5" fillOpacity={0.2} strokeWidth={2} />
+              </RadarChart>
+            </ResponsiveContainer>
+          )}
         </GlassCard>
       </div>
 
-      {/* Subject Breakdown */}
       <GlassCard className="p-6">
         <h2 className="text-base font-semibold text-gray-900 mb-4">Subject Performance Breakdown</h2>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={assessmentComparisonData} barSize={28}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} />
-            <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
-            <Legend />
-            <Bar dataKey="classAvg" fill="#4F46E5" radius={[4, 4, 0, 0]} name="Class Avg" />
-            <Bar dataKey="topScore" fill="#10B981" radius={[4, 4, 0, 0]} name="Top Score" />
-          </BarChart>
-        </ResponsiveContainer>
+        {!subjectAverages.length ? (
+          <p className="text-sm text-gray-400 text-center py-16">No subject breakdown available yet.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={subjectAverages} barSize={28}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} />
+              <Tooltip />
+              <Bar dataKey="classAvg" fill="#4F46E5" radius={[4, 4, 0, 0]} name="Class Avg" />
+              <Bar dataKey="topScore" fill="#10B981" radius={[4, 4, 0, 0]} name="Top Score" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </GlassCard>
     </div>
   )

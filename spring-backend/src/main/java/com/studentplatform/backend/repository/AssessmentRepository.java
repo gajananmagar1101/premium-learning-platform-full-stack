@@ -1,11 +1,10 @@
 package com.studentplatform.backend.repository;
 
 import com.studentplatform.backend.entity.AssessmentEntity;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.util.List;
-import java.util.UUID;
 
-public interface AssessmentRepository extends JpaRepository<AssessmentEntity, UUID> {
+public interface AssessmentRepository extends MongoRepository<AssessmentEntity, String> {
     List<AssessmentEntity> findAllByOrderByDateDesc();
 }

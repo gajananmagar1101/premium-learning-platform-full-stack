@@ -1,6 +1,7 @@
 const Score = require('../models/Score')
 const User = require('../models/User')
 const Assessment = require('../models/Assessment')
+const { normalizeRole, studentRoleFilter } = require('../utils/roles')
 
 // POST /api/scores  (admin - assign score to student)
 const assignScore = async (req, res) => {
@@ -47,7 +48,7 @@ const getAllScores = async (req, res) => {
 const getAnalytics = async (req, res) => {
   try {
     const [totalStudents, totalAssessments, scores] = await Promise.all([
-      User.countDocuments({ role: 'student' }),
+      User.countDocuments({ role: studentRoleFilter }),
       Assessment.countDocuments(),
       Score.find().populate('assessment', 'maxScore subject'),
     ])
@@ -105,7 +106,7 @@ const getAnalytics = async (req, res) => {
 // GET /api/scores/student/:id  (admin or self)
 const getStudentScores = async (req, res) => {
   try {
-    const canAccess = req.user.role === 'admin' || String(req.user._id) === String(req.params.id)
+    const canAccess = normalizeRole(req.user.role) === 'admin' || String(req.user._id) === String(req.params.id)
     if (!canAccess) {
       return res.status(403).json({ success: false, message: 'Not authorized to view these scores.' })
     }

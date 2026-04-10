@@ -1,6 +1,7 @@
 const mongoose = require('mongoose')
 const bcrypt = require('bcryptjs')
 const { getEmailValidationMessage, isRealisticEmail } = require('../utils/emailValidation')
+const { normalizeRole } = require('../utils/roles')
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -31,6 +32,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['admin', 'student'],
     default: 'student',
+    set: normalizeRole,
   },
   grade: {
     type: String,

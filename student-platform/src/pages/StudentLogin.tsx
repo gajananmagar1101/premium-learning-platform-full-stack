@@ -4,12 +4,14 @@ import { GraduationCap, User, Mail, Lock, Eye, EyeOff, ArrowLeft, AlertCircle } 
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { useAuthStore } from '@/store/useAuthStore'
+import { useUIStore } from '@/store/useUIStore'
 
 interface FormData { email: string; password: string }
 
 export function StudentLogin() {
   const navigate = useNavigate()
   const { login, loginError, clearError, loading } = useAuthStore()
+  const { addNotification } = useUIStore()
   const [showPw, setShowPw] = useState(false)
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>()
 
@@ -17,6 +19,11 @@ export function StudentLogin() {
     const ok = await login(data.email, data.password)
     if (ok) {
       const user = useAuthStore.getState().user
+      addNotification({
+        title: 'Signed in',
+        message: `Welcome back, ${user?.name ?? 'student'}.`,
+        type: 'success',
+      })
       navigate(user?.role === 'admin' ? '/dashboard' : '/student-dashboard')
     }
   }

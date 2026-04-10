@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
+const { normalizeRole } = require('../utils/roles')
 
 const protect = async (req, res, next) => {
   try {
@@ -14,6 +15,7 @@ const protect = async (req, res, next) => {
 
     if (!user) return res.status(401).json({ success: false, message: 'User not found.' })
 
+    user.role = normalizeRole(user.role)
     req.user = user
     next()
   } catch {
@@ -22,7 +24,7 @@ const protect = async (req, res, next) => {
 }
 
 const adminOnly = (req, res, next) => {
-  if (req.user?.role !== 'admin') {
+  if (normalizeRole(req.user?.role) !== 'admin') {
     return res.status(403).json({ success: false, message: 'Admin access required.' })
   }
   next()

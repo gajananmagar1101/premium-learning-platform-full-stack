@@ -1,49 +1,32 @@
 package com.studentplatform.backend.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
-import java.util.UUID;
 
-@Entity
-@Table(
-        name = "scores",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "assessment_id"})
-)
+@Document(collection = "scores")
+@CompoundIndexes({
+        @CompoundIndex(name = "student_assessment_score_unique", def = "{'student.id': 1, 'assessment.id': 1}", unique = true)
+})
 public class ScoreEntity {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    private String id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "student_id")
     private UserEntity student;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "assessment_id")
     private AssessmentEntity assessment;
 
-    @Column(nullable = false)
     private Integer score;
 
-    @Column(nullable = false, length = 1000)
     private String feedback = "";
 
-    @Column(nullable = false)
     private Instant submittedAt;
 
-    @PrePersist
-    void onCreate() {
+    public void prepareForSave() {
         if (submittedAt == null) {
             submittedAt = Instant.now();
         }
@@ -52,7 +35,7 @@ public class ScoreEntity {
         }
     }
 
-    public UUID getId() {
+    public String getId() {
         return id;
     }
 

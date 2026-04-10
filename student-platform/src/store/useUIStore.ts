@@ -1,18 +1,23 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Notification, Toast } from '@/types'
+import type { Notification, Toast, User } from '@/types'
+import { useAuthStore } from './useAuthStore'
 
-const defaultNotifications: Notification[] = [
-  { id: 'n1', title: 'New Submission', message: 'Alice submitted Algebra Midterm', time: '2m ago', read: false, type: 'info' },
-  { id: 'n2', title: 'Assessment Graded', message: 'Physics Lab results are ready', time: '1h ago', read: false, type: 'success' },
-  { id: 'n3', title: 'Upcoming Deadline', message: 'World History Quiz in 3 days', time: '3h ago', read: true, type: 'warning' },
-  { id: 'n4', title: 'New Student', message: 'Frank Wilson joined the class', time: '1d ago', read: true, type: 'info' },
-]
+type NotificationInput = Pick<Notification, 'title' | 'message' | 'type'> & { time?: string }
+type UserSummary = Pick<User, 'id' | 'name' | 'role' | 'grade' | 'email'> & { _id?: string }
 
 interface UIState {
   darkMode: boolean
   toggleDarkMode: () => void
   notifications: Notification[]
+  notificationsByUser: Record<string, Notification[]>
+  knownUsers: Record<string, UserSummary>
+  syncNotifications: (userId?: string | null) => void
+  registerUsers: (users: UserSummary[]) => void
+  addNotification: (notification: NotificationInput) => void
+  addNotificationForUsers: (userIds: string[], notification: NotificationInput) => void
+  addNotificationForRole: (role: User['role'], notification: NotificationInput) => void
+  deleteNotification: (id: string) => void
   markAllRead: () => void
   markRead: (id: string) => void
   toasts: Toast[]
@@ -20,14 +25,156 @@ interface UIState {
   removeToast: (id: string) => void
 }
 
+const getActiveUserId = () => {
+  const user = useAuthStore.getState().user
+  return user?._id ?? user?.id ?? null
+}
+
+const getNotificationsForUser = (
+  notificationsByUser: Record<string, Notification[]>,
+  userId?: string | null
+) => {
+  if (!userId) return []
+  return notificationsByUser[userId] ?? []
+}
+
+const formatNotificationTime = () =>
+  new Date().toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+const buildNotification = (notification: NotificationInput): Notification => ({
+  id: `n${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
+  title: notification.title,
+  message: notification.message,
+  type: notification.type,
+  time: notification.time ?? formatNotificationTime(),
+  read: false,
+})
+
+const pushNotificationForUser = (
+  notificationsByUser: Record<string, Notification[]>,
+  userId: string,
+  notification: Notification
+) => ({
+  ...notificationsByUser,
+  [userId]: [notification, ...getNotificationsForUser(notificationsByUser, userId)].slice(0, 30),
+})
+
 export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       darkMode: false,
       toggleDarkMode: () => set((s) => ({ darkMode: !s.darkMode })),
-      notifications: defaultNotifications,
-      markAllRead: () => set((s) => ({ notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
-      markRead: (id) => set((s) => ({ notifications: s.notifications.map((n) => n.id === id ? { ...n, read: true } : n) })),
+      notifications: [],
+      notificationsByUser: {},
+      knownUsers: {},
+      syncNotifications: (userId) => set((state) => ({
+        notifications: getNotificationsForUser(state.notificationsByUser, userId ?? getActiveUserId()),
+      })),
+      registerUsers: (users) => set((state) => {
+        const nextKnownUsers = { ...state.knownUsers }
+        for (const user of users) {
+          const userId = user._id ?? user.id
+          if (!userId) continue
+          nextKnownUsers[userId] = {
+            ...user,
+            id: userId,
+            _id: userId,
+          }
+        }
+        return { knownUsers: nextKnownUsers }
+      }),
+      addNotification: (notification) => set((state) => {
+        const userId = getActiveUserId()
+        if (!userId) return { notifications: state.notifications }
+
+        const nextNotification = buildNotification(notification)
+        const notificationsByUser = pushNotificationForUser(state.notificationsByUser, userId, nextNotification)
+        const notifications = getNotificationsForUser(notificationsByUser, userId)
+        return { notifications, notificationsByUser }
+      }),
+      addNotificationForUsers: (userIds, notification) => set((state) => {
+        const uniqueUserIds = [...new Set(userIds.filter(Boolean))]
+        if (uniqueUserIds.length === 0) return { notifications: state.notifications }
+
+        let notificationsByUser = state.notificationsByUser
+        for (const userId of uniqueUserIds) {
+          notificationsByUser = pushNotificationForUser(notificationsByUser, userId, buildNotification(notification))
+        }
+
+        const activeUserId = getActiveUserId()
+        return {
+          notifications: getNotificationsForUser(notificationsByUser, activeUserId),
+          notificationsByUser,
+        }
+      }),
+      addNotificationForRole: (role, notification) => set((state) => {
+        const userIds = Object.values(state.knownUsers)
+          .filter((user) => user.role === role)
+          .map((user) => user.id)
+
+        if (userIds.length === 0) return { notifications: state.notifications }
+
+        let notificationsByUser = state.notificationsByUser
+        for (const userId of userIds) {
+          notificationsByUser = pushNotificationForUser(notificationsByUser, userId, buildNotification(notification))
+        }
+
+        const activeUserId = getActiveUserId()
+        return {
+          notifications: getNotificationsForUser(notificationsByUser, activeUserId),
+          notificationsByUser,
+        }
+      }),
+      deleteNotification: (id) => set((state) => {
+        const userId = getActiveUserId()
+        if (!userId) return { notifications: state.notifications }
+
+        const notifications = getNotificationsForUser(state.notificationsByUser, userId)
+          .filter((notification) => notification.id !== id)
+
+        return {
+          notifications,
+          notificationsByUser: {
+            ...state.notificationsByUser,
+            [userId]: notifications,
+          },
+        }
+      }),
+      markAllRead: () => set((state) => {
+        const userId = getActiveUserId()
+        if (!userId) return { notifications: [] }
+
+        const notifications = getNotificationsForUser(state.notificationsByUser, userId)
+          .map((notification) => ({ ...notification, read: true }))
+
+        return {
+          notifications,
+          notificationsByUser: {
+            ...state.notificationsByUser,
+            [userId]: notifications,
+          },
+        }
+      }),
+      markRead: (id) => set((state) => {
+        const userId = getActiveUserId()
+        if (!userId) return { notifications: state.notifications }
+
+        const notifications = getNotificationsForUser(state.notificationsByUser, userId)
+          .map((notification) => notification.id === id ? { ...notification, read: true } : notification)
+
+        return {
+          notifications,
+          notificationsByUser: {
+            ...state.notificationsByUser,
+            [userId]: notifications,
+          },
+        }
+      }),
       toasts: [],
       addToast: (message, type) => {
         const id = `t${Date.now()}`
@@ -36,6 +183,13 @@ export const useUIStore = create<UIState>()(
       },
       removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
     }),
-    { name: 'ui-store', partialize: (s) => ({ darkMode: s.darkMode }) }
+    {
+      name: 'ui-store',
+      partialize: (s) => ({
+        darkMode: s.darkMode,
+        notificationsByUser: s.notificationsByUser,
+        knownUsers: s.knownUsers,
+      }),
+    }
   )
 )

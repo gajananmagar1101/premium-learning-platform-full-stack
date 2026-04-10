@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { getEmailValidationMessage, isRealisticEmail } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
+import { useUIStore } from '@/store/useUIStore'
 
 interface FormData {
   name: string
@@ -18,6 +19,7 @@ interface FormData {
 export function Register() {
   const navigate = useNavigate()
   const { register: registerUser, loginError, clearError, loading } = useAuthStore()
+  const { addNotification } = useUIStore()
   const [showPassword, setShowPassword] = useState(false)
 
   const { register, handleSubmit, getValues, formState: { errors } } = useForm<FormData>({
@@ -34,6 +36,11 @@ export function Register() {
     })
     if (ok) {
       const user = useAuthStore.getState().user
+      addNotification({
+        title: 'Account created',
+        message: `Welcome to EduTrack, ${user?.name ?? data.name}.`,
+        type: 'success',
+      })
       navigate(user?.role === 'admin' ? '/dashboard' : '/student-dashboard')
     }
   }

@@ -12,7 +12,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
-import java.util.UUID;
 
 @Service
 public class JwtService {
@@ -28,7 +27,7 @@ public class JwtService {
         this.expirationDays = expirationDays;
     }
 
-    public String generateToken(UUID userId, UserDetails userDetails) {
+    public String generateToken(String userId, UserDetails userDetails) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(userDetails.getUsername())
@@ -43,8 +42,8 @@ public class JwtService {
         return extractClaims(token).getSubject();
     }
 
-    public UUID extractUserId(String token) {
-        return UUID.fromString(extractClaims(token).get("id", String.class));
+    public String extractUserId(String token) {
+        return extractClaims(token).get("id", String.class);
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {

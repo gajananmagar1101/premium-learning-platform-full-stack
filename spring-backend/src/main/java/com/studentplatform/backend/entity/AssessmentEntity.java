@@ -1,59 +1,37 @@
 package com.studentplatform.backend.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
-import java.util.UUID;
 
-@Entity
-@Table(name = "assessments")
+@Document(collection = "assessments")
 public class AssessmentEntity {
 
     @Id
-    @GeneratedValue
-    private UUID id;
+    private String id;
 
-    @Column(nullable = false)
     private String title;
 
-    @Column(nullable = false)
     private String subject;
 
-    @Column(nullable = false)
     private String date;
 
-    @Column(nullable = false)
     private Integer maxScore;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
     private AssessmentStatus status = AssessmentStatus.UPCOMING;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "created_by")
     private UserEntity createdBy;
 
-    @Column(nullable = false)
     private Instant createdAt;
 
-    @PrePersist
-    void onCreate() {
+    public void prepareForSave() {
         if (createdAt == null) {
             createdAt = Instant.now();
         }
     }
 
-    public UUID getId() {
+    public String getId() {
         return id;
     }
 

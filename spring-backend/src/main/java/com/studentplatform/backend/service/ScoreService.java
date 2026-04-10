@@ -20,7 +20,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @Transactional
@@ -41,8 +40,8 @@ public class ScoreService {
     }
 
     public ScoreResponse assign(ScoreAssignmentRequest request) {
-        UUID studentId = UUID.fromString(request.studentId());
-        UUID assessmentId = UUID.fromString(request.assessmentId());
+        String studentId = request.studentId();
+        String assessmentId = request.assessmentId();
 
         UserEntity student = userRepository.findById(studentId)
                 .filter(user -> user.getRole() == Role.STUDENT)
@@ -56,12 +55,13 @@ public class ScoreService {
                     "Score cannot exceed max score of " + assessment.getMaxScore() + ".");
         }
 
-        ScoreEntity score = scoreRepository.findByStudentIdAndAssessmentId(studentId, assessmentId)
+        ScoreEntity score = scoreRepository.findByStudent_IdAndAssessment_Id(studentId, assessmentId)
                 .orElseGet(ScoreEntity::new);
         score.setStudent(student);
         score.setAssessment(assessment);
         score.setScore(request.score());
         score.setFeedback(request.feedback() == null ? "" : request.feedback().trim());
+        score.prepareForSave();
 
         return ScoreResponse.from(scoreRepository.save(score));
     }
@@ -75,22 +75,20 @@ public class ScoreService {
 
     @Transactional(readOnly = true)
     public List<ScoreResponse> getStudentScores(String studentId, UserEntity currentUser) {
-        UUID targetId = UUID.fromString(studentId);
-        if (currentUser.getRole() == Role.STUDENT && !currentUser.getId().equals(targetId)) {
+        if (currentUser.getRole() == Role.STUDENT && !currentUser.getId().equals(studentId)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Not allowed to view this student's scores.");
         }
 
-        return scoreRepository.findByStudentIdOrderBySubmittedAtDesc(targetId).stream()
+        return scoreRepository.findByStudent_IdOrderBySubmittedAtDesc(studentId).stream()
                 .map(ScoreResponse::from)
                 .toList();
     }
 
     public void delete(String id) {
-        UUID scoreId = UUID.fromString(id);
-        if (!scoreRepository.existsById(scoreId)) {
+        if (!scoreRepository.existsById(id)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Score not found.");
         }
-        scoreRepository.deleteById(scoreId);
+        scoreRepository.deleteById(id);
     }
 
     @Transactional(readOnly = true)
@@ -107,7 +105,7 @@ public class ScoreService {
         );
 
         Map<String, SubjectAccumulator> bySubject = new LinkedHashMap<>();
-        Map<UUID, StudentAccumulator> byStudent = new LinkedHashMap<>();
+        Map<String, StudentAccumulator> byStudent = new LinkedHashMap<>();
 
         for (ScoreEntity score : scores) {
             double pct = percentage(score);
@@ -127,7 +125,7 @@ public class ScoreService {
 
         List<AnalyticsResponse.LeaderboardEntry> leaderboard = byStudent.values().stream()
                 .map(acc -> new AnalyticsResponse.LeaderboardEntry(
-                        acc.student.getId().toString(),
+                        acc.student.getId(),
                         acc.student.getName(),
                         acc.student.getGrade(),
                         (int) Math.round(acc.average())
