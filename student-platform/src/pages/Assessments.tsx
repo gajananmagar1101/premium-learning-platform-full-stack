@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Calendar, ChevronDown, ClipboardList, Edit3, FileText, FolderKanban, NotebookPen, Pencil, Plus, Save, Search, Trash2, Upload } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Calendar, ChevronDown, ClipboardList, Edit3, FileText, FolderKanban, NotebookPen, Plus, Save, Search, Upload } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import axios from 'axios'
@@ -25,6 +26,12 @@ type SubmissionFormData = {
   content: string
 }
 
+const classOptions = Array.from({ length: 12 }, (_, index) => {
+  const value = String(index + 1)
+  const suffix = value === '1' ? 'st' : value === '2' ? 'nd' : value === '3' ? 'rd' : 'th'
+  return { value, label: `${value}${suffix} Standard` }
+})
+
 const formatDateTime = (value: string) =>
   new Date(value).toLocaleString([], {
     year: 'numeric',
@@ -33,12 +40,6 @@ const formatDateTime = (value: string) =>
     hour: '2-digit',
     minute: '2-digit',
   })
-
-const toDateTimeInputValue = (value: string) => {
-  const date = new Date(value)
-  const pad = (part: number) => String(part).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
 
 const normalizeClassName = (value?: string) =>
   (value ?? '')
@@ -50,10 +51,9 @@ const normalizeClassName = (value?: string) =>
     .replace(/(st|nd|rd|th)$/g, '')
 
 const formatClassLabel = (value?: string) => {
-  const cleaned = (value ?? '').trim()
-  if (!cleaned) return 'Unassigned'
-  if (/^class\s+/i.test(cleaned)) return cleaned
-  return `Class ${cleaned}`
+  const normalized = normalizeClassName(value)
+  if (!normalized) return 'Unassigned'
+  return `${normalized}${normalized === '1' ? 'st' : normalized === '2' ? 'nd' : normalized === '3' ? 'rd' : 'th'} Standard`
 }
 
 const classSortValue = (value?: string) => {
@@ -79,6 +79,7 @@ async function readFileAsDataUrl(file: File) {
 }
 
 function AdminAssignmentsView() {
+  const navigate = useNavigate()
   const {
     adminAssignments,
     submissions,
@@ -86,15 +87,16 @@ function AdminAssignmentsView() {
     fetchAdminSubmissions,
     createAssignment,
     updateAssignment,
-    deleteAssignment,
     gradeSubmission,
   } = useAssignmentStore()
-  const { addToast, addNotification, addNotificationForUsers } = useUIStore()
+  const { addToast, addNotificationForUsers } = useUIStore()
   const { students, fetchStudents } = useStudentStore()
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<AssignmentItem | null>(null)
   const [gradeInputs, setGradeInputs] = useState<Record<string, string>>({})
+  const [questionFileName, setQuestionFileName] = useState<string | null>(null)
+  const [questionFileContent, setQuestionFileContent] = useState<string | null>(null)
   const { register, handleSubmit, reset, formState: { errors } } = useForm<AssignmentFormData>()
 
   useEffect(() => {
@@ -118,20 +120,6 @@ function AdminAssignmentsView() {
     [adminAssignments]
   )
 
-  const filteredAssignments = useMemo(() => {
-    const query = search.toLowerCase().trim()
-    const sortedAssignments = [...adminAssignments].sort(
-      (first, second) => new Date(first.deadline).getTime() - new Date(second.deadline).getTime()
-    )
-    if (!query) return sortedAssignments
-    return sortedAssignments.filter((assignment) =>
-      assignment.title.toLowerCase().includes(query) ||
-      assignment.subject.toLowerCase().includes(query) ||
-      assignment.description.toLowerCase().includes(query) ||
-      assignment.className.toLowerCase().includes(query)
-    )
-  }, [adminAssignments, search])
-
   const orderedSubmissions = useMemo(
     () =>
       [...submissions].sort((first, second) => {
@@ -144,6 +132,49 @@ function AdminAssignmentsView() {
       }),
     [submissions]
   )
+
+  const filteredSubmissions = useMemo(() => {
+    const query = search.toLowerCase().trim()
+    if (!query) return orderedSubmissions
+
+    return orderedSubmissions.filter((submission) =>
+      submission.studentName.toLowerCase().includes(query) ||
+      submission.studentEmail.toLowerCase().includes(query) ||
+      submission.assignmentTitle.toLowerCase().includes(query) ||
+      submission.subject.toLowerCase().includes(query) ||
+      (submission.fileName?.toLowerCase().includes(query) ?? false)
+    )
+  }, [orderedSubmissions, search])
+
+  const studentGradeById = useMemo(
+    () =>
+      students.reduce<Record<string, string>>((collection, student) => {
+        const studentId = student.id ?? student._id
+        if (studentId) {
+          collection[studentId] = student.grade
+        }
+        return collection
+      }, {}),
+    [students]
+  )
+
+  const filteredAssignments = useMemo(() => {
+    const query = search.toLowerCase().trim()
+    const sortedAssignments = [...adminAssignments].sort(
+      (first, second) => new Date(first.deadline).getTime() - new Date(second.deadline).getTime()
+    )
+    if (!query) return sortedAssignments
+
+    const matchedAssignmentIds = new Set(filteredSubmissions.map((submission) => submission.assignmentId))
+
+    return sortedAssignments.filter((assignment) =>
+      assignment.title.toLowerCase().includes(query) ||
+      assignment.subject.toLowerCase().includes(query) ||
+      assignment.description.toLowerCase().includes(query) ||
+      assignment.className.toLowerCase().includes(query) ||
+      matchedAssignmentIds.has(assignment.id)
+    )
+  }, [adminAssignments, filteredSubmissions, search])
 
   const groupedAssignments = useMemo(() => {
     const groups = new Map<string, AssignmentItem[]>()
@@ -169,6 +200,8 @@ function AdminAssignmentsView() {
 
   const openCreate = () => {
     setEditing(null)
+    setQuestionFileName(null)
+    setQuestionFileContent(null)
     reset({
       title: '',
       subject: '',
@@ -180,22 +213,11 @@ function AdminAssignmentsView() {
     setModalOpen(true)
   }
 
-  const openEdit = (assignment: AssignmentItem) => {
-    setEditing(assignment)
-    reset({
-      title: assignment.title,
-      subject: assignment.subject,
-      className: assignment.className,
-      description: assignment.description,
-      totalMarks: assignment.totalMarks,
-      deadline: toDateTimeInputValue(assignment.deadline),
-    })
-    setModalOpen(true)
-  }
-
   const closeModal = () => {
     setEditing(null)
     setModalOpen(false)
+    setQuestionFileName(null)
+    setQuestionFileContent(null)
     reset()
   }
 
@@ -204,17 +226,14 @@ function AdminAssignmentsView() {
       ...data,
       totalMarks: Number(data.totalMarks),
       deadline: new Date(data.deadline).toISOString().slice(0, 19),
+      questionFileName: questionFileName ?? undefined,
+      questionFileContent: questionFileContent ?? undefined,
     }
 
     try {
       if (editing) {
         await updateAssignment(editing.id, payload)
         addToast('Assignment updated', 'success')
-        addNotification({
-          title: 'Assignment updated',
-          message: `${payload.title} for class ${payload.className} was updated.`,
-          type: 'info',
-        })
         const targetStudentIds = students
           .filter((student) => normalizeClassName(student.grade) === normalizeClassName(payload.className))
           .map((student) => student.id ?? student._id)
@@ -226,11 +245,6 @@ function AdminAssignmentsView() {
       } else {
         await createAssignment(payload)
         addToast('Assignment created', 'success')
-        addNotification({
-          title: 'Assignment created',
-          message: `${payload.title} for class ${payload.className} is now live.`,
-          type: 'success',
-        })
         const targetStudentIds = students
           .filter((student) => normalizeClassName(student.grade) === normalizeClassName(payload.className))
           .map((student) => student.id ?? student._id)
@@ -250,21 +264,6 @@ function AdminAssignmentsView() {
     }
   }
 
-  const handleDelete = async (assignmentId: string) => {
-    try {
-      await deleteAssignment(assignmentId)
-      addToast('Assignment deleted', 'info')
-      addNotification({
-        title: 'Assignment deleted',
-        message: 'An assignment was removed from the control center.',
-        type: 'warning',
-      })
-    } catch (error) {
-      console.error('[Assignments] Failed to delete assignment:', error)
-      addToast('Failed to delete assignment', 'error')
-    }
-  }
-
   const handleSaveMarks = async (submission: AdminSubmission) => {
     const rawValue = gradeInputs[submission.id] ?? String(submission.marks ?? '')
     const marks = Number(rawValue)
@@ -276,9 +275,9 @@ function AdminAssignmentsView() {
     try {
       await gradeSubmission(submission.id, marks)
       addToast('Marks saved', 'success')
-      addNotification({
+      addNotificationForUsers([submission.studentId], {
         title: 'Marks published',
-        message: `Saved ${marks}/${submission.totalMarks} for ${submission.studentName}.`,
+        message: `Your marks for ${submission.assignmentTitle} are now available: ${marks}/${submission.totalMarks}.`,
         type: 'success',
       })
     } catch (error) {
@@ -376,7 +375,7 @@ function AdminAssignmentsView() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by title, subject, class..."
+                placeholder="Search by title, subject, class, student..."
                 className="form-input pl-9"
               />
             </div>
@@ -386,29 +385,6 @@ function AdminAssignmentsView() {
           </div>
         </div>
       </GlassCard>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {groupedAssignments.map((group) => (
-          <GlassCard key={group.className} className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-indigo-500/10 p-3 text-indigo-400">
-                <FolderKanban size={18} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">
-                  {formatClassLabel(group.className)}
-                </p>
-                <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
-                  {group.assignments.length} assignment{group.assignments.length === 1 ? '' : 's'}
-                </p>
-                <p className="mt-2 text-xs text-light-ink-muted dark:text-dark-ink-muted">
-                  {group.assignments.filter((assignment) => new Date(assignment.deadline) >= new Date()).length} active
-                </p>
-              </div>
-            </div>
-          </GlassCard>
-        ))}
-      </div>
 
       <div className="space-y-6">
         {groupedAssignments.map((group) => {
@@ -463,8 +439,17 @@ function AdminAssignmentsView() {
                 <div className="space-y-3 border-t border-light-border px-4 py-3 dark:border-dark-border">
                   {subjectGroups.map((subjectGroup) => (
                     <div key={`${group.className}-${subjectGroup.subject}`} className="overflow-hidden rounded-2xl border border-light-border dark:border-dark-border">
-                      <details open={Boolean(search)} className="group/subject">
-                        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 bg-white/35 px-4 py-3 dark:bg-dark-card2/35">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          navigate(
+                            `/assessments/subject?class=${encodeURIComponent(group.className)}&subject=${encodeURIComponent(subjectGroup.subject)}`
+                          )
+                        }}
+                        className="flex w-full cursor-pointer items-center justify-between gap-4 bg-white/35 px-4 py-3 text-left transition-colors hover:bg-indigo-500/5 dark:bg-dark-card2/35 dark:hover:bg-indigo-500/10"
+                      >
                           <div className="flex min-w-0 items-center gap-3">
                             <div className="rounded-xl bg-indigo-500/10 p-2 text-indigo-400">
                               <NotebookPen size={16} />
@@ -478,66 +463,8 @@ function AdminAssignmentsView() {
                               </p>
                             </div>
                           </div>
-                          <ChevronDown size={16} className="text-light-ink-muted transition-transform group-open/subject:rotate-180 dark:text-dark-ink-muted" />
-                        </summary>
-
-                        <div className="grid grid-cols-1 gap-4 border-t border-light-border px-4 py-4 dark:border-dark-border xl:grid-cols-2">
-                          {subjectGroup.assignments.map((assignment) => {
-                            const isClosed = new Date(assignment.deadline) < new Date()
-
-                            return (
-                              <div
-                                key={assignment.id}
-                                className="rounded-3xl border border-light-border bg-white/55 p-5 shadow-sm dark:border-dark-border dark:bg-dark-card2/50"
-                              >
-                                <div className="flex items-start justify-between gap-4">
-                                  <div className="space-y-3">
-                                    <div className="flex flex-wrap gap-2">
-                                      <span className="inline-flex items-center rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-300">
-                                        {assignment.subject}
-                                      </span>
-                                      <span className="inline-flex items-center rounded-full border border-light-border bg-white/60 px-3 py-1 text-xs font-semibold text-light-ink-secondary dark:border-dark-border dark:bg-dark-card2/70 dark:text-dark-ink-secondary">
-                                        {formatClassLabel(assignment.className)}
-                                      </span>
-                                    </div>
-                                    <div>
-                                      <p className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.title}</p>
-                                      <p className="mt-2 line-clamp-3 text-sm leading-6 text-light-ink-secondary dark:text-dark-ink-secondary">
-                                        {assignment.description}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <Badge label={isClosed ? 'Closed' : 'Open'} variant={isClosed ? 'danger' : 'success'} />
-                                </div>
-
-                                <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                                  <div className="rounded-xl bg-light-card2/80 p-4 dark:bg-dark-card2/80">
-                                    <p className="flex items-center gap-1.5 text-light-ink-muted dark:text-dark-ink-muted">
-                                      <ClipboardList size={13} /> Total Marks
-                                    </p>
-                                    <p className="mt-2 font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.totalMarks}</p>
-                                  </div>
-                                  <div className="rounded-xl bg-light-card2/80 p-4 dark:bg-dark-card2/80">
-                                    <p className="flex items-center gap-1.5 text-light-ink-muted dark:text-dark-ink-muted">
-                                      <Calendar size={13} /> Deadline
-                                    </p>
-                                    <p className="mt-2 font-semibold text-light-ink-primary dark:text-dark-ink-primary">{formatDateTime(assignment.deadline)}</p>
-                                  </div>
-                                </div>
-
-                                <div className="mt-5 flex gap-2">
-                                  <button onClick={() => openEdit(assignment)} className="btn-ghost flex-1 justify-center">
-                                    <Pencil size={14} /> Edit
-                                  </button>
-                                  <button onClick={() => handleDelete(assignment.id)} className="btn-ghost flex-1 justify-center text-red-400 hover:bg-red-500/10">
-                                    <Trash2 size={14} /> Delete
-                                  </button>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </details>
+                          <ChevronDown size={16} className="-rotate-90 text-light-ink-muted dark:text-dark-ink-muted" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -564,8 +491,8 @@ function AdminAssignmentsView() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge label={`${pendingReviewCount} to review`} variant="warning" />
-            <Badge label={`${gradedCount} graded`} variant="success" />
+            <Badge label={`${filteredSubmissions.filter((submission) => submission.status !== 'graded').length} to review`} variant="warning" />
+            <Badge label={`${filteredSubmissions.filter((submission) => submission.status === 'graded').length} graded`} variant="success" />
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -576,17 +503,20 @@ function AdminAssignmentsView() {
               </tr>
             </thead>
             <tbody>
-              {orderedSubmissions.length === 0 ? (
+              {filteredSubmissions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-16 text-center text-light-ink-muted dark:text-dark-ink-muted">
-                    No student submissions yet.
+                    No student submissions found.
                   </td>
                 </tr>
-              ) : orderedSubmissions.map((submission) => (
+              ) : filteredSubmissions.map((submission) => (
                 <tr key={submission.id}>
                   <td>
                     <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{submission.studentName}</p>
                     <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">{submission.studentEmail}</p>
+                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                      {formatClassLabel(studentGradeById[submission.studentId])}
+                    </p>
                   </td>
                   <td>
                     <div className="space-y-1">
@@ -658,17 +588,55 @@ function AdminAssignmentsView() {
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Class</label>
-            <input
-              {...register('className', { required: true })}
-              className="form-input"
-              placeholder="e.g. 9th, 10, 10-A"
-            />
+            <select {...register('className', { required: true })} className="form-input">
+              <option value="">Select standard</option>
+              {classOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             {errors.className && <p className="text-xs text-red-400 mt-1">Class is required.</p>}
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Description</label>
             <textarea {...register('description', { required: true })} rows={5} className="form-input resize-none" />
             {errors.description && <p className="text-xs text-red-400 mt-1">Description is required.</p>}
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Question File</label>
+            <input
+              type="file"
+              accept=".png,.jpg,.jpeg,.pdf,.doc,.docx,application/pdf,image/png,image/jpeg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={async (event) => {
+                const file = event.target.files?.[0]
+                if (!file) {
+                  setQuestionFileName(null)
+                  setQuestionFileContent(null)
+                  return
+                }
+
+                try {
+                  const content = await readFileAsDataUrl(file)
+                  setQuestionFileName(file.name)
+                  setQuestionFileContent(content)
+                } catch (error) {
+                  console.error('[Assignments] Failed to read question file:', error)
+                  addToast('Failed to read question file', 'error')
+                  setQuestionFileName(null)
+                  setQuestionFileContent(null)
+                }
+              }}
+              className="form-input file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-500/10 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-indigo-600"
+            />
+            <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+              Supported: PNG, JPG, PDF, DOC, DOCX
+            </p>
+            {questionFileName && (
+              <p className="mt-2 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                Attached question file: <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">{questionFileName}</span>
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -702,7 +670,7 @@ function StudentAssignmentsView() {
     submitAssignment,
     updateSubmission,
   } = useAssignmentStore()
-  const { addToast, addNotification, addNotificationForRole } = useUIStore()
+  const { addToast, addNotificationForRole } = useUIStore()
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [activeAssignment, setActiveAssignment] = useState<StudentAssignmentItem | null>(null)
@@ -791,11 +759,6 @@ function StudentAssignmentsView() {
       if (activeAssignment.submission?.id) {
         await updateSubmission(activeAssignment.submission.id, payload)
         addToast('Submission updated', 'success')
-        addNotification({
-          title: 'Submission updated',
-          message: `Your work for ${activeAssignment.title} was updated.`,
-          type: 'info',
-        })
         addNotificationForRole('admin', {
           title: 'Submission updated',
           message: `${user?.name ?? 'A student'} updated work for ${activeAssignment.title}.`,
@@ -804,11 +767,6 @@ function StudentAssignmentsView() {
       } else {
         await submitAssignment(payload)
         addToast('Assignment submitted', 'success')
-        addNotification({
-          title: 'Assignment submitted',
-          message: `Your submission for ${activeAssignment.title} was sent successfully.`,
-          type: 'success',
-        })
         addNotificationForRole('admin', {
           title: 'New submission',
           message: `${user?.name ?? 'A student'} submitted ${activeAssignment.title}.`,
@@ -902,6 +860,16 @@ function StudentAssignmentsView() {
                     <p className="mt-4 text-sm leading-6 text-light-ink-secondary dark:text-dark-ink-secondary">
                       {assignment.description}
                     </p>
+
+                    {assignment.questionFileName && assignment.questionFileContent && (
+                      <a
+                        href={assignment.questionFileContent}
+                        download={assignment.questionFileName}
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-indigo-400 hover:text-indigo-300"
+                      >
+                        <FileText size={13} /> {assignment.questionFileName}
+                      </a>
+                    )}
 
                     <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div className="rounded-xl bg-light-card2/70 p-3 dark:bg-dark-card2/80">

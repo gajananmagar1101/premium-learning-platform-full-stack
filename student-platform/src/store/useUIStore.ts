@@ -5,6 +5,7 @@ import { useAuthStore } from './useAuthStore'
 
 type NotificationInput = Pick<Notification, 'title' | 'message' | 'type'> & { time?: string }
 type UserSummary = Pick<User, 'id' | 'name' | 'role' | 'grade' | 'email'> & { _id?: string }
+type NotificationTargetOptions = { excludeUserIds?: string[] }
 
 interface UIState {
   darkMode: boolean
@@ -15,8 +16,8 @@ interface UIState {
   syncNotifications: (userId?: string | null) => void
   registerUsers: (users: UserSummary[]) => void
   addNotification: (notification: NotificationInput) => void
-  addNotificationForUsers: (userIds: string[], notification: NotificationInput) => void
-  addNotificationForRole: (role: User['role'], notification: NotificationInput) => void
+  addNotificationForUsers: (userIds: string[], notification: NotificationInput, options?: NotificationTargetOptions) => void
+  addNotificationForRole: (role: User['role'], notification: NotificationInput, options?: NotificationTargetOptions) => void
   deleteNotification: (id: string) => void
   markAllRead: () => void
   markRead: (id: string) => void
@@ -97,8 +98,9 @@ export const useUIStore = create<UIState>()(
         const notifications = getNotificationsForUser(notificationsByUser, userId)
         return { notifications, notificationsByUser }
       }),
-      addNotificationForUsers: (userIds, notification) => set((state) => {
-        const uniqueUserIds = [...new Set(userIds.filter(Boolean))]
+      addNotificationForUsers: (userIds, notification, options) => set((state) => {
+        const excludedUserIds = new Set((options?.excludeUserIds ?? []).filter(Boolean))
+        const uniqueUserIds = [...new Set(userIds.filter((userId) => userId && !excludedUserIds.has(userId)))]
         if (uniqueUserIds.length === 0) return { notifications: state.notifications }
 
         let notificationsByUser = state.notificationsByUser
@@ -112,9 +114,10 @@ export const useUIStore = create<UIState>()(
           notificationsByUser,
         }
       }),
-      addNotificationForRole: (role, notification) => set((state) => {
+      addNotificationForRole: (role, notification, options) => set((state) => {
+        const excludedUserIds = new Set((options?.excludeUserIds ?? []).filter(Boolean))
         const userIds = Object.values(state.knownUsers)
-          .filter((user) => user.role === role)
+          .filter((user) => user.role === role && !excludedUserIds.has(user.id))
           .map((user) => user.id)
 
         if (userIds.length === 0) return { notifications: state.notifications }

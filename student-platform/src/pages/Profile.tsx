@@ -21,7 +21,7 @@ export function Profile() {
   const [className, setClassName] = useState(user?.grade ?? '')
   const [savingProfile, setSavingProfile] = useState(false)
   const [performance, setPerformance] = useState<StudentPerformance | null>(null)
-  const { addToast, addNotification } = useUIStore()
+  const { addToast } = useUIStore()
 
   const student = user?.role === 'student' ? students.find((s) => s._id === (user._id ?? user.id)) : null
 
@@ -128,11 +128,6 @@ export function Profile() {
       setUser(res.data.user)
       setEditing(false)
       addToast('Profile updated successfully', 'success')
-      addNotification({
-        title: 'Profile updated',
-        message: 'Your account information was saved successfully.',
-        type: 'success',
-      })
     } catch (error) {
       console.error('[Profile] Failed to update profile:', error)
       const message = axios.isAxiosError(error)
@@ -163,16 +158,16 @@ export function Profile() {
           </motion.div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-xl font-semibold text-gray-900">{displayName}</h2>
+              <h2 className="text-xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">{displayName}</h2>
               <button
                 onClick={() => setEditing(true)}
-                className="p-1.5 rounded-lg hover:bg-indigo-50 transition-colors text-gray-400 hover:text-indigo-600"
+                className="rounded-lg p-1.5 text-light-ink-muted transition-colors hover:bg-indigo-500/10 hover:text-indigo-600 dark:text-dark-ink-muted dark:hover:text-indigo-300"
               >
                 <Edit2 size={15} />
               </button>
             </div>
-            <p className="text-sm text-gray-500">{user?.email}</p>
-            <span className="inline-block mt-2 px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold capitalize">
+            <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">{user?.email}</p>
+            <span className="mt-2 inline-block rounded-full bg-indigo-500/12 px-3 py-1 text-xs font-semibold capitalize text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
               {user?.role === 'admin' ? '👨‍🏫 Administrator' : '🎓 Student'}
             </span>
           </div>
@@ -187,9 +182,9 @@ export function Profile() {
               { label: 'Grade', value: displayPerformance?.overallGrade ?? 'N/A', color: 'text-purple-600' },
               { label: 'Submissions', value: displayPerformance ? `${displayPerformance.totalSubmissions}` : '0', color: 'text-amber-600' },
             ].map((stat) => (
-              <div key={stat.label} className="text-center p-3 rounded-xl bg-white/40">
+              <div key={stat.label} className="rounded-xl bg-light-card2/70 p-3 text-center dark:bg-dark-card2/80">
                 <p className={`text-base font-bold ${stat.color} truncate`}>{stat.value}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{stat.label}</p>
+                <p className="mt-0.5 text-xs text-light-ink-muted dark:text-dark-ink-muted">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -200,12 +195,12 @@ export function Profile() {
         <GlassCard className="p-6">
           <div className="flex items-center justify-between gap-4 mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-gray-900">Performance Progress</h3>
-              <p className="text-xs text-gray-500 mt-1">Updates automatically when admin posts grades.</p>
+              <h3 className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Performance Progress</h3>
+              <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">Updates automatically when admin posts grades.</p>
             </div>
             <div className="text-right">
               <p className="text-lg font-bold text-indigo-600">{displayPerformance?.overallGrade ?? 'N/A'}</p>
-              <p className="text-xs text-gray-500">Overall Grade</p>
+              <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Overall Grade</p>
             </div>
           </div>
           <ProgressBar
@@ -214,13 +209,13 @@ export function Profile() {
             color={(displayPerformance?.progressPercent ?? 0) >= 85 ? 'bg-emerald-500' : (displayPerformance?.progressPercent ?? 0) >= 70 ? 'bg-indigo-500' : 'bg-amber-500'}
           />
           <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="rounded-xl bg-white/30 p-3">
-              <p className="text-xs text-gray-500">Average Percentage</p>
-              <p className="text-sm font-semibold text-gray-900 mt-1">{displayPerformance?.avgPercentage ?? 0}%</p>
+            <div className="rounded-xl bg-light-card2/70 p-3 dark:bg-dark-card2/80">
+              <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Average Percentage</p>
+              <p className="mt-1 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{displayPerformance?.avgPercentage ?? 0}%</p>
             </div>
-            <div className="rounded-xl bg-white/30 p-3">
-              <p className="text-xs text-gray-500">Best Percentage</p>
-              <p className="text-sm font-semibold text-gray-900 mt-1">{displayPerformance?.bestPercentage ?? 0}%</p>
+            <div className="rounded-xl bg-light-card2/70 p-3 dark:bg-dark-card2/80">
+              <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Best Percentage</p>
+              <p className="mt-1 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{displayPerformance?.bestPercentage ?? 0}%</p>
             </div>
           </div>
         </GlassCard>
@@ -228,20 +223,23 @@ export function Profile() {
 
       {user?.role === 'student' && (
         <GlassCard className="p-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Score History</h3>
+          <h3 className="mb-4 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Score History</h3>
           {!displayPerformance?.scoreHistory?.length ? (
-            <p className="text-sm text-gray-400 text-center py-6">No graded assignments yet.</p>
+            <p className="py-6 text-center text-sm text-light-ink-muted dark:text-dark-ink-muted">No graded assignments yet.</p>
           ) : (
             <div className="space-y-3">
               {displayPerformance.scoreHistory.map((item) => (
-                <div key={item.submissionId} className="flex items-center justify-between gap-4 p-3 rounded-xl bg-white/30 hover:bg-white/50 transition-colors">
+                <div
+                  key={item.submissionId}
+                  className="flex items-center justify-between gap-4 rounded-xl bg-light-card2/60 p-3 transition-colors hover:bg-light-hover dark:bg-dark-card2/70 dark:hover:bg-dark-hover"
+                >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{item.assignmentTitle}</p>
-                    <p className="text-xs text-gray-500">{item.subject} · {new Date(item.gradedAt).toLocaleString()}</p>
+                    <p className="truncate text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">{item.assignmentTitle}</p>
+                    <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">{item.subject} · {new Date(item.gradedAt).toLocaleString()}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-sm font-semibold text-indigo-600">{item.marks}/{item.totalMarks}</p>
-                    <p className="text-xs text-gray-500">{item.percentage}%</p>
+                    <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">{item.percentage}%</p>
                   </div>
                 </div>
               ))}
@@ -253,7 +251,7 @@ export function Profile() {
       {/* Info Fields */}
       <GlassCard className="p-6">
         <div className="flex items-center justify-between gap-3 mb-4">
-          <h3 className="text-sm font-semibold text-gray-900">Account Information</h3>
+          <h3 className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Account Information</h3>
           {!editing ? (
             <button
               onClick={() => setEditing(true)}
@@ -265,7 +263,7 @@ export function Profile() {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleCancelEdit}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-semibold hover:bg-gray-200 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-light-card2 px-3 py-1.5 text-xs font-semibold text-light-ink-secondary transition-colors hover:bg-light-hover dark:bg-dark-card2 dark:text-dark-ink-secondary dark:hover:bg-dark-hover"
               >
                 <X size={13} /> Cancel
               </button>
@@ -280,62 +278,62 @@ export function Profile() {
           )}
         </div>
         <div className="space-y-3">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/30 hover:bg-white/50 transition-colors">
+          <div className="flex items-center gap-3 rounded-xl bg-light-card2/60 p-3 transition-colors hover:bg-light-hover dark:bg-dark-card2/70 dark:hover:bg-dark-hover">
             <div className="glass-icon bg-indigo-500/10">
               <User size={16} className="text-indigo-600" />
             </div>
             <div className="flex-1">
-              <p className="text-xs text-gray-500">Full Name</p>
+              <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Full Name</p>
               {editing ? (
                 <input
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="mt-1 w-full text-sm font-medium text-gray-900 bg-white/80 border border-indigo-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  className="mt-1 w-full rounded-lg border border-indigo-200 bg-white/85 px-3 py-2 text-sm font-medium text-light-ink-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-dark-border dark:bg-dark-base dark:text-dark-ink-primary"
                 />
               ) : (
-                <p className="text-sm font-medium text-gray-900 capitalize">{displayName}</p>
+                <p className="text-sm font-medium capitalize text-light-ink-primary dark:text-dark-ink-primary">{displayName}</p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/30 hover:bg-white/50 transition-colors">
+          <div className="flex items-center gap-3 rounded-xl bg-light-card2/60 p-3 transition-colors hover:bg-light-hover dark:bg-dark-card2/70 dark:hover:bg-dark-hover">
             <div className="glass-icon bg-indigo-500/10">
               <Mail size={16} className="text-indigo-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Email Address</p>
-              <p className="text-sm font-medium text-gray-900">{user?.email}</p>
+              <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Email Address</p>
+              <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">{user?.email}</p>
             </div>
           </div>
 
           {user?.role === 'student' && (
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-white/30 hover:bg-white/50 transition-colors">
+            <div className="flex items-center gap-3 rounded-xl bg-light-card2/60 p-3 transition-colors hover:bg-light-hover dark:bg-dark-card2/70 dark:hover:bg-dark-hover">
               <div className="glass-icon bg-indigo-500/10">
                 <GraduationCap size={16} className="text-indigo-600" />
               </div>
               <div className="flex-1">
-                <p className="text-xs text-gray-500">Class</p>
+                <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Class</p>
                 {editing ? (
                   <input
                     value={className}
                     onChange={(e) => setClassName(e.target.value)}
-                    className="mt-1 w-full text-sm font-medium text-gray-900 bg-white/80 border border-indigo-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                    className="mt-1 w-full rounded-lg border border-indigo-200 bg-white/85 px-3 py-2 text-sm font-medium text-light-ink-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-dark-border dark:bg-dark-base dark:text-dark-ink-primary"
                     placeholder="Enter class"
                   />
                 ) : (
-                  <p className="text-sm font-medium text-gray-900">{user?.grade ? `Class ${user.grade}` : 'Class not set'}</p>
+                  <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">{user?.grade ? `Class ${user.grade}` : 'Class not set'}</p>
                 )}
               </div>
             </div>
           )}
 
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/30 hover:bg-white/50 transition-colors">
+          <div className="flex items-center gap-3 rounded-xl bg-light-card2/60 p-3 transition-colors hover:bg-light-hover dark:bg-dark-card2/70 dark:hover:bg-dark-hover">
             <div className="glass-icon bg-indigo-500/10">
               <Shield size={16} className="text-indigo-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500">Role</p>
-              <p className="text-sm font-medium text-gray-900 capitalize">{user?.role === 'admin' ? 'Administrator / Teacher' : 'Student'}</p>
+              <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Role</p>
+              <p className="text-sm font-medium capitalize text-light-ink-primary dark:text-dark-ink-primary">{user?.role === 'admin' ? 'Administrator / Teacher' : 'Student'}</p>
             </div>
           </div>
         </div>
@@ -343,16 +341,16 @@ export function Profile() {
 
       {/* Preferences */}
       <GlassCard className="p-6">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Preferences</h3>
+        <h3 className="mb-4 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Preferences</h3>
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 rounded-xl bg-white/30">
+          <div className="flex items-center justify-between rounded-xl bg-light-card2/60 p-3 dark:bg-dark-card2/70">
             <div className="flex items-center gap-3">
-              <div className="glass-icon bg-gray-100">
+              <div className="glass-icon bg-light-card dark:bg-dark-card2">
                 {darkMode ? <Moon size={16} className="text-indigo-600" /> : <Sun size={16} className="text-amber-500" />}
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">Dark Mode</p>
-                <p className="text-xs text-gray-500">Toggle dark theme</p>
+                <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">Dark Mode</p>
+                <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Toggle dark theme</p>
               </div>
             </div>
             <button
@@ -363,14 +361,14 @@ export function Profile() {
             </button>
           </div>
 
-          <div className="flex items-center justify-between p-3 rounded-xl bg-white/30">
+          <div className="flex items-center justify-between rounded-xl bg-light-card2/60 p-3 dark:bg-dark-card2/70">
             <div className="flex items-center gap-3">
               <div className="glass-icon bg-indigo-500/10">
                 <Bell size={16} className="text-indigo-600" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">Notifications</p>
-                <p className="text-xs text-gray-500">Assessment reminders & updates</p>
+                <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">Notifications</p>
+                <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Assessment reminders & updates</p>
               </div>
             </div>
             <button className="relative w-11 h-6 rounded-full bg-indigo-500">

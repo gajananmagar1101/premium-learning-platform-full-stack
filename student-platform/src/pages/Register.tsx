@@ -5,7 +5,6 @@ import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { getEmailValidationMessage, isRealisticEmail } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useUIStore } from '@/store/useUIStore'
 
 interface FormData {
   name: string
@@ -16,10 +15,15 @@ interface FormData {
   grade: string
 }
 
+const gradeOptions = Array.from({ length: 12 }, (_, index) => {
+  const value = String(index + 1)
+  const suffix = value === '1' ? 'st' : value === '2' ? 'nd' : value === '3' ? 'rd' : 'th'
+  return { value, label: `${value}${suffix} Standard` }
+})
+
 export function Register() {
   const navigate = useNavigate()
   const { register: registerUser, loginError, clearError, loading } = useAuthStore()
-  const { addNotification } = useUIStore()
   const [showPassword, setShowPassword] = useState(false)
 
   const { register, handleSubmit, getValues, formState: { errors } } = useForm<FormData>({
@@ -36,11 +40,6 @@ export function Register() {
     })
     if (ok) {
       const user = useAuthStore.getState().user
-      addNotification({
-        title: 'Account created',
-        message: `Welcome to EduTrack, ${user?.name ?? data.name}.`,
-        type: 'success',
-      })
       navigate(user?.role === 'admin' ? '/dashboard' : '/student-dashboard')
     }
   }
@@ -114,12 +113,18 @@ export function Register() {
 
             {/* Grade (student only) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Grade / Class</label>
-              <input
-                placeholder="e.g. 10th, Grade 11"
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Class</label>
+              <select
                 {...register('grade')}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder-gray-400"
-              />
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+              >
+                <option value="">Select standard</option>
+                {gradeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Password */}

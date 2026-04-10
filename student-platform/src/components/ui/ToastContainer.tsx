@@ -24,8 +24,11 @@ export function ToastContainer() {
               config[t.type].border
             )}>
             {config[t.type].icon}
-            <p className="text-sm font-medium text-ink-primary flex-1">{t.message}</p>
-            <button onClick={() => removeToast(t.id)} className="text-ink-muted hover:text-ink-primary transition-colors">
+            <p className="flex-1 text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">{t.message}</p>
+            <button
+              onClick={() => removeToast(t.id)}
+              className="text-light-ink-muted transition-colors hover:text-light-ink-primary dark:text-dark-ink-muted dark:hover:text-dark-ink-primary"
+            >
               <X size={13} />
             </button>
           </motion.div>

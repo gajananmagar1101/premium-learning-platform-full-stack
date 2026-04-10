@@ -5,22 +5,40 @@ import { useNavigate } from 'react-router-dom'
 import { useAssessmentStore } from '@/store/useAssessmentStore'
 import { useStudentStore } from '@/store/useStudentStore'
 
+const normalizeGrade = (value?: string) =>
+  (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/class/g, '')
+    .replace(/grade/g, '')
+    .replace(/\s+/g, '')
+    .replace(/(st|nd|rd|th)$/g, '')
+
 export function SearchBar() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const { assessments } = useAssessmentStore()
   const { students } = useStudentStore()
+  const normalizedQuery = query.toLowerCase().trim()
 
-  const results = query.trim().length > 1 ? [
+  const results = normalizedQuery.length > 1 ? [
     ...assessments
-      .filter((a) => a.title.toLowerCase().includes(query.toLowerCase()) || a.subject.toLowerCase().includes(query.toLowerCase()))
+      .filter((a) => a.title.toLowerCase().includes(normalizedQuery) || a.subject.toLowerCase().includes(normalizedQuery))
       .slice(0, 3)
       .map((a) => ({ label: a.title, sub: a.subject, path: '/assessments', kind: 'Assessment' })),
     ...students
-      .filter((s) => s.name.toLowerCase().includes(query.toLowerCase()))
+      .filter((s) =>
+        s.name.toLowerCase().includes(normalizedQuery) ||
+        s.email.toLowerCase().includes(normalizedQuery)
+      )
       .slice(0, 3)
-      .map((s) => ({ label: s.name, sub: s.email, path: '/students', kind: 'Student' })),
+      .map((s) => ({
+        label: s.name,
+        sub: s.email,
+        path: `/students/class?grade=${encodeURIComponent(normalizeGrade(s.grade) || '1')}`,
+        kind: 'Student',
+      })),
   ] : []
 
   const go = (path: string) => { navigate(path); setOpen(false); setQuery('') }

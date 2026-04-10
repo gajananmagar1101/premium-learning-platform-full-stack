@@ -43,6 +43,8 @@ export interface AssignmentItem {
   description: string
   totalMarks: number
   deadline: string
+  questionFileName?: string | null
+  questionFileContent?: string | null
   createdAt?: string
 }
 

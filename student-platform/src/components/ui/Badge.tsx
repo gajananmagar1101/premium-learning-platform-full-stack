@@ -6,10 +6,10 @@ interface BadgeProps {
 }
 
 const variants = {
-  success: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
-  warning: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
-  danger:  'bg-red-500/20 text-red-300 border border-red-500/30',
-  info:    'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30',
+  success: 'border border-emerald-500/30 bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+  warning: 'border border-amber-500/30 bg-amber-500/12 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+  danger:  'border border-red-500/30 bg-red-500/12 text-red-700 dark:bg-red-500/20 dark:text-red-300',
+  info:    'border border-indigo-500/30 bg-indigo-500/12 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300',
 }
 
 export function Badge({ label, variant }: BadgeProps) {

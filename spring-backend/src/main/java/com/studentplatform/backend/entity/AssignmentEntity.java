@@ -26,6 +26,10 @@ public class AssignmentEntity {
 
     private LocalDateTime deadline;
 
+    private String questionFileName;
+
+    private String questionFileContent;
+
     private UserEntity createdBy;
 
     private Instant createdAt;
@@ -101,5 +105,21 @@ public class AssignmentEntity {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public String getQuestionFileName() {
+        return questionFileName;
+    }
+
+    public void setQuestionFileName(String questionFileName) {
+        this.questionFileName = questionFileName;
+    }
+
+    public String getQuestionFileContent() {
+        return questionFileContent;
+    }
+
+    public void setQuestionFileContent(String questionFileContent) {
+        this.questionFileContent = questionFileContent;
     }
 }

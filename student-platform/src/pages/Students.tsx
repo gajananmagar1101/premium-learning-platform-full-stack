@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Search, X, Mail, BookOpen, TrendingUp, Award, RefreshCw, Trash2, UserX } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { X, Mail, BookOpen, TrendingUp, Award, RefreshCw, Trash2, UserX } from 'lucide-react'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Badge } from '@/components/ui/Badge'
@@ -11,13 +12,18 @@ import { studentAPI, scoreAPI } from '@/lib/services'
 import type { DBStudent, StudentPerformance, StudentScore, Assessment } from '@/types'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts'
 
-const avatarColors = [
-  'from-indigo-500 to-purple-600',
-  'from-emerald-500 to-teal-600',
-  'from-amber-500 to-orange-600',
-  'from-pink-500 to-rose-600',
-  'from-blue-500 to-cyan-600',
-]
+const classOptions = Array.from({ length: 12 }, (_, index) => String(index + 1))
+
+const normalizeGrade = (value?: string) =>
+  (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/class/g, '')
+    .replace(/grade/g, '')
+    .replace(/\s+/g, '')
+    .replace(/(st|nd|rd|th)$/g, '')
+
+const formatClassLabel = (value: string) => `${value}${value === '1' ? 'st' : value === '2' ? 'nd' : value === '3' ? 'rd' : 'th'} Standard`
 
 interface ScoreWithAssessment extends StudentScore {
   assessment: Assessment
@@ -31,7 +37,7 @@ const getLetterGrade = (percent: number) => {
   return 'F'
 }
 
-function StudentDrawer({ student, onClose }: { student: DBStudent; onClose: () => void }) {
+export function StudentDrawer({ student, onClose }: { student: DBStudent; onClose: () => void }) {
   const {
     submissions,
     fetchAdminSubmissions,
@@ -310,11 +316,8 @@ function StudentDrawer({ student, onClose }: { student: DBStudent; onClose: () =
 }
 
 export function Students() {
-  const { students, loading, error, fetchStudents, removeStudent } = useStudentStore()
-  const { addToast } = useUIStore()
-  const [selected, setSelected] = useState<DBStudent | null>(null)
-  const [search, setSearch] = useState('')
-  const [gradeFilter, setGradeFilter] = useState('All')
+  const { students, loading, error, fetchStudents } = useStudentStore()
+  const navigate = useNavigate()
 
   // ✅ FIX: Fetch real students from API on mount
   useEffect(() => {
@@ -322,53 +325,17 @@ export function Students() {
     fetchStudents()
   }, [fetchStudents])
 
-  const grades = ['All', ...Array.from(new Set(students.map((s) => s.grade).filter(Boolean)))]
-
-  const filtered = students.filter((s) => {
-    const matchSearch =
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.email.toLowerCase().includes(search.toLowerCase())
-    const matchGrade = gradeFilter === 'All' || s.grade === gradeFilter
-    return matchSearch && matchGrade
-  })
-
-  const groupedStudents = useMemo(() => {
-    const groups = new Map<string, DBStudent[]>()
-
-    filtered.forEach((student) => {
-      const key = student.grade?.trim() ? `Class ${student.grade}` : 'Unassigned Class'
-      const current = groups.get(key) ?? []
-      current.push(student)
-      groups.set(key, current)
-    })
-
-    return Array.from(groups.entries())
-      .sort(([a], [b]) => {
-        if (a === 'Unassigned Class') return 1
-        if (b === 'Unassigned Class') return -1
-        const gradeA = Number(a.replace('Class ', ''))
-        const gradeB = Number(b.replace('Class ', ''))
-        if (Number.isNaN(gradeA) || Number.isNaN(gradeB)) return a.localeCompare(b)
-        return gradeA - gradeB
-      })
-      .map(([grade, items]) => ({
+  const classSummaries = useMemo(
+    () =>
+      classOptions.map((grade) => ({
         grade,
-        students: items.sort((left, right) => left.name.localeCompare(right.name)),
-      }))
-  }, [filtered])
-
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!confirm('Delete this student and all their scores?')) return
-    try {
-      await studentAPI.delete(id)
-      removeStudent(id)
-      addToast('Student deleted successfully', 'info')
-      if (selected?._id === id) setSelected(null)
-    } catch {
-      addToast('Failed to delete student', 'error')
-    }
-  }
+        label: formatClassLabel(grade),
+        students: students
+          .filter((student) => normalizeGrade(student.grade) === grade)
+          .sort((left, right) => left.name.localeCompare(right.name)),
+      })),
+    [students]
+  )
 
   if (loading) {
     return (
@@ -400,20 +367,9 @@ export function Students() {
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex gap-2 flex-wrap">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search students..."
-              className="pl-8 pr-3 py-2 rounded-xl border border-gray-200 bg-white/60 backdrop-blur text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 w-44" />
-          </div>
-          <select value={gradeFilter} onChange={(e) => setGradeFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-gray-200 bg-white/60 backdrop-blur text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
-            {grades.map((g) => <option key={g}>{g}</option>)}
-          </select>
-        </div>
+        <div />
         <div className="flex items-center gap-3">
-          <p className="text-sm text-gray-500">{filtered.length} students</p>
+          <p className="text-sm text-gray-500">{students.length} students</p>
           <button onClick={fetchStudents}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 bg-white/60 text-sm text-gray-600 hover:bg-white/80 transition-colors">
             <RefreshCw size={13} /> Refresh
@@ -422,88 +378,28 @@ export function Students() {
       </div>
 
       {/* Empty state */}
-      {filtered.length === 0 && (
+      {students.length === 0 && (
         <GlassCard className="p-12 text-center">
           <UserX size={36} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-sm font-medium text-gray-600">
-            {students.length === 0 ? 'No students registered yet' : 'No students match your search'}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            {students.length === 0 ? 'Students will appear here once they sign up' : 'Try a different search or filter'}
-          </p>
+          <p className="text-sm font-medium text-gray-600">No students registered yet</p>
+          <p className="text-xs text-gray-400 mt-1">Students will appear here once they sign up</p>
         </GlassCard>
       )}
 
-      {filtered.length > 0 && (
-        <div className="flex flex-wrap gap-3">
-          {groupedStudents.map((group) => (
-            <div key={group.grade} className="px-4 py-3 rounded-2xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 min-w-[180px]">
-              <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{group.grade}</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">{group.students.length}</p>
-              <p className="text-xs text-gray-500 mt-1">{group.students.length === 1 ? 'student' : 'students'}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Student cards */}
-      <div className="space-y-6">
-        {groupedStudents.map((group, groupIndex) => (
-          <section key={group.grade} className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{group.grade}</h3>
-                <p className="text-sm text-gray-500">{group.students.length} {group.students.length === 1 ? 'student' : 'students'} in this class</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {group.students.map((student, studentIndex) => {
-                const colorIndex = (groupIndex + studentIndex) % avatarColors.length
-                return (
-                  <motion.div key={student._id}
-                    initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: studentIndex * 0.04 }}>
-                    <GlassCard hover className="p-5 cursor-pointer" onClick={() => setSelected(student)}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarColors[colorIndex]} flex items-center justify-center text-white font-semibold text-sm shadow-sm shrink-0`}>
-                          {student.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900 text-sm truncate">{student.name}</p>
-                          <p className="text-xs text-gray-500 truncate">{student.email}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            {student.grade
-                              ? <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">Class {student.grade}</span>
-                              : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">No class</span>
-                            }
-                            <span className="text-xs text-gray-400">
-                              Joined {new Date(student.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            onClick={(e) => handleDelete(student._id, e)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
-                            title="Delete student"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                      <p className="text-xs text-indigo-500 mt-3 font-medium">Click to view scores & details →</p>
-                    </GlassCard>
-                  </motion.div>
-                )
-              })}
-            </div>
-          </section>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+        {classSummaries.map((group) => (
+          <button
+            key={group.grade}
+            type="button"
+            onClick={() => navigate(`/students/class?grade=${group.grade}`)}
+            className="rounded-3xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 px-4 py-4 text-left transition-all hover:border-indigo-200 hover:shadow-md"
+          >
+            <p className="text-xs uppercase tracking-[0.24em] text-gray-500">{formatClassLabel(group.grade)}</p>
+            <p className="mt-3 text-4xl font-bold text-gray-900">{group.students.length}</p>
+            <p className="mt-2 text-sm text-gray-500">{group.students.length === 1 ? 'student' : 'students'}</p>
+          </button>
         ))}
       </div>
-
-      <AnimatePresence>
-        {selected && <StudentDrawer student={selected} onClose={() => setSelected(null)} />}
-      </AnimatePresence>
     </div>
   )
 }

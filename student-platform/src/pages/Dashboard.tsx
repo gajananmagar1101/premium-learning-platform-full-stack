@@ -21,6 +21,21 @@ interface Analytics {
 const formatMonth = (value: string) =>
   new Date(value).toLocaleString([], { month: 'short', year: '2-digit' })
 
+const normalizeGrade = (value?: string) =>
+  (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/class/g, '')
+    .replace(/grade/g, '')
+    .replace(/\s+/g, '')
+    .replace(/(st|nd|rd|th)$/g, '')
+
+const formatGradeLabel = (value?: string) => {
+  const normalized = normalizeGrade(value)
+  if (!normalized) return 'Student'
+  return `${normalized}${normalized === '1' ? 'st' : normalized === '2' ? 'nd' : normalized === '3' ? 'rd' : 'th'} Standard`
+}
+
 export function Dashboard() {
   const { assessments, fetchAssessments } = useAssessmentStore()
   const { submissions, fetchAdminSubmissions, fetchAdminAssignments, adminAssignments } = useAssignmentStore()
@@ -234,7 +249,7 @@ export function Dashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{student.name}</p>
-                    <p className="text-xs text-gray-500">{student.grade ? `Class ${student.grade}` : 'Student'}</p>
+                    <p className="text-xs text-gray-500">{formatGradeLabel(student.grade)}</p>
                   </div>
                   <p className="text-sm font-semibold text-indigo-600">{student.avg}%</p>
                 </div>

@@ -45,7 +45,7 @@ export const useAuthStore = create<AuthState>()(
           return true
         } catch (err: unknown) {
           const msg = axios.isAxiosError(err)
-            ? err.response?.data?.message ?? (err.request ? 'Cannot reach the server. Make sure the backend is running on port 5002.' : err.message)
+            ? err.response?.data?.message ?? (err.request ? 'Cannot reach the server. Make sure the backend deployment is running and reachable.' : err.message)
             : 'Login failed'
           set({ loginError: msg, loading: false })
           return false
@@ -63,7 +63,7 @@ export const useAuthStore = create<AuthState>()(
           return true
         } catch (err: unknown) {
           const msg = axios.isAxiosError(err)
-            ? err.response?.data?.message ?? (err.request ? 'Cannot reach the server. Make sure the backend is running on port 5002.' : err.message)
+            ? err.response?.data?.message ?? (err.request ? 'Cannot reach the server. Make sure the backend deployment is running and reachable.' : err.message)
             : 'Registration failed'
           set({ loginError: msg, loading: false })
           return false

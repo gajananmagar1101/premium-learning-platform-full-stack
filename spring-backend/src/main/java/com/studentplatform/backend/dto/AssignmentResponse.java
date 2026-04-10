@@ -12,6 +12,8 @@ public record AssignmentResponse(
         String description,
         Integer totalMarks,
         String deadline,
+        String questionFileName,
+        String questionFileContent,
         String createdAt
 ) {
     public static AssignmentResponse from(AssignmentEntity assignment) {
@@ -25,6 +27,8 @@ public record AssignmentResponse(
                 assignment.getDescription(),
                 assignment.getTotalMarks(),
                 assignment.getDeadline().toString(),
+                assignment.getQuestionFileName(),
+                assignment.getQuestionFileContent(),
                 assignment.getCreatedAt().toString()
         );
     }

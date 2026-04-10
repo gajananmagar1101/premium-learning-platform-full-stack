@@ -17,6 +17,8 @@ public record AssignmentRequest(
         @NotBlank String className,
         @NotBlank String description,
         @NotNull @Min(1) Integer totalMarks,
-        @NotNull @Future LocalDateTime deadline
+        @NotNull @Future LocalDateTime deadline,
+        String questionFileName,
+        String questionFileContent
 ) {
 }

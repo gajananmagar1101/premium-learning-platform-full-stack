@@ -98,6 +98,8 @@ public class AssignmentManagementService {
         assignment.setDescription(request.description().trim());
         assignment.setTotalMarks(request.totalMarks());
         assignment.setDeadline(request.deadline());
+        assignment.setQuestionFileName(request.questionFileName());
+        assignment.setQuestionFileContent(request.questionFileContent());
     }
 
     private String normalizeClassName(String value) {
