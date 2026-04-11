@@ -163,15 +163,15 @@ export function Reports() {
   }))
 
   const summaryStats = [
-    { label: 'Class Average', value: `${avgScore}%`, icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { label: 'Cohort Average', value: `${avgScore}%`, icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
     { label: 'Top Performer', value: leaderboard[0] ? `${leaderboard[0].avg}%` : '0%', icon: Award, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Students', value: `${students.length}`, icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'Learners', value: `${students.length}`, icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
     { label: 'Assignments', value: `${assignmentCount}`, icon: BarChart2, color: 'text-purple-600', bg: 'bg-purple-50' },
   ]
 
   const exportReport = () => {
     const lines = [
-      ['Student', 'Assignment', 'Subject', 'Marks', 'Total Marks', 'Status', 'Updated At'],
+      ['Learner', 'Assignment', 'Subject', 'Marks', 'Total Marks', 'Status', 'Updated At'],
       ...submissions.map((submission) => [
         submission.studentName,
         submission.assignmentTitle,
@@ -261,9 +261,9 @@ export function Reports() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <GlassCard className="p-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Student Comparison</h2>
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Learner Comparison</h2>
           {!studentComparisonData.length ? (
-            <p className="text-sm text-gray-400 text-center py-16">No student comparison available yet.</p>
+            <p className="text-sm text-gray-400 text-center py-16">No learner comparison available yet.</p>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={studentComparisonData} barSize={28}>
@@ -306,7 +306,7 @@ export function Reports() {
               <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} />
               <Tooltip />
-              <Bar dataKey="classAvg" fill="#4F46E5" radius={[4, 4, 0, 0]} name="Class Avg" />
+              <Bar dataKey="classAvg" fill="#4F46E5" radius={[4, 4, 0, 0]} name="Cohort Avg" />
               <Bar dataKey="topScore" fill="#10B981" radius={[4, 4, 0, 0]} name="Top Score" />
             </BarChart>
           </ResponsiveContainer>

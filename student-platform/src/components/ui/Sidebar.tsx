@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 const adminLinks = [
   { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/assessments', icon: ClipboardList,   label: 'Assignments' },
-  { to: '/students',    icon: Users,           label: 'Students' },
+  { to: '/students',    icon: Users,           label: 'B.Tech Cohorts' },
   { to: '/reports',     icon: BarChart3,       label: 'Reports' },
   { to: '/profile',     icon: User,            label: 'Profile' },
 ]
@@ -25,6 +25,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const links = user?.role === 'admin' ? adminLinks : studentLinks
+  const roleLabel = user?.role === 'admin' ? 'Program Admin' : 'B.Tech Learner'
 
   const handleLogout = () => { logout(); navigate('/login') }
 
@@ -36,8 +37,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <GraduationCap size={18} className="text-white" />
         </div>
         <div>
-          <p className="text-sm font-bold text-light-ink-primary dark:text-dark-ink-primary">EduTrack</p>
-          <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Learning Platform</p>
+          <p className="text-sm font-bold text-light-ink-primary dark:text-dark-ink-primary">B.Tech Hub</p>
+          <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Academic Command Center</p>
         </div>
         <button onClick={onClose} className="ml-auto lg:hidden p-1.5 rounded-lg hover:bg-light-hover dark:hover:bg-dark-hover text-light-ink-muted dark:text-dark-ink-muted">
           <X size={15} />
@@ -70,7 +71,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary truncate">{user?.name}</p>
-            <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted capitalize">{user?.role}</p>
+            <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">{roleLabel}</p>
           </div>
         </div>
         <button onClick={handleLogout}

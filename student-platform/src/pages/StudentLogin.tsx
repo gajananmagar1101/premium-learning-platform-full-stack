@@ -40,13 +40,13 @@ export function StudentLogin() {
           <div className="inline-flex items-center justify-center w-14 h-14 bg-emerald-600 rounded-2xl mb-3 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
             <GraduationCap size={26} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-light-ink-primary dark:text-dark-ink-primary">Student Sign In</h1>
-          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted mt-1">Access your learning dashboard</p>
+          <h1 className="text-2xl font-bold text-light-ink-primary dark:text-dark-ink-primary">Learner Portal</h1>
+          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted mt-1">Access your B.Tech assignments, subjects, and performance overview</p>
         </div>
 
         <div className="flex justify-center mb-5">
           <span className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
-            <User size={13} /> Student
+            <User size={13} /> B.Tech Learner
           </span>
         </div>
 
@@ -96,14 +96,14 @@ export function StudentLogin() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg> Signing in...</>
-                : 'Sign In as Student'}
+                : 'Enter Learner Portal'}
             </motion.button>
           </form>
 
           <div className="flex items-center justify-between mt-4">
             <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">
-              Teacher?{' '}
-              <Link to="/login/admin" onClick={clearError} className="text-indigo-400 hover:text-indigo-300 font-medium">Admin login →</Link>
+              Faculty?{' '}
+              <Link to="/login/admin" onClick={clearError} className="text-indigo-400 hover:text-indigo-300 font-medium">Faculty login →</Link>
             </p>
             <Link to="/register" className="text-xs text-emerald-400 hover:text-emerald-300 font-medium">Create account</Link>
           </div>

@@ -9,21 +9,11 @@ import { useStudentStore } from '@/store/useStudentStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useUIStore } from '@/store/useUIStore'
 import { studentAPI, scoreAPI } from '@/lib/services'
+import { btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
 import type { DBStudent, StudentPerformance, StudentScore, Assessment } from '@/types'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts'
 
-const classOptions = Array.from({ length: 12 }, (_, index) => String(index + 1))
-
-const normalizeGrade = (value?: string) =>
-  (value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/class/g, '')
-    .replace(/grade/g, '')
-    .replace(/\s+/g, '')
-    .replace(/(st|nd|rd|th)$/g, '')
-
-const formatClassLabel = (value: string) => `${value}${value === '1' ? 'st' : value === '2' ? 'nd' : value === '3' ? 'rd' : 'th'} Standard`
+const cohortOptions = btechYearOptions.map((option) => option.value)
 
 interface ScoreWithAssessment extends StudentScore {
   assessment: Assessment
@@ -71,7 +61,7 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
       setScores([])
       console.error('[StudentDrawer] Failed to fetch scores:', scoreErr)
       if (!performanceLoaded) {
-        addToast('Failed to fetch student grades', 'error')
+        addToast('Failed to fetch learner grades', 'error')
       }
       return []
     } finally {
@@ -159,14 +149,14 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
   const radarData = subjects.map((s) => ({ subject: s.subject.slice(0, 4), score: s.progress }))
 
   const handleDeleteScore = async (scoreId: string) => {
-    if (!confirm('Delete this student grade?')) return
+    if (!confirm('Delete this learner grade?')) return
     try {
       await scoreAPI.delete(scoreId)
       await loadScores()
       addToast('Grade deleted successfully', 'info')
     } catch (err) {
       console.error('[StudentDrawer] Failed to delete score:', err)
-      addToast('Failed to delete student grade', 'error')
+      addToast('Failed to delete learner grade', 'error')
     }
   }
 
@@ -181,7 +171,7 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
       >
         <div className="p-6 space-y-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-gray-900">Student Profile</h2>
+            <h2 className="text-base font-semibold text-gray-900">Learner Profile</h2>
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
               <X size={16} className="text-gray-500" />
             </button>
@@ -196,7 +186,7 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
               <p className="font-semibold text-gray-900">{student.name}</p>
               <p className="text-xs text-gray-500 flex items-center gap-1"><Mail size={11} /> {student.email}</p>
               <p className="text-xs text-indigo-600 font-medium mt-1">
-                {student.grade ? `Class ${student.grade}` : 'Class not set'}
+                {student.grade ? formatAcademicYearLabel(student.grade) : 'Academic year not set'}
               </p>
             </div>
           </div>
@@ -327,11 +317,11 @@ export function Students() {
 
   const classSummaries = useMemo(
     () =>
-      classOptions.map((grade) => ({
+      cohortOptions.map((grade) => ({
         grade,
-        label: formatClassLabel(grade),
+        label: formatAcademicYearLabel(grade),
         students: students
-          .filter((student) => normalizeGrade(student.grade) === grade)
+          .filter((student) => normalizeAcademicYear(student.grade) === grade)
           .sort((left, right) => left.name.localeCompare(right.name)),
       })),
     [students]
@@ -353,7 +343,7 @@ export function Students() {
     return (
       <GlassCard className="p-8 text-center">
         <UserX size={32} className="mx-auto text-red-400 mb-3" />
-        <p className="text-sm font-medium text-red-600 mb-1">Failed to load students</p>
+        <p className="text-sm font-medium text-red-600 mb-1">Failed to load learners</p>
         <p className="text-xs text-gray-500 mb-4">{error}</p>
         <button onClick={fetchStudents}
           className="px-4 py-2 bg-indigo-500 text-white text-sm rounded-xl hover:bg-indigo-600 transition-colors">
@@ -369,7 +359,7 @@ export function Students() {
       <div className="flex flex-wrap gap-3 items-center justify-between">
         <div />
         <div className="flex items-center gap-3">
-          <p className="text-sm text-gray-500">{students.length} students</p>
+          <p className="text-sm text-gray-500">{students.length} learners</p>
           <button onClick={fetchStudents}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 bg-white/60 text-sm text-gray-600 hover:bg-white/80 transition-colors">
             <RefreshCw size={13} /> Refresh
@@ -381,8 +371,8 @@ export function Students() {
       {students.length === 0 && (
         <GlassCard className="p-12 text-center">
           <UserX size={36} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-sm font-medium text-gray-600">No students registered yet</p>
-          <p className="text-xs text-gray-400 mt-1">Students will appear here once they sign up</p>
+          <p className="text-sm font-medium text-gray-600">No learners registered yet</p>
+          <p className="text-xs text-gray-400 mt-1">B.Tech learners will appear here once they sign up</p>
         </GlassCard>
       )}
 
@@ -394,9 +384,9 @@ export function Students() {
             onClick={() => navigate(`/students/class?grade=${group.grade}`)}
             className="rounded-3xl border border-indigo-100 bg-gradient-to-br from-white to-indigo-50/70 px-4 py-4 text-left transition-all hover:border-indigo-200 hover:shadow-md"
           >
-            <p className="text-xs uppercase tracking-[0.24em] text-gray-500">{formatClassLabel(group.grade)}</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-gray-500">{formatAcademicYearLabel(group.grade)}</p>
             <p className="mt-3 text-4xl font-bold text-gray-900">{group.students.length}</p>
-            <p className="mt-2 text-sm text-gray-500">{group.students.length === 1 ? 'student' : 'students'}</p>
+            <p className="mt-2 text-sm text-gray-500">{group.students.length === 1 ? 'learner' : 'learners'}</p>
           </button>
         ))}
       </div>

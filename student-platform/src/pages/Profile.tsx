@@ -5,6 +5,7 @@ import { useStudentStore } from '@/store/useStudentStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useUIStore } from '@/store/useUIStore'
 import { studentAPI } from '@/lib/services'
+import { formatAcademicYearLabel } from '@/lib/btech'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { StudentPerformance } from '@/types'
 import { Mail, Shield, User, Edit2, Check, Moon, Sun, Bell, X, GraduationCap } from 'lucide-react'
@@ -168,12 +169,12 @@ export function Profile() {
             </div>
             <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">{user?.email}</p>
             <span className="mt-2 inline-block rounded-full bg-indigo-500/12 px-3 py-1 text-xs font-semibold capitalize text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-              {user?.role === 'admin' ? '👨‍🏫 Administrator' : '🎓 Student'}
+              {user?.role === 'admin' ? '👨‍🏫 Program Admin' : '🎓 B.Tech Learner'}
             </span>
           </div>
         </div>
 
-        {/* Student stats */}
+        {/* Learner stats */}
         {student && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5 pt-5 border-t border-gray-100">
             {[
@@ -312,16 +313,16 @@ export function Profile() {
                 <GraduationCap size={16} className="text-indigo-600" />
               </div>
               <div className="flex-1">
-                <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Class</p>
+                <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Academic Year</p>
                 {editing ? (
                   <input
                     value={className}
                     onChange={(e) => setClassName(e.target.value)}
                     className="mt-1 w-full rounded-lg border border-indigo-200 bg-white/85 px-3 py-2 text-sm font-medium text-light-ink-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-dark-border dark:bg-dark-base dark:text-dark-ink-primary"
-                    placeholder="Enter class"
+                    placeholder="Enter B.Tech year"
                   />
                 ) : (
-                  <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">{user?.grade ? `Class ${user.grade}` : 'Class not set'}</p>
+                  <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">{user?.grade ? formatAcademicYearLabel(user.grade) : 'Academic year not set'}</p>
                 )}
               </div>
             </div>
@@ -333,7 +334,7 @@ export function Profile() {
             </div>
             <div>
               <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Role</p>
-              <p className="text-sm font-medium capitalize text-light-ink-primary dark:text-dark-ink-primary">{user?.role === 'admin' ? 'Administrator / Teacher' : 'Student'}</p>
+              <p className="text-sm font-medium capitalize text-light-ink-primary dark:text-dark-ink-primary">{user?.role === 'admin' ? 'Administrator / Faculty' : 'B.Tech Learner'}</p>
             </div>
           </div>
         </div>

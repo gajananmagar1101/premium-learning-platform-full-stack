@@ -9,10 +9,10 @@ import { useAssessmentStore } from '@/store/useAssessmentStore'
 const pageTitles: Record<string, string> = {
   '/dashboard':        'Dashboard',
   '/assessments':      'Assignments',
-  '/students':         'Students',
+  '/students':         'B.Tech Cohorts',
   '/reports':          'Reports',
   '/profile':          'Profile',
-  '/student-dashboard':'My Dashboard',
+  '/student-dashboard':'Learner Dashboard',
 }
 
 export function DashboardLayout() {

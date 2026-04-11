@@ -42,8 +42,8 @@ export function AdminLogin() {
           <div className="inline-flex items-center justify-center w-14 h-14 bg-accent rounded-2xl mb-3 shadow-glow">
             <GraduationCap size={26} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-light-ink-primary dark:text-dark-ink-primary">Admin Sign In</h1>
-          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted mt-1">Access your admin dashboard</p>
+          <h1 className="text-2xl font-bold text-light-ink-primary dark:text-dark-ink-primary">Faculty Portal</h1>
+          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted mt-1">Manage B.Tech cohorts, assignments, and progress analytics</p>
         </div>
 
         <div className="flex justify-center mb-5">
@@ -104,14 +104,14 @@ export function AdminLogin() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg> Signing in...</>
-                : 'Sign In as Admin'}
+                : 'Enter Faculty Portal'}
             </motion.button>
           </form>
 
           <div className="flex items-center justify-center mt-4">
             <p className="text-xs text-ink-muted">
-              Student?{' '}
-              <Link to="/login/student" onClick={clearError} className="text-emerald-400 hover:text-emerald-300 font-medium">Login →</Link>
+              Learner?{' '}
+              <Link to="/login/student" onClick={clearError} className="text-emerald-400 hover:text-emerald-300 font-medium">Open learner portal →</Link>
             </p>
           </div>
         </div>

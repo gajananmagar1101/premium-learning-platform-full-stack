@@ -8,6 +8,7 @@ import { useAssessmentStore } from '@/store/useAssessmentStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useStudentStore } from '@/store/useStudentStore'
 import { scoreAPI } from '@/lib/services'
+import { formatAcademicYearLabel } from '@/lib/btech'
 import type { StudentScore } from '@/types'
 
 interface Analytics {
@@ -20,21 +21,6 @@ interface Analytics {
 
 const formatMonth = (value: string) =>
   new Date(value).toLocaleString([], { month: 'short', year: '2-digit' })
-
-const normalizeGrade = (value?: string) =>
-  (value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/class/g, '')
-    .replace(/grade/g, '')
-    .replace(/\s+/g, '')
-    .replace(/(st|nd|rd|th)$/g, '')
-
-const formatGradeLabel = (value?: string) => {
-  const normalized = normalizeGrade(value)
-  if (!normalized) return 'Student'
-  return `${normalized}${normalized === '1' ? 'st' : normalized === '2' ? 'nd' : normalized === '3' ? 'rd' : 'th'} Standard`
-}
 
 export function Dashboard() {
   const { assessments, fetchAssessments } = useAssessmentStore()
@@ -179,7 +165,7 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard title="Total Students" value={displayAnalytics?.totalStudents ?? students.length} change="registered learners" positive icon={Users} iconColor="text-indigo-600" iconBg="bg-indigo-500/20" />
+        <StatCard title="Total Learners" value={displayAnalytics?.totalStudents ?? students.length} change="registered learners" positive icon={Users} iconColor="text-indigo-600" iconBg="bg-indigo-500/20" />
         <StatCard title="Average Score" value={loading ? '...' : `${displayAnalytics?.avgScore ?? 0}%`} change="based on graded work" positive icon={TrendingUp} iconColor="text-emerald-600" iconBg="bg-emerald-500/20" />
         <StatCard title="Completion Rate" value={`${completionRate}%`} change="completed assessments" positive icon={CheckCircle} iconColor="text-amber-600" iconBg="bg-amber-500/20" />
         <StatCard title="Assignments" value={displayAnalytics?.totalAssessments ?? adminAssignments.length ?? assessments.length} change="currently stored" positive icon={BookOpen} iconColor="text-purple-600" iconBg="bg-purple-500/20" />
@@ -205,7 +191,7 @@ export function Dashboard() {
                 <Tooltip />
                 <Legend />
                 <Area type="monotone" dataKey="score" stroke="#4F46E5" fill="url(#dashboardGrad)" name="Monthly Average" />
-                <Area type="monotone" dataKey="average" stroke="#10B981" fill="none" name="Class Average" />
+                <Area type="monotone" dataKey="average" stroke="#10B981" fill="none" name="Cohort Average" />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -223,7 +209,7 @@ export function Dashboard() {
                 <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="classAvg" fill="#4F46E5" radius={[4, 4, 0, 0]} name="Class Avg" />
+                <Bar dataKey="classAvg" fill="#4F46E5" radius={[4, 4, 0, 0]} name="Cohort Avg" />
                 <Bar dataKey="topScore" fill="#10B981" radius={[4, 4, 0, 0]} name="Top Score" />
               </BarChart>
             </ResponsiveContainer>
@@ -238,7 +224,7 @@ export function Dashboard() {
             <h2 className="text-base font-semibold text-gray-900">Leaderboard</h2>
           </div>
           {!displayAnalytics?.leaderboard?.length ? (
-            <p className="text-sm text-gray-400 text-center py-16">Leaderboard appears after students receive scores.</p>
+            <p className="text-sm text-gray-400 text-center py-16">Leaderboard appears after learners receive scores.</p>
           ) : (
             <div className="space-y-2">
               {displayAnalytics.leaderboard.map((student, index) => (
@@ -249,7 +235,7 @@ export function Dashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{student.name}</p>
-                    <p className="text-xs text-gray-500">{formatGradeLabel(student.grade)}</p>
+                    <p className="text-xs text-gray-500">{formatAcademicYearLabel(student.grade)}</p>
                   </div>
                   <p className="text-sm font-semibold text-indigo-600">{student.avg}%</p>
                 </div>

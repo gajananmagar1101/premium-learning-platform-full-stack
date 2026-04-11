@@ -3,9 +3,9 @@ import { GraduationCap, ShieldCheck, User, BarChart3, BookOpen, Users } from 'lu
 import { motion } from 'framer-motion'
 
 const features = [
-  { icon: BarChart3, label: 'Analytics' },
-  { icon: BookOpen, label: 'Assessments' },
-  { icon: Users, label: 'Students' },
+  { icon: BarChart3, label: 'Placement Analytics' },
+  { icon: BookOpen, label: 'Lab & Theory Work' },
+  { icon: Users, label: 'B.Tech Cohorts' },
 ]
 
 export function Login() {
@@ -28,8 +28,8 @@ export function Login() {
             className="inline-flex items-center justify-center w-16 h-16 bg-accent rounded-2xl mb-4 shadow-glow">
             <GraduationCap size={30} className="text-white" />
           </motion.div>
-          <h1 className="text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">EduTrack</h1>
-          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted mt-1">Student Learning Outcomes Platform</p>
+          <h1 className="text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">B.Tech Hub</h1>
+          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted mt-1">Engineering academic workspace for departments, learners, and outcomes</p>
           <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
             {features.map(({ icon: Icon, label }) => (
               <span key={label} className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-light-card2 dark:bg-dark-card2 border border-light-border dark:border-dark-border text-xs text-light-ink-secondary dark:text-dark-ink-secondary font-medium">
@@ -41,8 +41,8 @@ export function Login() {
 
         {/* Card */}
         <div className="card p-6">
-          <p className="text-sm font-semibold text-light-ink-secondary dark:text-dark-ink-secondary mb-2 text-center">Sign in to your account</p>
-          <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted text-center mb-6">Choose your role to continue</p>
+          <p className="text-sm font-semibold text-light-ink-secondary dark:text-dark-ink-secondary mb-2 text-center">Enter the B.Tech portal</p>
+          <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted text-center mb-6">Choose the workspace you want to continue with</p>
 
           <div className="space-y-3">
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -52,8 +52,8 @@ export function Login() {
                 <ShieldCheck size={22} className="text-indigo-400" />
               </div>
               <div className="text-left flex-1">
-                <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Admin / Teacher</p>
-                <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Manage assessments & analytics</p>
+                <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Faculty / Program Admin</p>
+                <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Manage cohorts, assignments, and performance insights</p>
               </div>
               <span className="text-indigo-400 font-bold">→</span>
             </motion.button>
@@ -65,8 +65,8 @@ export function Login() {
                 <User size={22} className="text-emerald-400" />
               </div>
               <div className="text-left flex-1">
-                <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Student</p>
-                <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">View progress & outcomes</p>
+                <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">B.Tech Learner</p>
+                <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Track progress, submissions, and semester performance</p>
               </div>
               <span className="text-emerald-400 font-bold">→</span>
             </motion.button>

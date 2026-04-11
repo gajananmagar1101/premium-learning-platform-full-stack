@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Badge } from '@/components/ui/Badge'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Modal } from '@/components/ui/Modal'
+import { formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useUIStore } from '@/store/useUIStore'
 import type { AssignmentItem } from '@/types'
@@ -19,20 +20,9 @@ type AssignmentFormData = {
   deadline: string
 }
 
-const normalizeClassName = (value?: string) =>
-  (value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/class/g, '')
-    .replace(/grade/g, '')
-    .replace(/\s+/g, '')
-    .replace(/(st|nd|rd|th)$/g, '')
-
 const formatClassLabel = (value?: string) => {
-  const cleaned = (value ?? '').trim()
-  if (!cleaned) return 'Unassigned'
-  if (/^class\s+/i.test(cleaned)) return cleaned
-  return `Class ${cleaned}`
+  const normalized = normalizeAcademicYear(value)
+  return normalized ? formatAcademicYearLabel(normalized) : 'Unassigned'
 }
 
 const formatDateTime = (value: string) =>
@@ -84,7 +74,7 @@ export function SubjectAssignmentsPage() {
       adminAssignments
         .filter(
           (assignment) =>
-            normalizeClassName(assignment.className) === normalizeClassName(decodedClassName) &&
+            normalizeAcademicYear(assignment.className) === normalizeAcademicYear(decodedClassName) &&
             assignment.subject.trim().toLowerCase() === decodedSubject.trim().toLowerCase()
         )
         .sort((first, second) => new Date(first.deadline).getTime() - new Date(second.deadline).getTime()),
@@ -219,8 +209,8 @@ export function SubjectAssignmentsPage() {
               {errors.subject && <p className="mt-1 text-xs text-red-400">{errors.subject.message}</p>}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-light-ink-secondary dark:text-dark-ink-secondary">Class</label>
-              <input {...register('className', { required: 'Class is required' })} className="form-input" />
+              <label className="mb-1 block text-sm font-medium text-light-ink-secondary dark:text-dark-ink-secondary">Academic Year</label>
+              <input {...register('className', { required: 'Academic year is required' })} className="form-input" />
               {errors.className && <p className="mt-1 text-xs text-red-400">{errors.className.message}</p>}
             </div>
           </div>

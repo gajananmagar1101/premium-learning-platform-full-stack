@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { useUIStore } from '@/store/useUIStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useStudentStore } from '@/store/useStudentStore'
+import { academicYearSortValue, btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
 import type { AdminSubmission, AssignmentItem, StudentAssignmentItem } from '@/types'
 
 type AssignmentFormData = {
@@ -26,11 +27,7 @@ type SubmissionFormData = {
   content: string
 }
 
-const classOptions = Array.from({ length: 12 }, (_, index) => {
-  const value = String(index + 1)
-  const suffix = value === '1' ? 'st' : value === '2' ? 'nd' : value === '3' ? 'rd' : 'th'
-  return { value, label: `${value}${suffix} Standard` }
-})
+const classOptions = btechYearOptions
 
 const formatDateTime = (value: string) =>
   new Date(value).toLocaleString([], {
@@ -41,25 +38,14 @@ const formatDateTime = (value: string) =>
     minute: '2-digit',
   })
 
-const normalizeClassName = (value?: string) =>
-  (value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/class/g, '')
-    .replace(/grade/g, '')
-    .replace(/\s+/g, '')
-    .replace(/(st|nd|rd|th)$/g, '')
-
 const formatClassLabel = (value?: string) => {
-  const normalized = normalizeClassName(value)
-  if (!normalized) return 'Unassigned'
-  return `${normalized}${normalized === '1' ? 'st' : normalized === '2' ? 'nd' : normalized === '3' ? 'rd' : 'th'} Standard`
+  const normalized = normalizeAcademicYear(value)
+  return normalized ? formatAcademicYearLabel(normalized) : 'Unassigned'
 }
 
 const classSortValue = (value?: string) => {
-  const normalized = normalizeClassName(value)
-  const numeric = Number(normalized)
-  return Number.isNaN(numeric) ? Number.MAX_SAFE_INTEGER : numeric
+  const index = academicYearSortValue(value)
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index
 }
 
 const statusVariant = (status: string) => {
@@ -235,22 +221,22 @@ function AdminAssignmentsView() {
         await updateAssignment(editing.id, payload)
         addToast('Assignment updated', 'success')
         const targetStudentIds = students
-          .filter((student) => normalizeClassName(student.grade) === normalizeClassName(payload.className))
+          .filter((student) => normalizeAcademicYear(student.grade) === normalizeAcademicYear(payload.className))
           .map((student) => student.id ?? student._id)
         addNotificationForUsers(targetStudentIds, {
           title: 'Assignment updated',
-          message: `${payload.title} was updated for your class.`,
+          message: `${payload.title} was updated for your cohort.`,
           type: 'info',
         })
       } else {
         await createAssignment(payload)
         addToast('Assignment created', 'success')
         const targetStudentIds = students
-          .filter((student) => normalizeClassName(student.grade) === normalizeClassName(payload.className))
+          .filter((student) => normalizeAcademicYear(student.grade) === normalizeAcademicYear(payload.className))
           .map((student) => student.id ?? student._id)
         addNotificationForUsers(targetStudentIds, {
           title: 'New assignment',
-          message: `${payload.title} has been posted for class ${payload.className}.`,
+          message: `${payload.title} has been posted for ${formatAcademicYearLabel(payload.className)}.`,
           type: 'info',
         })
       }
@@ -375,7 +361,7 @@ function AdminAssignmentsView() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by title, subject, class, student..."
+                placeholder="Search by title, subject, cohort, learner..."
                 className="form-input pl-9"
               />
             </div>
@@ -485,7 +471,7 @@ function AdminAssignmentsView() {
       <GlassCard className="overflow-hidden">
         <div className="flex flex-col gap-4 border-b border-light-border px-5 py-4 dark:border-dark-border lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Student Submissions</h3>
+            <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Learner Submissions</h3>
             <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
               Recent work appears first, and ungraded items stay ahead of completed reviews.
             </p>
@@ -499,14 +485,14 @@ function AdminAssignmentsView() {
           <table className="data-table">
             <thead>
               <tr>
-                {['Student', 'Assignment', 'Submitted Work', 'Status', 'Marks', 'Save'].map((heading) => <th key={heading}>{heading}</th>)}
+                {['Learner', 'Assignment', 'Submitted Work', 'Status', 'Marks', 'Save'].map((heading) => <th key={heading}>{heading}</th>)}
               </tr>
             </thead>
             <tbody>
               {filteredSubmissions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-16 text-center text-light-ink-muted dark:text-dark-ink-muted">
-                    No student submissions found.
+                    No learner submissions found.
                   </td>
                 </tr>
               ) : filteredSubmissions.map((submission) => (
@@ -587,16 +573,16 @@ function AdminAssignmentsView() {
             {errors.subject && <p className="text-xs text-red-400 mt-1">Subject is required.</p>}
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Class</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Academic Year</label>
             <select {...register('className', { required: true })} className="form-input">
-              <option value="">Select standard</option>
+              <option value="">Select B.Tech year</option>
               {classOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
             </select>
-            {errors.className && <p className="text-xs text-red-400 mt-1">Class is required.</p>}
+            {errors.className && <p className="text-xs text-red-400 mt-1">Academic year is required.</p>}
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Description</label>
@@ -684,9 +670,9 @@ function StudentAssignmentsView() {
 
   const filteredAssignments = useMemo(() => {
     const query = search.toLowerCase().trim()
-    const studentClass = normalizeClassName(user?.grade)
+    const studentClass = normalizeAcademicYear(user?.grade)
     const classMatchedAssignments = studentAssignments.filter((assignment) => {
-      const assignmentClass = normalizeClassName(assignment.className)
+      const assignmentClass = normalizeAcademicYear(assignment.className)
       return Boolean(assignmentClass) && Boolean(studentClass) && assignmentClass === studentClass
     })
 
@@ -761,7 +747,7 @@ function StudentAssignmentsView() {
         addToast('Submission updated', 'success')
         addNotificationForRole('admin', {
           title: 'Submission updated',
-          message: `${user?.name ?? 'A student'} updated work for ${activeAssignment.title}.`,
+          message: `${user?.name ?? 'A learner'} updated work for ${activeAssignment.title}.`,
           type: 'info',
         })
       } else {
@@ -769,7 +755,7 @@ function StudentAssignmentsView() {
         addToast('Assignment submitted', 'success')
         addNotificationForRole('admin', {
           title: 'New submission',
-          message: `${user?.name ?? 'A student'} submitted ${activeAssignment.title}.`,
+          message: `${user?.name ?? 'A learner'} submitted ${activeAssignment.title}.`,
           type: 'info',
         })
       }

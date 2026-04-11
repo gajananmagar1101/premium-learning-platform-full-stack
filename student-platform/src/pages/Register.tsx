@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { getEmailValidationMessage, isRealisticEmail } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
+import { btechYearOptions } from '@/lib/btech'
 
 interface FormData {
   name: string
@@ -14,12 +15,6 @@ interface FormData {
   role: 'student'
   grade: string
 }
-
-const gradeOptions = Array.from({ length: 12 }, (_, index) => {
-  const value = String(index + 1)
-  const suffix = value === '1' ? 'st' : value === '2' ? 'nd' : value === '3' ? 'rd' : 'th'
-  return { value, label: `${value}${suffix} Standard` }
-})
 
 export function Register() {
   const navigate = useNavigate()
@@ -64,14 +59,14 @@ export function Register() {
             <GraduationCap size={26} className="text-white" />
           </motion.div>
           <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
-          <p className="text-sm text-gray-500 mt-1">Create your student account</p>
+          <p className="text-sm text-gray-500 mt-1">Create your B.Tech learner account</p>
         </div>
 
         <div className="bg-white/60 backdrop-blur-xl border border-white/30 shadow-2xl rounded-2xl p-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="flex justify-center">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold">
-                <BookOpen size={15} /> Student Account Registration
+                <BookOpen size={15} /> B.Tech Learner Registration
               </span>
             </div>
 
@@ -99,7 +94,7 @@ export function Register() {
                 <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="email"
-                  placeholder="you@school.edu"
+                  placeholder="you@college.edu"
                   {...register('email', {
                     required: 'Email is required',
                     validate: (value) => isRealisticEmail(value) || getEmailValidationMessage(),
@@ -111,15 +106,15 @@ export function Register() {
               {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
             </div>
 
-            {/* Grade (student only) */}
+            {/* Academic year */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Class</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Academic Year</label>
               <select
                 {...register('grade')}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
               >
-                <option value="">Select standard</option>
-                {gradeOptions.map((option) => (
+                <option value="">Select B.Tech year</option>
+                {btechYearOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>

@@ -4,15 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useAssessmentStore } from '@/store/useAssessmentStore'
 import { useStudentStore } from '@/store/useStudentStore'
-
-const normalizeGrade = (value?: string) =>
-  (value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/class/g, '')
-    .replace(/grade/g, '')
-    .replace(/\s+/g, '')
-    .replace(/(st|nd|rd|th)$/g, '')
+import { normalizeAcademicYear } from '@/lib/btech'
 
 export function SearchBar() {
   const [open, setOpen] = useState(false)
@@ -36,8 +28,8 @@ export function SearchBar() {
       .map((s) => ({
         label: s.name,
         sub: s.email,
-        path: `/students/class?grade=${encodeURIComponent(normalizeGrade(s.grade) || '1')}`,
-        kind: 'Student',
+        path: `/students/class?grade=${encodeURIComponent(normalizeAcademicYear(s.grade) || 'FE')}`,
+        kind: 'Learner',
       })),
   ] : []
 
@@ -64,7 +56,7 @@ export function SearchBar() {
               <div className="flex items-center gap-3 px-4 py-3 border-b border-light-border dark:border-dark-border">
                 <Search size={15} className="text-light-ink-muted dark:text-dark-ink-muted" />
                 <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search assessments, students..."
+                  placeholder="Search assignments, learners..."
                   className="flex-1 text-sm text-light-ink-primary dark:text-dark-ink-primary bg-transparent outline-none placeholder-light-ink-muted dark:placeholder-dark-ink-muted" />
                 <button onClick={() => { setOpen(false); setQuery('') }}>
                   <X size={15} className="text-light-ink-muted dark:text-dark-ink-muted hover:text-light-ink-primary dark:hover:text-dark-ink-primary transition-colors" />
