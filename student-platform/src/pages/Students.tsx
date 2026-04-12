@@ -34,7 +34,7 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
     fetchAdminSubmissions,
   } = useAssignmentStore()
   const { addToast } = useUIStore()
-  const { quizzes, attempts } = useQuizStore()
+  const { quizzes, attempts, fetchQuizzes, fetchAttempts } = useQuizStore()
   const [scores, setScores] = useState<ScoreWithAssessment[]>([])
   const [performance, setPerformance] = useState<StudentPerformance | null>(null)
   const [loadingScores, setLoadingScores] = useState(true)
@@ -79,6 +79,11 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
   useEffect(() => {
     fetchAdminSubmissions()
   }, [fetchAdminSubmissions])
+
+  useEffect(() => {
+    fetchQuizzes()
+    fetchAttempts()
+  }, [fetchAttempts, fetchQuizzes])
 
   const studentSubmissions = submissions.filter((submission) => submission.studentId === student._id)
   const gradedStudentSubmissions = studentSubmissions.filter((submission) => submission.marks != null)

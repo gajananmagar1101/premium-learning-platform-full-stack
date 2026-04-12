@@ -56,3 +56,13 @@ export const submissionAPI = {
   getAllForAdmin: () => api.get('/admin/submissions'),
   grade: (id: string, data: { marks: number }) => api.put(`/admin/submissions/${id}/marks`, data),
 }
+
+// ── Quizzes ──────────────────────────────────────────
+export const quizAPI = {
+  getAll: () => api.get('/quizzes'),
+  create: (data: object) => api.post('/quizzes', data),
+  update: (id: string, data: object) => api.put(`/quizzes/${id}`, data),
+  delete: (id: string) => api.delete(`/quizzes/${id}`),
+  getAttempts: () => api.get('/quizzes/attempts'),
+  submitAttempt: (quizId: string, data: { answers: number[] }) => api.post(`/quizzes/${quizId}/attempt`, data),
+}

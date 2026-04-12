@@ -17,7 +17,7 @@ export function Profile() {
   const { user, setUser } = useAuthStore()
   const { students } = useStudentStore()
   const { studentAssignments, fetchStudentAssignments } = useAssignmentStore()
-  const { quizzes, attempts } = useQuizStore()
+  const { quizzes, attempts, fetchQuizzes, fetchAttempts } = useQuizStore()
   const { darkMode, toggleDarkMode } = useUIStore()
   const [editing, setEditing] = useState(false)
   const [displayName, setDisplayName] = useState(user?.name ?? '')
@@ -68,6 +68,12 @@ export function Profile() {
     if (user?.role !== 'student') return
     fetchStudentAssignments()
   }, [fetchStudentAssignments, user?.role])
+
+  useEffect(() => {
+    if (user?.role !== 'student') return
+    fetchQuizzes()
+    fetchAttempts()
+  }, [fetchAttempts, fetchQuizzes, user?.role])
 
   const gradedAssignments = studentAssignments
     .filter((assignment) => assignment.submission?.marks != null)

@@ -69,7 +69,7 @@ type ActiveQuizSession = {
 function AdminQuizzesView() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { quizzes, attempts, createQuiz, updateQuiz, deleteQuiz } = useQuizStore()
+  const { quizzes, attempts, fetchQuizzes, fetchAttempts, createQuiz, updateQuiz, deleteQuiz } = useQuizStore()
   const { addToast } = useUIStore()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Quiz | null>(null)
@@ -100,6 +100,11 @@ function AdminQuizzesView() {
   }), [attempts, quizzes])
 
   const questionCount = questions.length
+
+  useEffect(() => {
+    fetchQuizzes()
+    fetchAttempts()
+  }, [fetchAttempts, fetchQuizzes])
 
   const addQuestion = () => {
     setQuestions((current) => {
@@ -197,40 +202,50 @@ function AdminQuizzesView() {
     setQuestions((current) => current.map((question) => question.id === questionId ? updater(question) : question))
   }
 
-  const onSubmit = (data: QuizFormData) => {
+  const onSubmit = async (data: QuizFormData) => {
     if (questions.some((question) => !question.prompt.trim() || question.options.some((option) => !option.trim()))) {
       addToast('Fill all question prompts and options', 'error')
       return
     }
 
-    if (editing) {
-      updateQuiz(editing.id, {
-        ...data,
-        description: data.description?.trim() ?? '',
-        deadlineAt: data.deadlineAt ? new Date(data.deadlineAt).toISOString() : undefined,
-        questions,
-        durationMinutes: Number(data.durationMinutes),
-      })
-      addToast('Quiz updated', 'success')
-      closeModal()
-    } else {
-      createQuiz({
-        ...data,
-        description: data.description?.trim() ?? '',
-        deadlineAt: data.deadlineAt ? new Date(data.deadlineAt).toISOString() : undefined,
-        questions,
-        durationMinutes: Number(data.durationMinutes),
-      })
-      addToast('Quiz created', 'success')
-      navigate('/quizzes')
+    try {
+      if (editing) {
+        await updateQuiz(editing.id, {
+          ...data,
+          description: data.description?.trim() ?? '',
+          deadlineAt: data.deadlineAt ? new Date(data.deadlineAt).toISOString() : undefined,
+          questions,
+          durationMinutes: Number(data.durationMinutes),
+        })
+        addToast('Quiz updated', 'success')
+        closeModal()
+      } else {
+        await createQuiz({
+          ...data,
+          description: data.description?.trim() ?? '',
+          deadlineAt: data.deadlineAt ? new Date(data.deadlineAt).toISOString() : undefined,
+          questions,
+          durationMinutes: Number(data.durationMinutes),
+        })
+        addToast('Quiz created', 'success')
+        navigate('/quizzes')
+      }
+    } catch (error) {
+      console.error('[Quizzes] Failed to save quiz:', error)
+      addToast('Failed to save quiz. Please try again.', 'error')
     }
   }
 
-  const handleDeleteQuiz = () => {
+  const handleDeleteQuiz = async () => {
     if (!quizToDelete) return
-    deleteQuiz(quizToDelete.id)
-    addToast('Quiz deleted', 'success')
-    setQuizToDelete(null)
+    try {
+      await deleteQuiz(quizToDelete.id)
+      addToast('Quiz deleted', 'success')
+      setQuizToDelete(null)
+    } catch (error) {
+      console.error('[Quizzes] Failed to delete quiz:', error)
+      addToast('Failed to delete quiz', 'error')
+    }
   }
 
   const attemptsByQuiz = useMemo(
@@ -702,7 +717,7 @@ function StudentQuizzesView() {
   const { pathname } = useLocation()
   const { quizId: routeQuizId } = useParams<{ quizId: string }>()
   const user = useAuthStore((state) => state.user)
-  const { quizzes, attempts, submitQuiz } = useQuizStore()
+  const { quizzes, attempts, fetchQuizzes, fetchAttempts, submitQuiz } = useQuizStore()
   const { addToast } = useUIStore()
   const [activeSession, setActiveSession] = useState<ActiveQuizSession | null>(null)
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(0)
@@ -715,6 +730,11 @@ function StudentQuizzesView() {
     () => (activeSession ? quizzes.find((quiz) => quiz.id === activeSession.quizId) ?? null : null),
     [activeSession, quizzes]
   )
+
+  useEffect(() => {
+    fetchQuizzes()
+    fetchAttempts()
+  }, [fetchAttempts, fetchQuizzes])
 
   const availableQuizzes = useMemo(
     () => quizzes.filter((quiz) => {
@@ -853,24 +873,29 @@ function StudentQuizzesView() {
     return () => window.clearInterval(intervalId)
   }, [activeSession])
 
-  const handleSubmitQuiz = (forceSubmit = false) => {
+  const handleSubmitQuiz = async (forceSubmit = false) => {
     if (!activeQuiz || !user || !userId || !activeSession) return
     if (!forceSubmit && activeSession.answers.some((answer) => answer < 0)) {
       addToast('Answer all questions before submitting', 'error')
       return
     }
 
-    const attempt = submitQuiz({
-      quizId: activeQuiz.id,
-      studentId: userId,
-      studentName: user.name,
-      studentEmail: user.email,
-      className: activeQuiz.className,
-      answers: activeSession.answers,
-    })
-    addToast(`Quiz submitted. Score: ${attempt.score}/${attempt.totalPoints}`, 'success')
-    clearActiveSession()
-    setSelectedAttemptId(attempt.id)
+    try {
+      const attempt = await submitQuiz({
+        quizId: activeQuiz.id,
+        studentId: userId,
+        studentName: user.name,
+        studentEmail: user.email,
+        className: activeQuiz.className,
+        answers: activeSession.answers,
+      })
+      addToast(`Quiz submitted. Score: ${attempt.score}/${attempt.totalPoints}`, 'success')
+      clearActiveSession()
+      setSelectedAttemptId(attempt.id)
+    } catch (error) {
+      console.error('[Quizzes] Failed to submit attempt:', error)
+      addToast('Failed to submit quiz attempt. Please try again.', 'error')
+    }
   }
 
   useEffect(() => {
@@ -878,7 +903,7 @@ function StudentQuizzesView() {
     const endsAtMs = new Date(activeSession.endsAt).getTime()
     if (Number.isNaN(endsAtMs)) return
     if (Date.now() < endsAtMs) return
-    handleSubmitQuiz(true)
+    void handleSubmitQuiz(true)
   }, [activeQuiz, activeSession, timeLeftSeconds])
 
   useEffect(() => {

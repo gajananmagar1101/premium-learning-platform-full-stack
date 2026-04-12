@@ -50,6 +50,7 @@ app.get('/', (_, res) => {
       users:       '/api/users',
       assessments: '/api/assessments',
       scores:      '/api/scores',
+      quizzes:     '/api/quizzes',
     },
   })
 })
@@ -59,6 +60,7 @@ app.use('/api/auth', require('./routes/auth'))
 app.use('/api/users', require('./routes/users'))
 app.use('/api/assessments', require('./routes/assessments'))
 app.use('/api/scores', require('./routes/scores'))
+app.use('/api/quizzes', require('./routes/quizzes'))
 
 // Health check
 app.get('/api/health', (_, res) => {
