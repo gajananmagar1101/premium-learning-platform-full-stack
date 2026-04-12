@@ -36,6 +36,7 @@ interface QuizState {
 
 const FALLBACK_STORAGE_KEY = 'quiz-store-fallback'
 const createId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
+const ENABLE_LOCAL_FALLBACK = import.meta.env.DEV
 
 const normalizeQuizPayload = (input: CreateQuizInput) => ({
   ...input,
@@ -53,6 +54,9 @@ const normalizeQuizPayload = (input: CreateQuizInput) => ({
 })
 
 const loadFallbackState = (): Pick<QuizState, 'quizzes' | 'attempts'> => {
+  if (!ENABLE_LOCAL_FALLBACK) {
+    return { quizzes: [], attempts: [] }
+  }
   try {
     const raw = window.localStorage.getItem(FALLBACK_STORAGE_KEY)
     if (!raw) return { quizzes: [], attempts: [] }
@@ -67,6 +71,7 @@ const loadFallbackState = (): Pick<QuizState, 'quizzes' | 'attempts'> => {
 }
 
 const saveFallbackState = (quizzes: Quiz[], attempts: QuizAttempt[]) => {
+  if (!ENABLE_LOCAL_FALLBACK) return
   try {
     window.localStorage.setItem(FALLBACK_STORAGE_KEY, JSON.stringify({ quizzes, attempts }))
   } catch {
@@ -93,7 +98,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         return { quizzes }
       })
     } catch {
-      // keep fallback/local quizzes
+      if (!ENABLE_LOCAL_FALLBACK) throw new Error('Failed to load quizzes from server')
+      // keep fallback/local quizzes in development
     } finally {
       set({ loading: false })
     }
@@ -109,7 +115,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         return { attempts }
       })
     } catch {
-      // keep fallback/local attempts
+      if (!ENABLE_LOCAL_FALLBACK) throw new Error('Failed to load quiz attempts from server')
+      // keep fallback/local attempts in development
     } finally {
       set({ loading: false })
     }
@@ -126,6 +133,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       })
       return quiz
     } catch {
+      if (!ENABLE_LOCAL_FALLBACK) throw new Error('Failed to create quiz')
       const now = new Date().toISOString()
       const quiz: Quiz = {
         id: createId(),
@@ -155,6 +163,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       })
       return quiz
     } catch {
+      if (!ENABLE_LOCAL_FALLBACK) throw new Error('Failed to update quiz')
       const existing = get().quizzes.find((item) => item.id === id)
       const quiz: Quiz = {
         id,
@@ -177,6 +186,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     try {
       await quizAPI.delete(id)
     } catch {
+      if (!ENABLE_LOCAL_FALLBACK) throw new Error('Failed to delete quiz')
       // fallback delete locally
     }
     set((state) => {
@@ -206,6 +216,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
 
       return attempt
     } catch {
+      if (!ENABLE_LOCAL_FALLBACK) throw new Error('Failed to submit quiz')
       const quiz = get().quizzes.find((item) => item.id === input.quizId)
       if (!quiz) {
         throw new Error('Quiz not found')

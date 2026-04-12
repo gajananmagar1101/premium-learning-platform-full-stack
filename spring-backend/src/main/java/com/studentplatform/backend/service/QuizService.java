@@ -1,0 +1,199 @@
+package com.studentplatform.backend.service;
+
+import com.studentplatform.backend.dto.QuizAttemptRequest;
+import com.studentplatform.backend.dto.QuizAttemptResponse;
+import com.studentplatform.backend.dto.QuizRequest;
+import com.studentplatform.backend.dto.QuizResponse;
+import com.studentplatform.backend.entity.QuizAttemptEntity;
+import com.studentplatform.backend.entity.QuizEntity;
+import com.studentplatform.backend.entity.Role;
+import com.studentplatform.backend.entity.UserEntity;
+import com.studentplatform.backend.exception.ApiException;
+import com.studentplatform.backend.repository.QuizAttemptRepository;
+import com.studentplatform.backend.repository.QuizRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+
+@Service
+@Transactional
+public class QuizService {
+
+    private final QuizRepository quizRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
+
+    public QuizService(QuizRepository quizRepository, QuizAttemptRepository quizAttemptRepository) {
+        this.quizRepository = quizRepository;
+        this.quizAttemptRepository = quizAttemptRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuizResponse> getAll(UserEntity currentUser) {
+        List<QuizEntity> quizzes;
+        if (currentUser.getRole() == Role.ADMIN) {
+            quizzes = quizRepository.findAllByOrderByCreatedAtDesc();
+        } else {
+            String grade = currentUser.getGrade() == null ? "" : currentUser.getGrade().trim();
+            quizzes = grade.isBlank()
+                    ? quizRepository.findByStatusOrderByCreatedAtDesc("published")
+                    : quizRepository.findByStatusAndClassNameIgnoreCaseOrderByCreatedAtDesc("published", grade);
+        }
+
+        return quizzes.stream()
+                .map(QuizResponse::from)
+                .toList();
+    }
+
+    public QuizResponse create(QuizRequest request) {
+        QuizEntity quiz = new QuizEntity();
+        apply(quiz, request);
+        quiz.prepareForSave();
+        return QuizResponse.from(quizRepository.save(quiz));
+    }
+
+    public QuizResponse update(String id, QuizRequest request) {
+        QuizEntity quiz = quizRepository.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Quiz not found."));
+        apply(quiz, request);
+        quiz.prepareForSave();
+        return QuizResponse.from(quizRepository.save(quiz));
+    }
+
+    public void delete(String id) {
+        if (!quizRepository.existsById(id)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "Quiz not found.");
+        }
+        quizAttemptRepository.deleteByQuizId(id);
+        quizRepository.deleteById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuizAttemptResponse> getAttempts(UserEntity currentUser) {
+        List<QuizAttemptEntity> attempts = currentUser.getRole() == Role.ADMIN
+                ? quizAttemptRepository.findAllByOrderBySubmittedAtDesc()
+                : quizAttemptRepository.findByStudentIdOrderBySubmittedAtDesc(currentUser.getId());
+
+        return attempts.stream()
+                .map(QuizAttemptResponse::from)
+                .toList();
+    }
+
+    public QuizAttemptResponse submitAttempt(String quizId, QuizAttemptRequest request, UserEntity currentUser) {
+        if (currentUser.getRole() != Role.STUDENT) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only learners can submit quiz attempts.");
+        }
+
+        QuizEntity quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Quiz not found."));
+
+        if (!"published".equals(quiz.getStatus())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Quiz is not open for attempts.");
+        }
+
+        if (quiz.getDeadlineAt() != null && quiz.getDeadlineAt().isBefore(Instant.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Quiz deadline has passed.");
+        }
+
+        List<Integer> answers = request.answers() == null ? List.of() : request.answers();
+        int score = 0;
+        List<QuizEntity.QuizQuestion> questions = quiz.getQuestions() == null ? List.of() : quiz.getQuestions();
+        for (int index = 0; index < questions.size(); index++) {
+            QuizEntity.QuizQuestion question = questions.get(index);
+            int answer = index < answers.size() ? answers.get(index) : -1;
+            if (answer == question.getCorrectOption()) {
+                score += question.getPoints() == null ? 0 : question.getPoints();
+            }
+        }
+
+        QuizAttemptEntity attempt = quizAttemptRepository.findByQuizIdAndStudentId(quizId, currentUser.getId())
+                .orElseGet(QuizAttemptEntity::new);
+        attempt.setQuizId(quiz.getId());
+        attempt.setStudentId(currentUser.getId());
+        attempt.setStudentName(currentUser.getName());
+        attempt.setStudentEmail(currentUser.getEmail());
+        attempt.setClassName(quiz.getClassName());
+        attempt.setAnswers(new ArrayList<>(answers));
+        attempt.setScore(score);
+        attempt.setTotalPoints(quiz.getTotalPoints());
+        attempt.setSubmittedAt(Instant.now());
+        attempt.prepareForSave();
+
+        return QuizAttemptResponse.from(quizAttemptRepository.save(attempt));
+    }
+
+    private void apply(QuizEntity entity, QuizRequest request) {
+        String title = normalizeRequired(request.title(), "Quiz title is required.");
+        String subject = normalizeRequired(request.subject(), "Subject is required.");
+        String className = normalizeRequired(request.className(), "Academic year is required.");
+        Integer durationMinutes = request.durationMinutes();
+        if (durationMinutes == null || durationMinutes < 1) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Duration must be at least 1 minute.");
+        }
+
+        String status = request.status() == null ? "draft" : request.status().trim().toLowerCase(Locale.ROOT);
+        if (!status.equals("draft") && !status.equals("published") && !status.equals("closed")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid quiz status.");
+        }
+
+        List<QuizRequest.QuizQuestionRequest> questionRequests = request.questions();
+        if (questionRequests == null || questionRequests.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "At least one question is required.");
+        }
+
+        List<QuizEntity.QuizQuestion> questions = new ArrayList<>();
+        for (QuizRequest.QuizQuestionRequest source : questionRequests) {
+            String prompt = normalizeRequired(source.prompt(), "Each question must have a prompt.");
+            List<String> options = source.options() == null ? List.of() : source.options();
+            if (options.size() != 4) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Each question must have exactly 4 options.");
+            }
+
+            List<String> cleanOptions = options.stream()
+                    .map(option -> option == null ? "" : option.trim())
+                    .toList();
+            if (cleanOptions.stream().anyMatch(String::isBlank)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Each option must be filled.");
+            }
+
+            Integer correctOption = source.correctOption();
+            if (correctOption == null || correctOption < 0 || correctOption > 3) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Correct option must be between 0 and 3.");
+            }
+
+            Integer points = source.points();
+            if (points == null || points < 1) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Question points must be at least 1.");
+            }
+
+            QuizEntity.QuizQuestion question = new QuizEntity.QuizQuestion();
+            question.setId(source.id() == null || source.id().isBlank() ? UUID.randomUUID().toString() : source.id().trim());
+            question.setPrompt(prompt);
+            question.setOptions(new ArrayList<>(cleanOptions));
+            question.setCorrectOption(correctOption);
+            question.setPoints(points);
+            questions.add(question);
+        }
+
+        entity.setTitle(title);
+        entity.setSubject(subject);
+        entity.setClassName(className);
+        entity.setDescription(request.description() == null ? "" : request.description().trim());
+        entity.setDeadlineAt(request.deadlineAt());
+        entity.setDurationMinutes(durationMinutes);
+        entity.setStatus(status);
+        entity.setQuestions(questions);
+    }
+
+    private String normalizeRequired(String value, String message) {
+        if (value == null || value.trim().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, message);
+        }
+        return value.trim();
+    }
+}
