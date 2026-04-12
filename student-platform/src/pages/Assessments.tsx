@@ -76,7 +76,7 @@ function AdminAssignmentsView() {
     updateAssignment,
     gradeSubmission,
   } = useAssignmentStore()
-  const { addToast, addNotificationForUsers } = useUIStore()
+  const { addToast } = useUIStore()
   const { students, fetchStudents } = useStudentStore()
   const [search, setSearch] = useState('')
   const [assignmentYearFilter, setAssignmentYearFilter] = useState<'all' | string>('all')
@@ -341,25 +341,9 @@ function AdminAssignmentsView() {
       if (editing) {
         await updateAssignment(editing.id, payload)
         addToast('Assignment updated', 'success')
-        const targetStudentIds = students
-          .filter((student) => normalizeAcademicYear(student.grade) === normalizeAcademicYear(payload.className))
-          .map((student) => student.id ?? student._id)
-        addNotificationForUsers(targetStudentIds, {
-          title: 'Assignment updated',
-          message: `${payload.title} was updated for your cohort.`,
-          type: 'info',
-        })
       } else {
         await createAssignment(payload)
         addToast('Assignment created', 'success')
-        const targetStudentIds = students
-          .filter((student) => normalizeAcademicYear(student.grade) === normalizeAcademicYear(payload.className))
-          .map((student) => student.id ?? student._id)
-        addNotificationForUsers(targetStudentIds, {
-          title: 'New assignment',
-          message: `${payload.title} has been posted for ${formatAcademicYearLabel(payload.className)}.`,
-          type: 'info',
-        })
       }
       closeModal()
     } catch (error) {
@@ -382,11 +366,6 @@ function AdminAssignmentsView() {
     try {
       await gradeSubmission(submission.id, marks)
       addToast('Marks saved', 'success')
-      addNotificationForUsers([submission.studentId], {
-        title: 'Marks published',
-        message: `Your marks for ${submission.assignmentTitle} are now available: ${marks}/${submission.totalMarks}.`,
-        type: 'success',
-      })
     } catch (error) {
       console.error('[Assignments] Failed to grade submission:', error)
       addToast('Failed to save marks', 'error')
@@ -962,7 +941,7 @@ function StudentAssignmentsView() {
     submitAssignment,
     updateSubmission,
   } = useAssignmentStore()
-  const { addToast, addNotificationForRole } = useUIStore()
+  const { addToast } = useUIStore()
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [activeAssignment, setActiveAssignment] = useState<StudentAssignmentItem | null>(null)
@@ -1051,19 +1030,9 @@ function StudentAssignmentsView() {
       if (activeAssignment.submission?.id) {
         await updateSubmission(activeAssignment.submission.id, payload)
         addToast('Submission updated', 'success')
-        addNotificationForRole('admin', {
-          title: 'Submission updated',
-          message: `${user?.name ?? 'A learner'} updated work for ${activeAssignment.title}.`,
-          type: 'info',
-        })
       } else {
         await submitAssignment(payload)
         addToast('Assignment submitted', 'success')
-        addNotificationForRole('admin', {
-          title: 'New submission',
-          message: `${user?.name ?? 'A learner'} submitted ${activeAssignment.title}.`,
-          type: 'info',
-        })
       }
       closeModal()
     } catch (error) {

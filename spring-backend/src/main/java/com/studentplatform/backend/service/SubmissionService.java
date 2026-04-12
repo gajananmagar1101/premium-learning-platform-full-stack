@@ -6,6 +6,7 @@ import com.studentplatform.backend.dto.SubmissionRequest;
 import com.studentplatform.backend.dto.SubmissionResponse;
 import com.studentplatform.backend.dto.SubmissionSummaryResponse;
 import com.studentplatform.backend.entity.AssignmentEntity;
+import com.studentplatform.backend.entity.Role;
 import com.studentplatform.backend.entity.SubmissionEntity;
 import com.studentplatform.backend.entity.SubmissionStatus;
 import com.studentplatform.backend.entity.UserEntity;
@@ -24,13 +25,16 @@ public class SubmissionService {
 
     private final SubmissionRepository submissionRepository;
     private final AssignmentManagementService assignmentManagementService;
+    private final NotificationService notificationService;
 
     public SubmissionService(
             SubmissionRepository submissionRepository,
-            AssignmentManagementService assignmentManagementService
+            AssignmentManagementService assignmentManagementService,
+            NotificationService notificationService
     ) {
         this.submissionRepository = submissionRepository;
         this.assignmentManagementService = assignmentManagementService;
+        this.notificationService = notificationService;
     }
 
     public SubmissionSummaryResponse create(UserEntity student, SubmissionRequest request) {
@@ -50,7 +54,17 @@ public class SubmissionService {
         submission.setStatus(SubmissionStatus.SUBMITTED);
         submission.setMarks(null);
         submission.prepareForSave();
-        return SubmissionSummaryResponse.from(submissionRepository.save(submission));
+        SubmissionEntity saved = submissionRepository.save(submission);
+
+        notificationService.notifyRole(
+                Role.ADMIN,
+                "New assignment submission",
+                student.getName() + " submitted " + assignment.getTitle() + ".",
+                "info",
+                student.getId()
+        );
+
+        return SubmissionSummaryResponse.from(saved);
     }
 
     public SubmissionSummaryResponse update(String id, UserEntity student, SubmissionRequest request) {
@@ -67,7 +81,17 @@ public class SubmissionService {
         applySubmissionContent(submission, request);
         submission.setStatus(submission.getMarks() == null ? SubmissionStatus.SUBMITTED : SubmissionStatus.GRADED);
         submission.prepareForSave();
-        return SubmissionSummaryResponse.from(submissionRepository.save(submission));
+        SubmissionEntity saved = submissionRepository.save(submission);
+
+        notificationService.notifyRole(
+                Role.ADMIN,
+                "Submission updated",
+                student.getName() + " updated submission for " + submission.getAssignment().getTitle() + ".",
+                "info",
+                student.getId()
+        );
+
+        return SubmissionSummaryResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
@@ -88,7 +112,17 @@ public class SubmissionService {
         submission.setMarks(request.marks());
         submission.setStatus(SubmissionStatus.GRADED);
         submission.prepareForSave();
-        return SubmissionResponse.from(submissionRepository.save(submission));
+        SubmissionEntity saved = submissionRepository.save(submission);
+
+        notificationService.notifyUsersByIds(
+                List.of(saved.getStudent().getId()),
+                "Marks published",
+                "Your marks for " + saved.getAssignment().getTitle() + " are now available.",
+                "success",
+                null
+        );
+
+        return SubmissionResponse.from(saved);
     }
 
     @Transactional(readOnly = true)

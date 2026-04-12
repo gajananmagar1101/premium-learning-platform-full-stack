@@ -27,10 +27,16 @@ public class QuizService {
 
     private final QuizRepository quizRepository;
     private final QuizAttemptRepository quizAttemptRepository;
+    private final NotificationService notificationService;
 
-    public QuizService(QuizRepository quizRepository, QuizAttemptRepository quizAttemptRepository) {
+    public QuizService(
+            QuizRepository quizRepository,
+            QuizAttemptRepository quizAttemptRepository,
+            NotificationService notificationService
+    ) {
         this.quizRepository = quizRepository;
         this.quizAttemptRepository = quizAttemptRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -54,7 +60,19 @@ public class QuizService {
         QuizEntity quiz = new QuizEntity();
         apply(quiz, request);
         quiz.prepareForSave();
-        return QuizResponse.from(quizRepository.save(quiz));
+        QuizEntity saved = quizRepository.save(quiz);
+
+        if ("published".equals(saved.getStatus())) {
+            notificationService.notifyStudentsByGrade(
+                    saved.getClassName(),
+                    "New quiz published",
+                    saved.getTitle() + " is available in your quizzes.",
+                    "info",
+                    null
+            );
+        }
+
+        return QuizResponse.from(saved);
     }
 
     public QuizResponse update(String id, QuizRequest request) {
@@ -62,7 +80,19 @@ public class QuizService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Quiz not found."));
         apply(quiz, request);
         quiz.prepareForSave();
-        return QuizResponse.from(quizRepository.save(quiz));
+        QuizEntity saved = quizRepository.save(quiz);
+
+        if ("published".equals(saved.getStatus())) {
+            notificationService.notifyStudentsByGrade(
+                    saved.getClassName(),
+                    "Quiz updated",
+                    saved.getTitle() + " has been updated.",
+                    "info",
+                    null
+            );
+        }
+
+        return QuizResponse.from(saved);
     }
 
     public void delete(String id) {
@@ -124,7 +154,17 @@ public class QuizService {
         attempt.setSubmittedAt(Instant.now());
         attempt.prepareForSave();
 
-        return QuizAttemptResponse.from(quizAttemptRepository.save(attempt));
+        QuizAttemptEntity saved = quizAttemptRepository.save(attempt);
+
+        notificationService.notifyRole(
+                Role.ADMIN,
+                "Quiz submission",
+                currentUser.getName() + " submitted " + quiz.getTitle() + ".",
+                "info",
+                currentUser.getId()
+        );
+
+        return QuizAttemptResponse.from(saved);
     }
 
     private void apply(QuizEntity entity, QuizRequest request) {

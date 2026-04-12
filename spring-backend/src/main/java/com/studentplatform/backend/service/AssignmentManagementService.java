@@ -24,13 +24,16 @@ public class AssignmentManagementService {
 
     private final AssignmentRepository assignmentRepository;
     private final SubmissionRepository submissionRepository;
+    private final NotificationService notificationService;
 
     public AssignmentManagementService(
             AssignmentRepository assignmentRepository,
-            SubmissionRepository submissionRepository
+            SubmissionRepository submissionRepository,
+            NotificationService notificationService
     ) {
         this.assignmentRepository = assignmentRepository;
         this.submissionRepository = submissionRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -69,14 +72,34 @@ public class AssignmentManagementService {
         apply(assignment, request);
         assignment.setCreatedBy(createdBy);
         assignment.prepareForSave();
-        return AssignmentResponse.from(assignmentRepository.save(assignment));
+        AssignmentEntity saved = assignmentRepository.save(assignment);
+
+        notificationService.notifyStudentsByGrade(
+                saved.getClassName(),
+                "New assignment",
+                saved.getTitle() + " has been posted for your cohort.",
+                "info",
+                createdBy.getId()
+        );
+
+        return AssignmentResponse.from(saved);
     }
 
     public AssignmentResponse update(String id, AssignmentRequest request) {
         AssignmentEntity assignment = getEntity(id);
         apply(assignment, request);
         assignment.prepareForSave();
-        return AssignmentResponse.from(assignmentRepository.save(assignment));
+        AssignmentEntity saved = assignmentRepository.save(assignment);
+
+        notificationService.notifyStudentsByGrade(
+                saved.getClassName(),
+                "Assignment updated",
+                saved.getTitle() + " has been updated.",
+                "info",
+                null
+        );
+
+        return AssignmentResponse.from(saved);
     }
 
     public void delete(String id) {

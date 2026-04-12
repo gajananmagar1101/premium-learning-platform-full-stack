@@ -13,7 +13,7 @@ const typeIcon = (type: Notification['type']) => {
 
 export function NotificationPanel() {
   const [open, setOpen] = useState(false)
-  const { notifications, markAllRead, markRead, deleteNotification } = useUIStore()
+  const { notifications, notificationsLoading, fetchNotifications, markAllRead, markRead, deleteNotification } = useUIStore()
   const unread = notifications.filter((n) => !n.read).length
   const ref = useRef<HTMLDivElement>(null)
 
@@ -22,6 +22,11 @@ export function NotificationPanel() {
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [])
+
+  useEffect(() => {
+    if (!open) return
+    void fetchNotifications()
+  }, [fetchNotifications, open])
 
   return (
     <div className="relative" ref={ref}>
@@ -51,12 +56,17 @@ export function NotificationPanel() {
               )}
             </div>
             <div className="max-h-72 overflow-y-auto">
-              {notifications.length === 0 && (
+              {!notificationsLoading && notifications.length === 0 && (
                 <div className="px-4 py-8 text-center">
                   <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">No notifications yet</p>
                   <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted mt-1">
                     Your updates will appear here for this account.
                   </p>
+                </div>
+              )}
+              {notificationsLoading && (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Loading notifications...</p>
                 </div>
               )}
               {notifications.map((n) => (

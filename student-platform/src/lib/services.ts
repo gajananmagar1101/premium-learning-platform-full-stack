@@ -66,3 +66,11 @@ export const quizAPI = {
   getAttempts: () => api.get('/quizzes/attempts'),
   submitAttempt: (quizId: string, data: { answers: number[] }) => api.post(`/quizzes/${quizId}/attempt`, data),
 }
+
+// ── Notifications ─────────────────────────────────────
+export const notificationAPI = {
+  getAll: () => api.get('/notifications'),
+  markRead: (id: string) => api.put(`/notifications/${id}/read`),
+  markAllRead: () => api.put('/notifications/read-all'),
+  delete: (id: string) => api.delete(`/notifications/${id}`),
+}

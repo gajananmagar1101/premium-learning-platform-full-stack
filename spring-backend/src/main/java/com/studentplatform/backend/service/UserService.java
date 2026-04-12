@@ -23,15 +23,18 @@ public class UserService {
     private final UserRepository userRepository;
     private final ScoreRepository scoreRepository;
     private final SubmissionRepository submissionRepository;
+    private final NotificationService notificationService;
 
     public UserService(
             UserRepository userRepository,
             ScoreRepository scoreRepository,
-            SubmissionRepository submissionRepository
+            SubmissionRepository submissionRepository,
+            NotificationService notificationService
     ) {
         this.userRepository = userRepository;
         this.scoreRepository = scoreRepository;
         this.submissionRepository = submissionRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -59,12 +62,34 @@ public class UserService {
     public UserResponse updateStudent(String id, StudentUpdateRequest request) {
         UserEntity user = getStudentEntity(id);
         applyUpdate(user, request);
-        return UserResponse.from(userRepository.save(user));
+        UserEntity saved = userRepository.save(user);
+
+        notificationService.notifyUsersByIds(
+                List.of(saved.getId()),
+                "Profile updated",
+                "Your profile details were updated by admin.",
+                "info",
+                null
+        );
+
+        return UserResponse.from(saved);
     }
 
     public UserResponse updateCurrentUser(UserEntity currentUser, StudentUpdateRequest request) {
         applyUpdate(currentUser, request);
-        return UserResponse.from(userRepository.save(currentUser));
+        UserEntity saved = userRepository.save(currentUser);
+
+        if (saved.getRole() == Role.STUDENT) {
+            notificationService.notifyRole(
+                    Role.ADMIN,
+                    "Student profile updated",
+                    saved.getName() + " updated profile information.",
+                    "info",
+                    saved.getId()
+            );
+        }
+
+        return UserResponse.from(saved);
     }
 
     private void applyUpdate(UserEntity user, StudentUpdateRequest request) {
