@@ -34,6 +34,9 @@ interface QuizState {
   submitQuiz: (input: SubmitQuizInput) => Promise<QuizAttempt>
 }
 
+const FALLBACK_STORAGE_KEY = 'quiz-store-fallback'
+const createId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
+
 const normalizeQuizPayload = (input: CreateQuizInput) => ({
   ...input,
   title: input.title.trim(),
@@ -49,16 +52,48 @@ const normalizeQuizPayload = (input: CreateQuizInput) => ({
   })),
 })
 
+const loadFallbackState = (): Pick<QuizState, 'quizzes' | 'attempts'> => {
+  try {
+    const raw = window.localStorage.getItem(FALLBACK_STORAGE_KEY)
+    if (!raw) return { quizzes: [], attempts: [] }
+    const parsed = JSON.parse(raw) as { quizzes?: Quiz[]; attempts?: QuizAttempt[] }
+    return {
+      quizzes: Array.isArray(parsed.quizzes) ? parsed.quizzes : [],
+      attempts: Array.isArray(parsed.attempts) ? parsed.attempts : [],
+    }
+  } catch {
+    return { quizzes: [], attempts: [] }
+  }
+}
+
+const saveFallbackState = (quizzes: Quiz[], attempts: QuizAttempt[]) => {
+  try {
+    window.localStorage.setItem(FALLBACK_STORAGE_KEY, JSON.stringify({ quizzes, attempts }))
+  } catch {
+    // ignore storage errors
+  }
+}
+
+const initialFallbackState = typeof window !== 'undefined'
+  ? loadFallbackState()
+  : { quizzes: [], attempts: [] }
+
 export const useQuizStore = create<QuizState>((set, get) => ({
-  quizzes: [],
-  attempts: [],
+  quizzes: initialFallbackState.quizzes,
+  attempts: initialFallbackState.attempts,
   loading: false,
 
   fetchQuizzes: async () => {
     set({ loading: true })
     try {
       const res = await quizAPI.getAll()
-      set({ quizzes: res.data.quizzes ?? [] })
+      const quizzes = res.data.quizzes ?? []
+      set((state) => {
+        saveFallbackState(quizzes, state.attempts)
+        return { quizzes }
+      })
+    } catch {
+      // keep fallback/local quizzes
     } finally {
       set({ loading: false })
     }
@@ -68,50 +103,132 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     set({ loading: true })
     try {
       const res = await quizAPI.getAttempts()
-      set({ attempts: res.data.attempts ?? [] })
+      const attempts = res.data.attempts ?? []
+      set((state) => {
+        saveFallbackState(state.quizzes, attempts)
+        return { attempts }
+      })
+    } catch {
+      // keep fallback/local attempts
     } finally {
       set({ loading: false })
     }
   },
 
   createQuiz: async (input) => {
-    const res = await quizAPI.create(normalizeQuizPayload(input))
-    const quiz = res.data.quiz as Quiz
-    set((state) => ({ quizzes: [quiz, ...state.quizzes] }))
-    return quiz
+    try {
+      const res = await quizAPI.create(normalizeQuizPayload(input))
+      const quiz = res.data.quiz as Quiz
+      set((state) => {
+        const quizzes = [quiz, ...state.quizzes]
+        saveFallbackState(quizzes, state.attempts)
+        return { quizzes }
+      })
+      return quiz
+    } catch {
+      const now = new Date().toISOString()
+      const quiz: Quiz = {
+        id: createId(),
+        ...normalizeQuizPayload(input),
+        questions: input.questions,
+        totalPoints: input.questions.reduce((sum, question) => sum + question.points, 0),
+        createdAt: now,
+        updatedAt: now,
+      }
+      set((state) => {
+        const quizzes = [quiz, ...state.quizzes]
+        saveFallbackState(quizzes, state.attempts)
+        return { quizzes }
+      })
+      return quiz
+    }
   },
 
   updateQuiz: async (id, input) => {
-    const res = await quizAPI.update(id, normalizeQuizPayload(input))
-    const quiz = res.data.quiz as Quiz
-    set((state) => ({
-      quizzes: state.quizzes.map((item) => (item.id === id ? quiz : item)),
-    }))
-    return quiz
+    try {
+      const res = await quizAPI.update(id, normalizeQuizPayload(input))
+      const quiz = res.data.quiz as Quiz
+      set((state) => {
+        const quizzes = state.quizzes.map((item) => (item.id === id ? quiz : item))
+        saveFallbackState(quizzes, state.attempts)
+        return { quizzes }
+      })
+      return quiz
+    } catch {
+      const existing = get().quizzes.find((item) => item.id === id)
+      const quiz: Quiz = {
+        id,
+        ...normalizeQuizPayload(input),
+        questions: input.questions,
+        totalPoints: input.questions.reduce((sum, question) => sum + question.points, 0),
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      set((state) => {
+        const quizzes = state.quizzes.map((item) => (item.id === id ? quiz : item))
+        saveFallbackState(quizzes, state.attempts)
+        return { quizzes }
+      })
+      return quiz
+    }
   },
 
   deleteQuiz: async (id) => {
-    await quizAPI.delete(id)
-    set((state) => ({
-      quizzes: state.quizzes.filter((quiz) => quiz.id !== id),
-      attempts: state.attempts.filter((attempt) => attempt.quizId !== id),
-    }))
+    try {
+      await quizAPI.delete(id)
+    } catch {
+      // fallback delete locally
+    }
+    set((state) => {
+      const quizzes = state.quizzes.filter((quiz) => quiz.id !== id)
+      const attempts = state.attempts.filter((attempt) => attempt.quizId !== id)
+      saveFallbackState(quizzes, attempts)
+      return { quizzes, attempts }
+    })
   },
 
   submitQuiz: async (input) => {
-    const res = await quizAPI.submitAttempt(input.quizId, { answers: input.answers })
-    const attempt = res.data.attempt as QuizAttempt
-    set((state) => ({
-      attempts: [
-        attempt,
-        ...state.attempts.filter((item) => !(item.quizId === input.quizId && item.studentId === input.studentId)),
-      ],
-    }))
+    try {
+      const res = await quizAPI.submitAttempt(input.quizId, { answers: input.answers })
+      const attempt = res.data.attempt as QuizAttempt
+      set((state) => {
+        const attempts = [
+          attempt,
+          ...state.attempts.filter((item) => !(item.quizId === input.quizId && item.studentId === input.studentId)),
+        ]
+        saveFallbackState(state.quizzes, attempts)
+        return { attempts }
+      })
 
-    if (!get().quizzes.find((quiz) => quiz.id === input.quizId)) {
-      await get().fetchQuizzes()
+      if (!get().quizzes.find((quiz) => quiz.id === input.quizId)) {
+        await get().fetchQuizzes()
+      }
+
+      return attempt
+    } catch {
+      const quiz = get().quizzes.find((item) => item.id === input.quizId)
+      if (!quiz) {
+        throw new Error('Quiz not found')
+      }
+      const score = quiz.questions.reduce((sum, question, index) => (
+        input.answers[index] === question.correctOption ? sum + question.points : sum
+      ), 0)
+      const attempt: QuizAttempt = {
+        id: createId(),
+        ...input,
+        score,
+        totalPoints: quiz.totalPoints,
+        submittedAt: new Date().toISOString(),
+      }
+      set((state) => {
+        const attempts = [
+          attempt,
+          ...state.attempts.filter((item) => !(item.quizId === input.quizId && item.studentId === input.studentId)),
+        ]
+        saveFallbackState(state.quizzes, attempts)
+        return { attempts }
+      })
+      return attempt
     }
-
-    return attempt
   },
 }))

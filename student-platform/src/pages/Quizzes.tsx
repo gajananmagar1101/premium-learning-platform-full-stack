@@ -23,7 +23,7 @@ type QuizFormData = {
 }
 
 const questionTemplate = (): QuizQuestion => ({
-  id: crypto.randomUUID(),
+  id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   prompt: '',
   options: ['', '', '', ''],
   correctOption: 0,
