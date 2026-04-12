@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useAssessmentStore } from '@/store/useAssessmentStore'
 import { useStudentStore } from '@/store/useStudentStore'
+import { useQuizStore } from '@/store/useQuizStore'
 import { normalizeAcademicYear } from '@/lib/btech'
 
 export function SearchBar() {
@@ -12,6 +13,7 @@ export function SearchBar() {
   const navigate = useNavigate()
   const { assessments } = useAssessmentStore()
   const { students } = useStudentStore()
+  const { quizzes } = useQuizStore()
   const normalizedQuery = query.toLowerCase().trim()
 
   const results = normalizedQuery.length > 1 ? [
@@ -30,6 +32,18 @@ export function SearchBar() {
         sub: s.email,
         path: `/students/class?grade=${encodeURIComponent(normalizeAcademicYear(s.grade) || 'FE')}`,
         kind: 'Learner',
+      })),
+    ...quizzes
+      .filter((quiz) =>
+        quiz.title.toLowerCase().includes(normalizedQuery) ||
+        quiz.subject.toLowerCase().includes(normalizedQuery)
+      )
+      .slice(0, 3)
+      .map((quiz) => ({
+        label: quiz.title,
+        sub: `${quiz.subject} · ${quiz.status}`,
+        path: '/quizzes',
+        kind: 'Quiz',
       })),
   ] : []
 
@@ -56,7 +70,7 @@ export function SearchBar() {
               <div className="flex items-center gap-3 px-4 py-3 border-b border-light-border dark:border-dark-border">
                 <Search size={15} className="text-light-ink-muted dark:text-dark-ink-muted" />
                 <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search assignments, learners..."
+                  placeholder="Search assignments, learners, quizzes..."
                   className="flex-1 text-sm text-light-ink-primary dark:text-dark-ink-primary bg-transparent outline-none placeholder-light-ink-muted dark:placeholder-dark-ink-muted" />
                 <button onClick={() => { setOpen(false); setQuery('') }}>
                   <X size={15} className="text-light-ink-muted dark:text-dark-ink-muted hover:text-light-ink-primary dark:hover:text-dark-ink-primary transition-colors" />

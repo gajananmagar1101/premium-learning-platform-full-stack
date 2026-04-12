@@ -3,6 +3,7 @@ import { GlassCard } from '@/components/ui/GlassCard'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useStudentStore } from '@/store/useStudentStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
+import { useQuizStore } from '@/store/useQuizStore'
 import { useUIStore } from '@/store/useUIStore'
 import { studentAPI } from '@/lib/services'
 import { formatAcademicYearLabel } from '@/lib/btech'
@@ -16,6 +17,7 @@ export function Profile() {
   const { user, setUser } = useAuthStore()
   const { students } = useStudentStore()
   const { studentAssignments, fetchStudentAssignments } = useAssignmentStore()
+  const { quizzes, attempts } = useQuizStore()
   const { darkMode, toggleDarkMode } = useUIStore()
   const [editing, setEditing] = useState(false)
   const [displayName, setDisplayName] = useState(user?.name ?? '')
@@ -73,7 +75,7 @@ export function Profile() {
       const marks = assignment.submission?.marks ?? 0
       const totalMarks = assignment.totalMarks || 100
       return {
-        submissionId: assignment.submission?.id ?? assignment.id,
+        submissionId: `assignment-${assignment.submission?.id ?? assignment.id}`,
         assignmentId: assignment.id,
         assignmentTitle: assignment.title,
         subject: assignment.subject,
@@ -84,30 +86,51 @@ export function Profile() {
       }
     })
 
-  const gradedPercentages = gradedAssignments.map((item) => item.percentage)
+  const studentId = user?._id ?? user?.id
+  const gradedQuizAttempts = attempts
+    .filter((attempt) => studentId && attempt.studentId === studentId)
+    .map((attempt) => {
+      const quiz = quizzes.find((item) => item.id === attempt.quizId)
+      const totalMarks = attempt.totalPoints || 1
+      return {
+        submissionId: `quiz-${attempt.id}`,
+        assignmentId: attempt.quizId,
+        assignmentTitle: quiz?.title ? `[Quiz] ${quiz.title}` : '[Quiz] Quiz Attempt',
+        subject: quiz?.subject ?? 'Quiz',
+        marks: attempt.score,
+        totalMarks,
+        percentage: Math.round((attempt.score / totalMarks) * 100),
+        gradedAt: attempt.submittedAt,
+      }
+    })
+
+  const allGradedItems = [...gradedAssignments, ...gradedQuizAttempts]
+    .sort((a, b) => new Date(b.gradedAt).getTime() - new Date(a.gradedAt).getTime())
+
+  const gradedPercentages = allGradedItems.map((item) => item.percentage)
   const localAvgPercentage = gradedPercentages.length
     ? Math.round(gradedPercentages.reduce((sum, value) => sum + value, 0) / gradedPercentages.length)
     : 0
   const localBestPercentage = gradedPercentages.length
     ? Math.max(...gradedPercentages)
     : 0
-  const localAvgScore = gradedAssignments.length
-    ? Math.round((gradedAssignments.reduce((sum, item) => sum + item.marks, 0) / gradedAssignments.length) * 100) / 100
+  const localAvgScore = allGradedItems.length
+    ? Math.round((allGradedItems.reduce((sum, item) => sum + item.marks, 0) / allGradedItems.length) * 100) / 100
     : 0
-  const localBestScore = gradedAssignments.length
-    ? Math.max(...gradedAssignments.map((item) => item.marks))
+  const localBestScore = allGradedItems.length
+    ? Math.max(...allGradedItems.map((item) => item.marks))
     : 0
   const localProgress = localAvgPercentage
-  const localGrade = localAvgPercentage >= 90 ? 'A' : localAvgPercentage >= 80 ? 'B' : localAvgPercentage >= 70 ? 'C' : localAvgPercentage >= 60 ? 'D' : gradedAssignments.length ? 'F' : 'N/A'
-  const derivedPerformance = gradedAssignments.length ? {
+  const localGrade = localAvgPercentage >= 90 ? 'A' : localAvgPercentage >= 80 ? 'B' : localAvgPercentage >= 70 ? 'C' : localAvgPercentage >= 60 ? 'D' : allGradedItems.length ? 'F' : 'N/A'
+  const derivedPerformance = allGradedItems.length ? {
     avgScore: localAvgScore,
     avgPercentage: localAvgPercentage,
     bestScore: localBestScore,
     bestPercentage: localBestPercentage,
     overallGrade: localGrade,
     progressPercent: localProgress,
-    totalSubmissions: gradedAssignments.length,
-    scoreHistory: gradedAssignments,
+    totalSubmissions: allGradedItems.length,
+    scoreHistory: allGradedItems,
   } : null
   const displayPerformance = derivedPerformance ?? performance
 

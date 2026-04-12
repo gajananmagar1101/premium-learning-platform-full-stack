@@ -7,7 +7,9 @@ import { Badge } from '@/components/ui/Badge'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useAssessmentStore } from '@/store/useAssessmentStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
+import { useQuizStore } from '@/store/useQuizStore'
 import { scoreAPI, studentAPI } from '@/lib/services'
+import { normalizeAcademicYear } from '@/lib/btech'
 import type { Assessment, StudentPerformance, StudentScore } from '@/types'
 
 interface ScoreWithAssessment extends StudentScore {
@@ -26,6 +28,7 @@ export function StudentDashboard() {
   const user = useAuthStore((state) => state.user)
   const assessments = useAssessmentStore((state) => state.assessments)
   const { studentAssignments, fetchStudentAssignments } = useAssignmentStore()
+  const { quizzes, attempts } = useQuizStore()
   const [scores, setScores] = useState<ScoreWithAssessment[]>([])
   const [performance, setPerformance] = useState<StudentPerformance | null>(null)
   const [loading, setLoading] = useState(true)
@@ -180,6 +183,12 @@ export function StudentDashboard() {
   ), [gradedAssignments, scores])
 
   const upcomingAssessments = assessments.filter((assessment) => assessment.status === 'upcoming').slice(0, 4)
+  const cohort = normalizeAcademicYear(user?.grade)
+  const availableQuizzes = quizzes.filter((quiz) => quiz.status === 'published' && normalizeAcademicYear(quiz.className) === cohort)
+  const myQuizAttempts = attempts.filter((attempt) => attempt.studentId === userId)
+  const quizAverage = myQuizAttempts.length
+    ? Math.round(myQuizAttempts.reduce((sum, attempt) => sum + ((attempt.score / attempt.totalPoints) * 100), 0) / myQuizAttempts.length)
+    : 0
 
   return (
     <div className="space-y-6">
@@ -203,6 +212,10 @@ export function StudentDashboard() {
             <div className="text-center">
               <p className="text-3xl font-bold text-amber-600">{loading ? '...' : displayPerformance?.totalSubmissions ?? 0}</p>
               <p className="text-xs text-gray-500">Graded</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-bold text-fuchsia-600">{myQuizAttempts.length ? `${quizAverage}%` : '0%'}</p>
+              <p className="text-xs text-gray-500">Quiz Avg</p>
             </div>
           </div>
         </div>
@@ -278,6 +291,50 @@ export function StudentDashboard() {
                   <Badge label="Upcoming" variant="info" />
                 </div>
               ))}
+            </div>
+          )}
+        </GlassCard>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <GlassCard className="p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Available Quizzes</h2>
+          {!availableQuizzes.length ? (
+            <p className="text-sm text-gray-400 text-center py-12">No published quizzes for your cohort right now.</p>
+          ) : (
+            <div className="space-y-3">
+              {availableQuizzes.slice(0, 4).map((quiz) => (
+                <div key={quiz.id} className="flex items-center justify-between p-3 rounded-xl bg-white/30 hover:bg-white/50 transition-colors">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{quiz.title}</p>
+                    <p className="text-xs text-gray-500">{quiz.subject} · {quiz.questions.length} questions · {quiz.durationMinutes} mins</p>
+                  </div>
+                  <Badge label={myQuizAttempts.some((attempt) => attempt.quizId === quiz.id) ? 'Attempted' : 'Open'} variant={myQuizAttempts.some((attempt) => attempt.quizId === quiz.id) ? 'success' : 'info'} />
+                </div>
+              ))}
+            </div>
+          )}
+        </GlassCard>
+
+        <GlassCard className="p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Recent Quiz Results</h2>
+          {!myQuizAttempts.length ? (
+            <p className="text-sm text-gray-400 text-center py-12">Attempt quizzes to see your scores here.</p>
+          ) : (
+            <div className="space-y-3">
+              {myQuizAttempts.slice(0, 4).map((attempt) => {
+                const quiz = quizzes.find((item) => item.id === attempt.quizId)
+                const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
+                return (
+                  <div key={attempt.id} className="flex items-center justify-between p-3 rounded-xl bg-white/30 hover:bg-white/50 transition-colors">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{quiz?.title ?? 'Quiz'}</p>
+                      <p className="text-xs text-gray-500">{quiz?.subject ?? 'Subject'} · {new Date(attempt.submittedAt).toLocaleDateString()}</p>
+                    </div>
+                    <Badge label={`${attempt.score}/${attempt.totalPoints} (${percent}%)`} variant={percent >= 70 ? 'success' : 'warning'} />
+                  </div>
+                )
+              })}
             </div>
           )}
         </GlassCard>

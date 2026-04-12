@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Activity, BookOpen, CheckCircle, TrendingUp, Trophy, Users } from 'lucide-react'
+import { Activity, BookOpen, BrainCircuit, CheckCircle, TrendingUp, Trophy, Users } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { StatCard } from '@/components/ui/StatCard'
 import { GlassCard } from '@/components/ui/GlassCard'
@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { useAssessmentStore } from '@/store/useAssessmentStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useStudentStore } from '@/store/useStudentStore'
+import { useQuizStore } from '@/store/useQuizStore'
 import { scoreAPI } from '@/lib/services'
 import { formatAcademicYearLabel } from '@/lib/btech'
 import type { StudentScore } from '@/types'
@@ -26,6 +27,7 @@ export function Dashboard() {
   const { assessments, fetchAssessments } = useAssessmentStore()
   const { submissions, fetchAdminSubmissions, fetchAdminAssignments, adminAssignments } = useAssignmentStore()
   const { students, fetchStudents } = useStudentStore()
+  const { quizzes, attempts } = useQuizStore()
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [scores, setScores] = useState<StudentScore[]>([])
   const [loading, setLoading] = useState(true)
@@ -162,6 +164,17 @@ export function Dashboard() {
     ? Math.round((gradedSubmissions.length / (adminAssignments.length || assessments.length)) * 100)
     : 0
 
+  const recentQuizAttempts = attempts.slice(0, 5)
+
+  const quizOverview = useMemo(() => ({
+    total: quizzes.length,
+    published: quizzes.filter((quiz) => quiz.status === 'published').length,
+    attempts: attempts.length,
+    average: attempts.length
+      ? Math.round(attempts.reduce((sum, attempt) => sum + ((attempt.score / attempt.totalPoints) * 100), 0) / attempts.length)
+      : 0,
+  }), [attempts, quizzes])
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -265,6 +278,62 @@ export function Dashboard() {
                         <p className="text-sm font-medium text-gray-900">{isSubmission ? score.assignmentTitle : (score.assessment?.title ?? 'Assessment')}</p>
                         <p className="text-xs text-gray-500">
                           {isSubmission ? score.subject : (score.assessment?.subject ?? 'Subject')} · {new Date(isSubmission ? score.updatedAt : score.submittedAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <Badge label={`${percent}%`} variant={percent >= 70 ? 'success' : 'warning'} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </GlassCard>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <GlassCard className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="p-1.5 rounded-lg bg-fuchsia-500/15"><BrainCircuit size={16} className="text-fuchsia-500" /></div>
+            <h2 className="text-base font-semibold text-gray-900">Quiz Overview</h2>
+          </div>
+          {!quizOverview.total ? (
+            <p className="text-sm text-gray-400 text-center py-16">Create quizzes to track objective-test performance here.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'Total Quizzes', value: quizOverview.total },
+                { label: 'Published', value: quizOverview.published },
+                { label: 'Attempts', value: quizOverview.attempts },
+                { label: 'Avg Score', value: `${quizOverview.average}%` },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl bg-white/40 p-4">
+                  <p className="text-xs text-gray-500">{item.label}</p>
+                  <p className="mt-2 text-2xl font-bold text-gray-900">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </GlassCard>
+
+        <GlassCard className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="p-1.5 rounded-lg bg-sky-500/15"><Activity size={16} className="text-sky-500" /></div>
+            <h2 className="text-base font-semibold text-gray-900">Recent Quiz Attempts</h2>
+          </div>
+          {!recentQuizAttempts.length ? (
+            <p className="text-sm text-gray-400 text-center py-16">Learner quiz attempts will appear here after submissions.</p>
+          ) : (
+            <div className="space-y-2">
+              {recentQuizAttempts.map((attempt) => {
+                const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
+                const quiz = quizzes.find((item) => item.id === attempt.quizId)
+                return (
+                  <div key={attempt.id} className="p-3 rounded-xl hover:bg-white/40 transition-colors">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{quiz?.title ?? 'Quiz'}</p>
+                        <p className="text-xs text-gray-500">
+                          {attempt.studentName} · {formatAcademicYearLabel(attempt.className)} · {new Date(attempt.submittedAt).toLocaleString()}
                         </p>
                       </div>
                       <Badge label={`${percent}%`} variant={percent >= 70 ? 'success' : 'warning'} />

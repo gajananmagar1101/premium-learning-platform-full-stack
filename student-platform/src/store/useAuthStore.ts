@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import axios from 'axios'
-import type { User } from '@/types'
+import type { Role, User } from '@/types'
 import { authAPI } from '@/lib/services'
 
 interface AuthState {
@@ -11,7 +11,7 @@ interface AuthState {
   loading: boolean
   hydrated: boolean
   markHydrated: () => void
-  login: (email: string, password: string) => Promise<boolean>
+  login: (email: string, password: string, expectedRole?: Role) => Promise<boolean>
   register: (data: { name: string; email: string; password: string; role: string; grade?: string }) => Promise<boolean>
   setUser: (user: User | null) => void
   logout: () => void
@@ -34,12 +34,21 @@ export const useAuthStore = create<AuthState>()(
       hydrated: false,
       markHydrated: () => set({ hydrated: true }),
 
-      login: async (email, password) => {
+      login: async (email, password, expectedRole) => {
         set({ loading: true, loginError: null })
         try {
           const res = await authAPI.login({ email, password })
           const { token, user } = res.data
           const normalizedUser = normalizeUser(user)
+          if (expectedRole && normalizedUser.role !== expectedRole) {
+            set({
+              loginError: expectedRole === 'admin'
+                ? 'This account is not allowed in the faculty portal. Please use the learner login page.'
+                : 'This account is not allowed in the learner portal. Please use the faculty login page.',
+              loading: false,
+            })
+            return false
+          }
           localStorage.setItem('token', token)
           set({ user: normalizedUser, token, loading: false, loginError: null })
           return true

@@ -9,6 +9,8 @@ import { useAssessmentStore } from '@/store/useAssessmentStore'
 const pageTitles: Record<string, string> = {
   '/dashboard':        'Dashboard',
   '/assessments':      'Assignments',
+  '/quizzes':          'Quizzes',
+  '/quizzes/create':   'Create Quiz',
   '/students':         'B.Tech Cohorts',
   '/reports':          'Reports',
   '/profile':          'Profile',
@@ -19,7 +21,9 @@ export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { pathname } = useLocation()
   const fetchAssessments = useAssessmentStore((state) => state.fetchAssessments)
-  const title = pageTitles[pathname] ?? 'EduTrack'
+  const title = pathname.startsWith('/quizzes/attempt/')
+    ? 'Attempt Quiz'
+    : pageTitles[pathname] ?? 'EduTrack'
 
   if (import.meta.env.DEV) {
     console.count(`[Render] DashboardLayout (${pathname})`)

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, ChevronDown, ClipboardList, Edit3, FileText, FolderKanban, NotebookPen, Plus, Save, Search, Upload } from 'lucide-react'
+import { AlertTriangle, Calendar, CheckCheck, ChevronDown, ClipboardList, Clock3, Copy, Edit3, FileText, FolderKanban, NotebookPen, Plus, Save, Search, Trash2, Upload } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import axios from 'axios'
@@ -72,14 +72,21 @@ function AdminAssignmentsView() {
     fetchAdminAssignments,
     fetchAdminSubmissions,
     createAssignment,
+    deleteAssignment,
     updateAssignment,
     gradeSubmission,
   } = useAssignmentStore()
   const { addToast, addNotificationForUsers } = useUIStore()
   const { students, fetchStudents } = useStudentStore()
   const [search, setSearch] = useState('')
+  const [assignmentYearFilter, setAssignmentYearFilter] = useState<'all' | string>('all')
+  const [assignmentStatusFilter, setAssignmentStatusFilter] = useState<'all' | 'active' | 'closed' | 'dueSoon'>('all')
+  const [assignmentSubjectFilter, setAssignmentSubjectFilter] = useState<'all' | string>('all')
+  const [submissionStatusFilter, setSubmissionStatusFilter] = useState<'all' | 'toReview' | 'graded' | 'late'>('all')
+  const [submissionYearFilter, setSubmissionYearFilter] = useState<'all' | string>('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<AssignmentItem | null>(null)
+  const [assignmentToDelete, setAssignmentToDelete] = useState<AssignmentItem | null>(null)
   const [gradeInputs, setGradeInputs] = useState<Record<string, string>>({})
   const [questionFileName, setQuestionFileName] = useState<string | null>(null)
   const [questionFileContent, setQuestionFileContent] = useState<string | null>(null)
@@ -106,6 +113,32 @@ function AdminAssignmentsView() {
     [adminAssignments]
   )
 
+  const dueSoonCount = useMemo(() => {
+    const now = new Date().getTime()
+    const threeDays = 1000 * 60 * 60 * 24 * 3
+    return adminAssignments.filter((assignment) => {
+      const deadline = new Date(assignment.deadline).getTime()
+      return deadline >= now && deadline - now <= threeDays
+    }).length
+  }, [adminAssignments])
+
+  const lateSubmissionCount = useMemo(
+    () => submissions.filter((submission) => submission.late).length,
+    [submissions]
+  )
+
+  const gradingCompletionRate = useMemo(() => {
+    if (submissions.length === 0) return 0
+    return Math.round((gradedCount / submissions.length) * 100)
+  }, [gradedCount, submissions.length])
+
+  const subjectOptions = useMemo(
+    () =>
+      [...new Set(adminAssignments.map((assignment) => assignment.subject?.trim()).filter(Boolean))]
+        .sort((first, second) => first.localeCompare(second)),
+    [adminAssignments]
+  )
+
   const orderedSubmissions = useMemo(
     () =>
       [...submissions].sort((first, second) => {
@@ -119,19 +152,6 @@ function AdminAssignmentsView() {
     [submissions]
   )
 
-  const filteredSubmissions = useMemo(() => {
-    const query = search.toLowerCase().trim()
-    if (!query) return orderedSubmissions
-
-    return orderedSubmissions.filter((submission) =>
-      submission.studentName.toLowerCase().includes(query) ||
-      submission.studentEmail.toLowerCase().includes(query) ||
-      submission.assignmentTitle.toLowerCase().includes(query) ||
-      submission.subject.toLowerCase().includes(query) ||
-      (submission.fileName?.toLowerCase().includes(query) ?? false)
-    )
-  }, [orderedSubmissions, search])
-
   const studentGradeById = useMemo(
     () =>
       students.reduce<Record<string, string>>((collection, student) => {
@@ -144,23 +164,56 @@ function AdminAssignmentsView() {
     [students]
   )
 
+  const filteredSubmissions = useMemo(() => {
+    const query = search.toLowerCase().trim()
+    return orderedSubmissions.filter((submission) => {
+      const matchesQuery = !query || (
+        submission.studentName.toLowerCase().includes(query) ||
+        submission.studentEmail.toLowerCase().includes(query) ||
+        submission.assignmentTitle.toLowerCase().includes(query) ||
+        submission.subject.toLowerCase().includes(query) ||
+        (submission.fileName?.toLowerCase().includes(query) ?? false)
+      )
+      const cohort = normalizeAcademicYear(studentGradeById[submission.studentId])
+      const matchesYear = submissionYearFilter === 'all' || cohort === submissionYearFilter
+      const matchesStatus =
+        submissionStatusFilter === 'all' ||
+        (submissionStatusFilter === 'toReview' && submission.status !== 'graded') ||
+        (submissionStatusFilter === 'graded' && submission.status === 'graded') ||
+        (submissionStatusFilter === 'late' && submission.late)
+      return matchesQuery && matchesYear && matchesStatus
+    })
+  }, [orderedSubmissions, search, studentGradeById, submissionStatusFilter, submissionYearFilter])
+
   const filteredAssignments = useMemo(() => {
     const query = search.toLowerCase().trim()
     const sortedAssignments = [...adminAssignments].sort(
       (first, second) => new Date(first.deadline).getTime() - new Date(second.deadline).getTime()
     )
-    if (!query) return sortedAssignments
-
     const matchedAssignmentIds = new Set(filteredSubmissions.map((submission) => submission.assignmentId))
+    const now = new Date().getTime()
+    const threeDays = 1000 * 60 * 60 * 24 * 3
 
-    return sortedAssignments.filter((assignment) =>
-      assignment.title.toLowerCase().includes(query) ||
-      assignment.subject.toLowerCase().includes(query) ||
-      assignment.description.toLowerCase().includes(query) ||
-      assignment.className.toLowerCase().includes(query) ||
-      matchedAssignmentIds.has(assignment.id)
-    )
-  }, [adminAssignments, filteredSubmissions, search])
+    return sortedAssignments.filter((assignment) => {
+      const deadline = new Date(assignment.deadline).getTime()
+      const matchesQuery = !query || (
+        assignment.title.toLowerCase().includes(query) ||
+        assignment.subject.toLowerCase().includes(query) ||
+        assignment.description.toLowerCase().includes(query) ||
+        assignment.className.toLowerCase().includes(query) ||
+        matchedAssignmentIds.has(assignment.id)
+      )
+      const matchesYear = assignmentYearFilter === 'all' || normalizeAcademicYear(assignment.className) === assignmentYearFilter
+      const matchesSubject = assignmentSubjectFilter === 'all' || assignment.subject === assignmentSubjectFilter
+      const matchesStatus =
+        assignmentStatusFilter === 'all' ||
+        (assignmentStatusFilter === 'active' && deadline >= now) ||
+        (assignmentStatusFilter === 'closed' && deadline < now) ||
+        (assignmentStatusFilter === 'dueSoon' && deadline >= now && deadline - now <= threeDays)
+
+      return matchesQuery && matchesYear && matchesSubject && matchesStatus
+    })
+  }, [adminAssignments, assignmentStatusFilter, assignmentSubjectFilter, assignmentYearFilter, filteredSubmissions, search])
 
   const groupedAssignments = useMemo(() => {
     const groups = new Map<string, AssignmentItem[]>()
@@ -184,6 +237,32 @@ function AdminAssignmentsView() {
       }))
   }, [filteredAssignments])
 
+  const plannerAssignments = useMemo(() => {
+    const now = new Date().getTime()
+    return filteredAssignments
+      .filter((assignment) => new Date(assignment.deadline).getTime() >= now)
+      .slice(0, 4)
+  }, [filteredAssignments])
+
+  const cohortWorkload = useMemo(() => {
+    const grouped = filteredAssignments.reduce<Record<string, { total: number; dueSoon: number; pendingReview: number }>>((collection, assignment) => {
+      const key = normalizeAcademicYear(assignment.className) || 'UNASSIGNED'
+      if (!collection[key]) collection[key] = { total: 0, dueSoon: 0, pendingReview: 0 }
+      collection[key].total += 1
+      const deadline = new Date(assignment.deadline).getTime()
+      const now = Date.now()
+      if (deadline >= now && deadline - now <= 1000 * 60 * 60 * 24 * 3) {
+        collection[key].dueSoon += 1
+      }
+      collection[key].pendingReview += submissions.filter((submission) => submission.assignmentId === assignment.id && submission.status !== 'graded').length
+      return collection
+    }, {})
+
+    return Object.entries(grouped)
+      .sort((first, second) => second[1].pendingReview - first[1].pendingReview || second[1].total - first[1].total)
+      .slice(0, 4)
+  }, [filteredAssignments, submissions])
+
   const openCreate = () => {
     setEditing(null)
     setQuestionFileName(null)
@@ -205,6 +284,48 @@ function AdminAssignmentsView() {
     setQuestionFileName(null)
     setQuestionFileContent(null)
     reset()
+  }
+
+  const openEdit = (assignment: AssignmentItem) => {
+    setEditing(assignment)
+    setQuestionFileName(assignment.questionFileName ?? null)
+    setQuestionFileContent(assignment.questionFileContent ?? null)
+    reset({
+      title: assignment.title,
+      subject: assignment.subject,
+      className: assignment.className,
+      description: assignment.description,
+      totalMarks: assignment.totalMarks,
+      deadline: assignment.deadline ? new Date(assignment.deadline).toISOString().slice(0, 16) : '',
+    })
+    setModalOpen(true)
+  }
+
+  const useAsTemplate = (assignment: AssignmentItem) => {
+    setEditing(null)
+    setQuestionFileName(assignment.questionFileName ?? null)
+    setQuestionFileContent(assignment.questionFileContent ?? null)
+    reset({
+      title: `${assignment.title} Copy`,
+      subject: assignment.subject,
+      className: assignment.className,
+      description: assignment.description,
+      totalMarks: assignment.totalMarks,
+      deadline: '',
+    })
+    setModalOpen(true)
+  }
+
+  const handleDeleteAssignment = async () => {
+    if (!assignmentToDelete) return
+    try {
+      await deleteAssignment(assignmentToDelete.id)
+      addToast('Assignment deleted', 'success')
+      setAssignmentToDelete(null)
+    } catch (error) {
+      console.error('[Assignments] Failed to delete assignment:', error)
+      addToast('Failed to delete assignment', 'error')
+    }
   }
 
   const onSubmit = async (data: AssignmentFormData) => {
@@ -345,6 +466,119 @@ function AdminAssignmentsView() {
             </div>
           </div>
         </GlassCard>
+        <GlassCard className="p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Due In 3 Days</p>
+              <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{dueSoonCount}</p>
+            </div>
+            <div className="rounded-2xl bg-rose-500/10 p-3 text-rose-400">
+              <Clock3 size={18} />
+            </div>
+          </div>
+        </GlassCard>
+        <GlassCard className="p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Late Submissions</p>
+              <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{lateSubmissionCount}</p>
+            </div>
+            <div className="rounded-2xl bg-red-500/10 p-3 text-red-400">
+              <AlertTriangle size={18} />
+            </div>
+          </div>
+        </GlassCard>
+        <GlassCard className="p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Grading Progress</p>
+              <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{gradingCompletionRate}%</p>
+            </div>
+            <div className="rounded-2xl bg-emerald-500/10 p-3 text-emerald-400">
+              <CheckCheck size={18} />
+            </div>
+          </div>
+        </GlassCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <GlassCard className="p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Admin Planner</h3>
+              <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                Quick actions for upcoming work, edits, and cleanup.
+              </p>
+            </div>
+            <Badge label={`${plannerAssignments.length} upcoming`} variant="info" />
+          </div>
+          <div className="mt-5 grid gap-3">
+            {plannerAssignments.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+                No upcoming assignments match the current filters.
+              </div>
+            ) : plannerAssignments.map((assignment) => (
+              <div key={assignment.id} className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.title}</p>
+                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                      {assignment.subject} · {formatClassLabel(assignment.className)} · Due {formatDateTime(assignment.deadline)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => openEdit(assignment)} className="btn-ghost px-3 py-2 text-xs">
+                      <Edit3 size={13} /> Edit
+                    </button>
+                    <button type="button" onClick={() => useAsTemplate(assignment)} className="btn-ghost px-3 py-2 text-xs">
+                      <Copy size={13} /> Template
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAssignmentToDelete(assignment)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-5">
+          <div>
+            <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Cohort Review Queue</h3>
+            <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+              Which B.Tech cohorts need the most grading attention right now.
+            </p>
+          </div>
+          <div className="mt-5 space-y-3">
+            {cohortWorkload.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+                Cohort workload will appear once assignments are available.
+              </div>
+            ) : cohortWorkload.map(([cohort, stats]) => (
+              <div key={cohort} className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                      {cohort === 'UNASSIGNED' ? 'Unassigned' : formatAcademicYearLabel(cohort)}
+                    </p>
+                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                      {stats.total} assignment{stats.total === 1 ? '' : 's'} · {stats.pendingReview} awaiting review
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge label={`${stats.dueSoon} due soon`} variant={stats.dueSoon > 0 ? 'warning' : 'info'} />
+                    <Badge label={`${stats.pendingReview} review`} variant={stats.pendingReview > 0 ? 'danger' : 'success'} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
       </div>
 
       <GlassCard className="p-5">
@@ -369,6 +603,36 @@ function AdminAssignmentsView() {
               {filteredAssignments.length} of {adminAssignments.length} assignments
             </div>
           </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <select value={assignmentYearFilter} onChange={(event) => setAssignmentYearFilter(event.target.value)} className="form-input">
+            <option value="all">All cohorts</option>
+            {classOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          <select value={assignmentSubjectFilter} onChange={(event) => setAssignmentSubjectFilter(event.target.value)} className="form-input">
+            <option value="all">All subjects</option>
+            {subjectOptions.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
+          </select>
+          <select value={assignmentStatusFilter} onChange={(event) => setAssignmentStatusFilter(event.target.value as 'all' | 'active' | 'closed' | 'dueSoon')} className="form-input">
+            <option value="all">All deadlines</option>
+            <option value="active">Active only</option>
+            <option value="dueSoon">Due in 3 days</option>
+            <option value="closed">Closed only</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              setAssignmentYearFilter('all')
+              setAssignmentSubjectFilter('all')
+              setAssignmentStatusFilter('all')
+              setSubmissionStatusFilter('all')
+              setSubmissionYearFilter('all')
+              setSearch('')
+            }}
+            className="btn-ghost justify-center"
+          >
+            Reset Filters
+          </button>
         </div>
       </GlassCard>
 
@@ -479,6 +743,21 @@ function AdminAssignmentsView() {
           <div className="flex flex-wrap gap-2">
             <Badge label={`${filteredSubmissions.filter((submission) => submission.status !== 'graded').length} to review`} variant="warning" />
             <Badge label={`${filteredSubmissions.filter((submission) => submission.status === 'graded').length} graded`} variant="success" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 border-b border-light-border px-5 py-4 dark:border-dark-border md:grid-cols-2 xl:grid-cols-3">
+          <select value={submissionYearFilter} onChange={(event) => setSubmissionYearFilter(event.target.value)} className="form-input">
+            <option value="all">All learner cohorts</option>
+            {classOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          <select value={submissionStatusFilter} onChange={(event) => setSubmissionStatusFilter(event.target.value as 'all' | 'toReview' | 'graded' | 'late')} className="form-input">
+            <option value="all">All review states</option>
+            <option value="toReview">Needs review</option>
+            <option value="graded">Graded</option>
+            <option value="late">Late submissions</option>
+          </select>
+          <div className="rounded-2xl border border-light-border px-3 py-2 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+            {filteredSubmissions.length} visible submissions
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -643,6 +922,33 @@ function AdminAssignmentsView() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(assignmentToDelete)}
+        onClose={() => setAssignmentToDelete(null)}
+        title="Delete Assignment"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+            Delete <span className="font-semibold">{assignmentToDelete?.title}</span> for {assignmentToDelete ? formatClassLabel(assignmentToDelete.className) : 'this cohort'}?
+          </p>
+          <div className="rounded-2xl border border-red-200 bg-red-50/70 px-4 py-3 text-sm text-red-600">
+            This will also remove related submissions from the current admin view.
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={() => setAssignmentToDelete(null)} className="btn-ghost">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteAssignment}
+              className="inline-flex items-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600"
+            >
+              <Trash2 size={14} /> Delete Assignment
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   )

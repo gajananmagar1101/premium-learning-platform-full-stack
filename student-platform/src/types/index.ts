@@ -141,6 +141,44 @@ export interface ChartDataPoint {
   average: number
 }
 
+export interface QuizQuestion {
+  id: string
+  prompt: string
+  options: string[]
+  correctOption: number
+  points: number
+}
+
+export type QuizStatus = 'draft' | 'published' | 'closed'
+
+export interface Quiz {
+  id: string
+  title: string
+  subject: string
+  className: string
+  description: string
+  deadlineAt?: string
+  durationMinutes: number
+  status: QuizStatus
+  questions: QuizQuestion[]
+  totalPoints: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface QuizAttempt {
+  id: string
+  quizId: string
+  studentId: string
+  studentName: string
+  studentEmail: string
+  className: string
+  answers: number[]
+  score: number
+  totalPoints: number
+  submittedAt: string
+}
+
 export interface Notification {
   id: string
   title: string

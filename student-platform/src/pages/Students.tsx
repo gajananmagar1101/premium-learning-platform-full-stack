@@ -7,6 +7,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Badge } from '@/components/ui/Badge'
 import { useStudentStore } from '@/store/useStudentStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
+import { useQuizStore } from '@/store/useQuizStore'
 import { useUIStore } from '@/store/useUIStore'
 import { studentAPI, scoreAPI } from '@/lib/services'
 import { btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
@@ -33,6 +34,7 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
     fetchAdminSubmissions,
   } = useAssignmentStore()
   const { addToast } = useUIStore()
+  const { quizzes, attempts } = useQuizStore()
   const [scores, setScores] = useState<ScoreWithAssessment[]>([])
   const [performance, setPerformance] = useState<StudentPerformance | null>(null)
   const [loadingScores, setLoadingScores] = useState(true)
@@ -80,6 +82,10 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
 
   const studentSubmissions = submissions.filter((submission) => submission.studentId === student._id)
   const gradedStudentSubmissions = studentSubmissions.filter((submission) => submission.marks != null)
+  const studentQuizAttempts = attempts.filter((attempt) => {
+    const sid = student._id ?? student.id
+    return attempt.studentId === sid
+  })
 
   const avg = scores.length
     ? Math.round(scores.reduce((a, s) => {
@@ -92,28 +98,8 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
     ? Math.round(Math.max(...scores.map((s) => (s.score / (s.assessment?.maxScore ?? 100)) * 100)))
     : 0
 
-  const submissionPercentages = gradedStudentSubmissions.map((submission) =>
-    Math.round(((submission.marks ?? 0) / (submission.totalMarks || 100)) * 100)
-  )
-  const submissionAverage = submissionPercentages.length
-    ? Math.round(submissionPercentages.reduce((sum, percent) => sum + percent, 0) / submissionPercentages.length)
-    : 0
-  const submissionBest = submissionPercentages.length
-    ? Math.max(...submissionPercentages)
-    : 0
-
-  const avgPercentage = gradedStudentSubmissions.length
-    ? submissionAverage
-    : Math.round(performance?.avgPercentage ?? avg)
-  const bestPercentage = gradedStudentSubmissions.length
-    ? submissionBest
-    : Math.round(performance?.bestPercentage ?? best)
-  const totalSubmissions = gradedStudentSubmissions.length
-    ? gradedStudentSubmissions.length
-    : performance?.totalSubmissions ?? scores.length
-
   const submissionHistory = gradedStudentSubmissions.map((submission) => ({
-    submissionId: submission.id,
+    submissionId: `assignment-${submission.id}`,
     assignmentTitle: submission.assignmentTitle,
     subject: submission.subject,
     marks: submission.marks ?? 0,
@@ -122,8 +108,34 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
     gradedAt: submission.updatedAt,
   }))
 
-  const performanceHistory = submissionHistory.length ? submissionHistory : (performance?.scoreHistory ?? [])
+  const quizHistory = studentQuizAttempts.map((attempt) => {
+    const quiz = quizzes.find((item) => item.id === attempt.quizId)
+    const totalMarks = attempt.totalPoints || 1
+    return {
+      submissionId: `quiz-${attempt.id}`,
+      assignmentTitle: quiz?.title ? `[Quiz] ${quiz.title}` : '[Quiz] Quiz Attempt',
+      subject: quiz?.subject ?? 'Quiz',
+      marks: attempt.score,
+      totalMarks,
+      percentage: Math.round((attempt.score / totalMarks) * 100),
+      gradedAt: attempt.submittedAt,
+    }
+  })
+
+  const basePerformanceHistory = submissionHistory.length ? submissionHistory : (performance?.scoreHistory ?? [])
+  const performanceHistory = [...basePerformanceHistory, ...quizHistory]
+    .sort((a, b) => new Date(b.gradedAt).getTime() - new Date(a.gradedAt).getTime())
   const hasPerformanceHistory = performanceHistory.length > 0
+
+  const avgPercentage = hasPerformanceHistory
+    ? Math.round(performanceHistory.reduce((sum, item) => sum + item.percentage, 0) / performanceHistory.length)
+    : Math.round(performance?.avgPercentage ?? avg)
+  const bestPercentage = hasPerformanceHistory
+    ? Math.max(...performanceHistory.map((item) => item.percentage))
+    : Math.round(performance?.bestPercentage ?? best)
+  const totalSubmissions = hasPerformanceHistory
+    ? performanceHistory.length
+    : performance?.totalSubmissions ?? scores.length
 
   // Build subject breakdown from assignment grades when available.
   const subjectMap: Record<string, { total: number; count: number }> = {}

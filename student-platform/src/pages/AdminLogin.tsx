@@ -16,10 +16,9 @@ export function AdminLogin() {
 
   const onSubmit = async (data: FormData) => {
     setLocalError(null)
-    const ok = await login(data.email, data.password)
+    const ok = await login(data.email, data.password, 'admin')
     if (ok) {
-      const user = useAuthStore.getState().user
-      navigate(user?.role === 'admin' ? '/dashboard' : '/student-dashboard')
+      navigate('/dashboard')
     }
   }
 

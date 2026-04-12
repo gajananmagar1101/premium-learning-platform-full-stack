@@ -14,10 +14,9 @@ export function StudentLogin() {
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>()
 
   const onSubmit = async (data: FormData) => {
-    const ok = await login(data.email, data.password)
+    const ok = await login(data.email, data.password, 'student')
     if (ok) {
-      const user = useAuthStore.getState().user
-      navigate(user?.role === 'admin' ? '/dashboard' : '/student-dashboard')
+      navigate('/student-dashboard')
     }
   }
 
