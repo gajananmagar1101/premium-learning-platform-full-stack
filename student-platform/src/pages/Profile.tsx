@@ -2,146 +2,23 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useStudentStore } from '@/store/useStudentStore'
-import { useAssignmentStore } from '@/store/useAssignmentStore'
-import { useQuizStore } from '@/store/useQuizStore'
 import { useUIStore } from '@/store/useUIStore'
 import { studentAPI } from '@/lib/services'
 import { formatAcademicYearLabel } from '@/lib/btech'
-import { ProgressBar } from '@/components/ui/ProgressBar'
-import type { StudentPerformance } from '@/types'
 import { Mail, Shield, User, Edit2, Check, Moon, Sun, Bell, X, GraduationCap } from 'lucide-react'
 import { motion } from 'framer-motion'
 import axios from 'axios'
 
 export function Profile() {
   const { user, setUser } = useAuthStore()
-  const { students } = useStudentStore()
-  const { studentAssignments, fetchStudentAssignments } = useAssignmentStore()
-  const { quizzes, attempts, fetchQuizzes, fetchAttempts } = useQuizStore()
   const darkMode = useUIStore((state) => state.darkMode)
   const toggleDarkMode = useUIStore((state) => state.toggleDarkMode)
   const [editing, setEditing] = useState(false)
   const [displayName, setDisplayName] = useState(user?.name ?? '')
   const [className, setClassName] = useState(user?.grade ?? '')
   const [savingProfile, setSavingProfile] = useState(false)
-  const [performance, setPerformance] = useState<StudentPerformance | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const addToast = useUIStore((state) => state.addToast)
-
-  const student = user?.role === 'student' ? students.find((s) => s._id === (user._id ?? user.id)) : null
-
-  useEffect(() => {
-    const studentId = user?._id ?? user?.id
-    if (user?.role !== 'student' || !studentId) return
-
-    let cancelled = false
-    const loadPerformance = async () => {
-      try {
-        const res = await studentAPI.getPerformance(studentId)
-        if (!cancelled) {
-          setPerformance(res.data.performance ?? null)
-        }
-      } catch (error) {
-        const status = (error as { response?: { status?: number } })?.response?.status
-        if (!cancelled) {
-          setPerformance(null)
-          if (status && status !== 404) {
-            console.error('[Profile] Failed to load performance:', error)
-          }
-        }
-      }
-    }
-
-    loadPerformance()
-    const intervalId = window.setInterval(loadPerformance, 15000)
-    const handleFocus = () => {
-      loadPerformance()
-    }
-    window.addEventListener('focus', handleFocus)
-
-    return () => {
-      cancelled = true
-      window.clearInterval(intervalId)
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [user?._id, user?.id, user?.role])
-
-  useEffect(() => {
-    if (user?.role !== 'student') return
-    fetchStudentAssignments()
-  }, [fetchStudentAssignments, user?.role])
-
-  useEffect(() => {
-    if (user?.role !== 'student') return
-    fetchQuizzes()
-    fetchAttempts()
-  }, [fetchAttempts, fetchQuizzes, user?.role])
-
-  const gradedAssignments = studentAssignments
-    .filter((assignment) => assignment.submission?.marks != null)
-    .map((assignment) => {
-      const marks = assignment.submission?.marks ?? 0
-      const totalMarks = assignment.totalMarks || 100
-      return {
-        submissionId: `assignment-${assignment.submission?.id ?? assignment.id}`,
-        assignmentId: assignment.id,
-        assignmentTitle: assignment.title,
-        subject: assignment.subject,
-        marks,
-        totalMarks,
-        percentage: Math.round((marks / totalMarks) * 100),
-        gradedAt: assignment.submission?.updatedAt ?? assignment.deadline,
-      }
-    })
-
-  const studentId = user?._id ?? user?.id
-  const gradedQuizAttempts = attempts
-    .filter((attempt) => studentId && attempt.studentId === studentId)
-    .map((attempt) => {
-      const quiz = quizzes.find((item) => item.id === attempt.quizId)
-      const totalMarks = attempt.totalPoints || 1
-      return {
-        submissionId: `quiz-${attempt.id}`,
-        assignmentId: attempt.quizId,
-        assignmentTitle: quiz?.title ? `[Quiz] ${quiz.title}` : '[Quiz] Quiz Attempt',
-        subject: quiz?.subject ?? 'Quiz',
-        marks: attempt.score,
-        totalMarks,
-        percentage: Math.round((attempt.score / totalMarks) * 100),
-        gradedAt: attempt.submittedAt,
-      }
-    })
-
-  const allGradedItems = [...gradedAssignments, ...gradedQuizAttempts]
-    .sort((a, b) => new Date(b.gradedAt).getTime() - new Date(a.gradedAt).getTime())
-
-  const gradedPercentages = allGradedItems.map((item) => item.percentage)
-  const localAvgPercentage = gradedPercentages.length
-    ? Math.round(gradedPercentages.reduce((sum, value) => sum + value, 0) / gradedPercentages.length)
-    : 0
-  const localBestPercentage = gradedPercentages.length
-    ? Math.max(...gradedPercentages)
-    : 0
-  const localAvgScore = allGradedItems.length
-    ? Math.round((allGradedItems.reduce((sum, item) => sum + item.marks, 0) / allGradedItems.length) * 100) / 100
-    : 0
-  const localBestScore = allGradedItems.length
-    ? Math.max(...allGradedItems.map((item) => item.marks))
-    : 0
-  const localProgress = localAvgPercentage
-  const localGrade = localAvgPercentage >= 90 ? 'A' : localAvgPercentage >= 80 ? 'B' : localAvgPercentage >= 70 ? 'C' : localAvgPercentage >= 60 ? 'D' : allGradedItems.length ? 'F' : 'N/A'
-  const derivedPerformance = allGradedItems.length ? {
-    avgScore: localAvgScore,
-    avgPercentage: localAvgPercentage,
-    bestScore: localBestScore,
-    bestPercentage: localBestPercentage,
-    overallGrade: localGrade,
-    progressPercent: localProgress,
-    totalSubmissions: allGradedItems.length,
-    scoreHistory: allGradedItems,
-  } : null
-  const displayPerformance = derivedPerformance ?? performance
 
   useEffect(() => {
     setDisplayName(user?.name ?? '')
@@ -217,81 +94,7 @@ export function Profile() {
             </span>
           </div>
         </div>
-
-        {/* Learner stats */}
-        {student && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5 pt-5 border-t border-gray-100">
-            {[
-              { label: 'Avg Score', value: displayPerformance ? `${displayPerformance.avgScore}` : '0', color: 'text-indigo-600' },
-              { label: 'Best Score', value: displayPerformance ? `${displayPerformance.bestScore}` : '0', color: 'text-emerald-600' },
-              { label: 'Grade', value: displayPerformance?.overallGrade ?? 'N/A', color: 'text-purple-600' },
-              { label: 'Submissions', value: displayPerformance ? `${displayPerformance.totalSubmissions}` : '0', color: 'text-amber-600' },
-            ].map((stat) => (
-              <div key={stat.label} className="rounded-xl bg-light-card2/70 p-3 text-center dark:bg-dark-card2/80">
-                <p className={`text-base font-bold ${stat.color} truncate`}>{stat.value}</p>
-                <p className="mt-0.5 text-xs text-light-ink-muted dark:text-dark-ink-muted">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
       </GlassCard>
-
-      {user?.role === 'student' && (
-        <GlassCard className="p-6">
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <div>
-              <h3 className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Performance Progress</h3>
-              <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">Updates automatically when admin posts grades.</p>
-            </div>
-            <div className="text-right">
-              <p className="text-lg font-bold text-indigo-600">{displayPerformance?.overallGrade ?? 'N/A'}</p>
-              <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Overall Grade</p>
-            </div>
-          </div>
-          <ProgressBar
-            label="Overall Progress"
-            value={displayPerformance?.progressPercent ?? 0}
-            color={(displayPerformance?.progressPercent ?? 0) >= 85 ? 'bg-emerald-500' : (displayPerformance?.progressPercent ?? 0) >= 70 ? 'bg-indigo-500' : 'bg-amber-500'}
-          />
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="rounded-xl bg-light-card2/70 p-3 dark:bg-dark-card2/80">
-              <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Average Percentage</p>
-              <p className="mt-1 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{displayPerformance?.avgPercentage ?? 0}%</p>
-            </div>
-            <div className="rounded-xl bg-light-card2/70 p-3 dark:bg-dark-card2/80">
-              <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Best Percentage</p>
-              <p className="mt-1 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{displayPerformance?.bestPercentage ?? 0}%</p>
-            </div>
-          </div>
-        </GlassCard>
-      )}
-
-      {user?.role === 'student' && (
-        <GlassCard className="p-6">
-          <h3 className="mb-4 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Score History</h3>
-          {!displayPerformance?.scoreHistory?.length ? (
-            <p className="py-6 text-center text-sm text-light-ink-muted dark:text-dark-ink-muted">No graded assignments yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {displayPerformance.scoreHistory.map((item) => (
-                <div
-                  key={item.submissionId}
-                  className="flex items-center justify-between gap-4 rounded-xl bg-light-card2/60 p-3 transition-colors hover:bg-light-hover dark:bg-dark-card2/70 dark:hover:bg-dark-hover"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">{item.assignmentTitle}</p>
-                    <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">{item.subject} · {new Date(item.gradedAt).toLocaleString()}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-semibold text-indigo-600">{item.marks}/{item.totalMarks}</p>
-                    <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">{item.percentage}%</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </GlassCard>
-      )}
 
       {/* Info Fields */}
       <GlassCard className="p-6">

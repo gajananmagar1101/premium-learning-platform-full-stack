@@ -5,6 +5,7 @@ import {
   BarChart3,
   BookOpenCheck,
   CalendarDays,
+  ChartColumnBig,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -31,6 +32,7 @@ const isLinkActive = (pathname: string, to: string) => {
   if (to === '/student-dashboard') return pathname === '/student-dashboard'
   if (to === '/quizzes') return pathname === '/quizzes' || pathname.startsWith('/quizzes/')
   if (to === '/students') return pathname === '/students' || pathname.startsWith('/students/')
+  if (to === '/student-performance') return pathname === '/student-performance' || pathname.startsWith('/student-performance/')
   return pathname === to
 }
 
@@ -59,7 +61,6 @@ export function Navbar({ title }: NavbarProps) {
       { to: '/assessments', label: 'Assignments', icon: BookOpenCheck },
       { to: '/quizzes', label: 'Quizzes', icon: SearchCheck },
       { to: '/student-planner', label: 'Planner', icon: CalendarDays },
-      { to: '/profile', label: 'Profile', icon: UserCircle2 },
     ]
   }, [user?.role])
 
@@ -73,6 +74,7 @@ export function Navbar({ title }: NavbarProps) {
     }
 
     return [
+      { to: '/student-performance', icon: ChartColumnBig, label: 'My Performance' },
       { to: '/profile', icon: UserCircle2, label: 'My Profile' },
       { to: '/profile?mode=edit', icon: PencilLine, label: 'Edit Profile' },
       { to: '/student-dashboard', icon: LayoutDashboard, label: 'Go to Dashboard' },

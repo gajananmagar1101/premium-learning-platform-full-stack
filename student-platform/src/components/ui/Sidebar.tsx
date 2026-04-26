@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ClipboardList, Users, BarChart3, User, X, LogOut, BrainCircuit } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Users, BarChart3, User, X, LogOut, BrainCircuit, ChartColumnBig } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useNavigate } from 'react-router-dom'
@@ -19,6 +19,7 @@ const studentLinks = [
   { to: '/student-dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/assessments',       icon: ClipboardList,   label: 'Assignments' },
   { to: '/quizzes',           icon: BrainCircuit,    label: 'Quizzes' },
+  { to: '/student-performance', icon: ChartColumnBig, label: 'Performance' },
   { to: '/profile',           icon: User,            label: 'Profile' },
 ]
 

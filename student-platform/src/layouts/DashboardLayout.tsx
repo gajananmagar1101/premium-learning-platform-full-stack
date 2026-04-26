@@ -13,6 +13,7 @@ const pageTitles: Record<string, string> = {
   '/students':         'B.Tech Cohorts',
   '/reports':          'Reports',
   '/profile':          'Profile',
+  '/student-performance': 'My Performance',
   '/student-dashboard':'Learner Dashboard',
 }
 
@@ -21,6 +22,10 @@ export function DashboardLayout() {
   const fetchAssessments = useAssessmentStore((state) => state.fetchAssessments)
   const title = pathname.startsWith('/quizzes/attempt/')
     ? 'Attempt Quiz'
+    : pathname.startsWith('/student-performance/assignments')
+      ? 'Assignment History'
+      : pathname.startsWith('/student-performance/quizzes')
+        ? 'Quiz History'
     : pathname.startsWith('/students/class')
       ? 'Class Learners'
       : pathname.startsWith('/students/profile/') && pathname.endsWith('/assignments')

@@ -14,6 +14,8 @@ const Students = lazy(() => import('@/pages/Students').then((module) => ({ defau
 const Reports = lazy(() => import('@/pages/Reports').then((module) => ({ default: module.Reports })))
 const Profile = lazy(() => import('@/pages/Profile').then((module) => ({ default: module.Profile })))
 const StudentDashboard = lazy(() => import('@/pages/StudentDashboard').then((module) => ({ default: module.StudentDashboard })))
+const StudentPerformancePage = lazy(() => import('@/pages/StudentPerformancePage').then((module) => ({ default: module.StudentPerformancePage })))
+const StudentPerformanceHistoryPage = lazy(() => import('@/pages/StudentPerformanceHistoryPage').then((module) => ({ default: module.StudentPerformanceHistoryPage })))
 const StudentPlannerPage = lazy(() => import('@/pages/StudentPlannerPage').then((module) => ({ default: module.StudentPlannerPage })))
 const SubjectAssignmentsPage = lazy(() => import('@/pages/SubjectAssignmentsPage').then((module) => ({ default: module.SubjectAssignmentsPage })))
 const ClassStudentsPage = lazy(() => import('@/pages/ClassStudentsPage').then((module) => ({ default: module.ClassStudentsPage })))
@@ -93,6 +95,8 @@ export default function App() {
             <Route path="/students/profile/:studentId/:section" element={<ProtectedRoute adminOnly><StudentProfileDetailPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute adminOnly><Reports /></ProtectedRoute>} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/student-performance" element={<StudentPerformancePage />} />
+            <Route path="/student-performance/:section" element={<StudentPerformanceHistoryPage />} />
             <Route path="/student-dashboard" element={<StudentDashboard />} />
             <Route path="/student-planner" element={<StudentPlannerPage />} />
           </Route>
