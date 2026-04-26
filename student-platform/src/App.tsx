@@ -19,6 +19,7 @@ const SubjectAssignmentsPage = lazy(() => import('@/pages/SubjectAssignmentsPage
 const ClassStudentsPage = lazy(() => import('@/pages/ClassStudentsPage').then((module) => ({ default: module.ClassStudentsPage })))
 const Quizzes = lazy(() => import('@/pages/Quizzes').then((module) => ({ default: module.Quizzes })))
 const StudentProfilePage = lazy(() => import('@/pages/StudentProfilePage').then((module) => ({ default: module.StudentProfilePage })))
+const StudentProfileDetailPage = lazy(() => import('@/pages/StudentProfileDetailPage').then((module) => ({ default: module.StudentProfileDetailPage })))
 
 function AppShellFallback() {
   return (
@@ -89,6 +90,7 @@ export default function App() {
             <Route path="/students" element={<ProtectedRoute adminOnly><Students /></ProtectedRoute>} />
             <Route path="/students/class" element={<ProtectedRoute adminOnly><ClassStudentsPage /></ProtectedRoute>} />
             <Route path="/students/profile/:studentId" element={<ProtectedRoute adminOnly><StudentProfilePage /></ProtectedRoute>} />
+            <Route path="/students/profile/:studentId/:section" element={<ProtectedRoute adminOnly><StudentProfileDetailPage /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute adminOnly><Reports /></ProtectedRoute>} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/student-dashboard" element={<StudentDashboard />} />

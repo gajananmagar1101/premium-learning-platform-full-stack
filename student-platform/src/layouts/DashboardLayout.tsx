@@ -23,9 +23,15 @@ export function DashboardLayout() {
     ? 'Attempt Quiz'
     : pathname.startsWith('/students/class')
       ? 'Class Learners'
-      : pathname.startsWith('/students/profile/')
-        ? 'Learner Profile'
-        : pageTitles[pathname] ?? 'EduTrack'
+      : pathname.startsWith('/students/profile/') && pathname.endsWith('/assignments')
+        ? 'Submitted Assignments'
+        : pathname.startsWith('/students/profile/') && pathname.endsWith('/quizzes')
+          ? 'Quiz Attempts'
+          : pathname.startsWith('/students/profile/') && pathname.endsWith('/history')
+            ? 'System Score History'
+            : pathname.startsWith('/students/profile/')
+              ? 'Learner Profile'
+              : pageTitles[pathname] ?? 'EduTrack'
 
   if (import.meta.env.DEV) {
     console.count(`[Render] DashboardLayout (${pathname})`)
