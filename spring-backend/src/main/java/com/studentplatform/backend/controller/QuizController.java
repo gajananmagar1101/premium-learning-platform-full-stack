@@ -2,6 +2,7 @@ package com.studentplatform.backend.controller;
 
 import com.studentplatform.backend.dto.QuizAttemptRequest;
 import com.studentplatform.backend.dto.QuizRequest;
+import com.studentplatform.backend.dto.QuizSessionRequest;
 import com.studentplatform.backend.security.AppUserDetails;
 import com.studentplatform.backend.service.QuizService;
 import jakarta.validation.Valid;
@@ -68,5 +69,23 @@ public class QuizController {
             @AuthenticationPrincipal AppUserDetails userDetails
     ) {
         return Map.of("success", true, "attempt", quizService.submitAttempt(id, request, userDetails.getUser()));
+    }
+
+    @PostMapping("/{id}/session")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Map<String, Object> startSession(
+            @PathVariable String id,
+            @AuthenticationPrincipal AppUserDetails userDetails
+    ) {
+        return Map.of("success", true, "session", quizService.startSession(id, userDetails.getUser()));
+    }
+
+    @PutMapping("/{id}/session")
+    public Map<String, Object> updateSession(
+            @PathVariable String id,
+            @RequestBody QuizSessionRequest request,
+            @AuthenticationPrincipal AppUserDetails userDetails
+    ) {
+        return Map.of("success", true, "session", quizService.updateSession(id, request, userDetails.getUser()));
     }
 }

@@ -64,6 +64,9 @@ export const quizAPI = {
   update: (id: string, data: object) => api.put(`/quizzes/${id}`, data),
   delete: (id: string) => api.delete(`/quizzes/${id}`),
   getAttempts: () => api.get('/quizzes/attempts'),
+  startSession: (quizId: string) => api.post(`/quizzes/${quizId}/session`),
+  updateSession: (quizId: string, data: { answers: number[]; currentQuestionIndex: number }) =>
+    api.put(`/quizzes/${quizId}/session`, data),
   submitAttempt: (quizId: string, data: { answers: number[] }) => api.post(`/quizzes/${quizId}/attempt`, data),
 }
 

@@ -4,14 +4,19 @@ import com.studentplatform.backend.dto.QuizAttemptRequest;
 import com.studentplatform.backend.dto.QuizAttemptResponse;
 import com.studentplatform.backend.dto.QuizRequest;
 import com.studentplatform.backend.dto.QuizResponse;
+import com.studentplatform.backend.dto.QuizSessionRequest;
+import com.studentplatform.backend.dto.QuizSessionResponse;
 import com.studentplatform.backend.entity.QuizAttemptEntity;
 import com.studentplatform.backend.entity.QuizEntity;
+import com.studentplatform.backend.entity.QuizSessionEntity;
 import com.studentplatform.backend.entity.Role;
 import com.studentplatform.backend.entity.UserEntity;
 import com.studentplatform.backend.exception.ApiException;
 import com.studentplatform.backend.repository.QuizAttemptRepository;
 import com.studentplatform.backend.repository.QuizRepository;
+import com.studentplatform.backend.repository.QuizSessionRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,20 +32,24 @@ public class QuizService {
 
     private final QuizRepository quizRepository;
     private final QuizAttemptRepository quizAttemptRepository;
+    private final QuizSessionRepository quizSessionRepository;
     private final NotificationService notificationService;
 
     public QuizService(
             QuizRepository quizRepository,
             QuizAttemptRepository quizAttemptRepository,
+            QuizSessionRepository quizSessionRepository,
             NotificationService notificationService
     ) {
         this.quizRepository = quizRepository;
         this.quizAttemptRepository = quizAttemptRepository;
+        this.quizSessionRepository = quizSessionRepository;
         this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
     public List<QuizResponse> getAll(UserEntity currentUser) {
+        flushExpiredSessions();
         List<QuizEntity> quizzes;
         if (currentUser.getRole() == Role.ADMIN) {
             quizzes = quizRepository.findAllByOrderByCreatedAtDesc();
@@ -99,12 +108,14 @@ public class QuizService {
         if (!quizRepository.existsById(id)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Quiz not found.");
         }
+        quizSessionRepository.deleteByQuizId(id);
         quizAttemptRepository.deleteByQuizId(id);
         quizRepository.deleteById(id);
     }
 
     @Transactional(readOnly = true)
     public List<QuizAttemptResponse> getAttempts(UserEntity currentUser) {
+        flushExpiredSessions();
         List<QuizAttemptEntity> attempts = currentUser.getRole() == Role.ADMIN
                 ? quizAttemptRepository.findAllByOrderBySubmittedAtDesc()
                 : quizAttemptRepository.findByStudentIdOrderBySubmittedAtDesc(currentUser.getId());
@@ -115,6 +126,7 @@ public class QuizService {
     }
 
     public QuizAttemptResponse submitAttempt(String quizId, QuizAttemptRequest request, UserEntity currentUser) {
+        flushExpiredSessions();
         if (currentUser.getRole() != Role.STUDENT) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only learners can submit quiz attempts.");
         }
@@ -141,30 +153,119 @@ public class QuizService {
             }
         }
 
-        QuizAttemptEntity attempt = quizAttemptRepository.findByQuizIdAndStudentId(quizId, currentUser.getId())
+        QuizAttemptEntity saved = saveAttempt(quiz, currentUser, answers, score, Instant.now());
+        quizSessionRepository.findByQuizIdAndStudentId(quizId, currentUser.getId())
+                .ifPresent(quizSessionRepository::delete);
+        notifyAdminsAboutSubmission(currentUser, quiz);
+        return QuizAttemptResponse.from(saved);
+    }
+
+    public QuizSessionResponse startSession(String quizId, UserEntity currentUser) {
+        flushExpiredSessions();
+        if (currentUser.getRole() != Role.STUDENT) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only learners can start quiz attempts.");
+        }
+
+        QuizEntity quiz = validateOpenQuiz(quizId);
+
+        if (quizAttemptRepository.findByQuizIdAndStudentId(quizId, currentUser.getId()).isPresent()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Quiz has already been submitted.");
+        }
+
+        QuizSessionEntity session = quizSessionRepository.findByQuizIdAndStudentId(quizId, currentUser.getId())
+                .orElseGet(QuizSessionEntity::new);
+
+        if (session.getEndsAt() == null) {
+            session.setQuizId(quiz.getId());
+            session.setStudentId(currentUser.getId());
+            session.setStudentName(currentUser.getName());
+            session.setStudentEmail(currentUser.getEmail());
+            session.setClassName(quiz.getClassName());
+            session.setAnswers(new ArrayList<>(defaultAnswers(quiz)));
+            session.setCurrentQuestionIndex(0);
+            session.setStartedAt(Instant.now());
+            session.setEndsAt(Instant.now().plusSeconds(Math.round(quiz.getDurationMinutes() * 60L)));
+        }
+
+        session.prepareForSave();
+        return QuizSessionResponse.from(quizSessionRepository.save(session));
+    }
+
+    public QuizSessionResponse updateSession(String quizId, QuizSessionRequest request, UserEntity currentUser) {
+        flushExpiredSessions();
+        if (currentUser.getRole() != Role.STUDENT) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only learners can update quiz attempts.");
+        }
+
+        QuizEntity quiz = validateOpenQuiz(quizId);
+        QuizSessionEntity session = quizSessionRepository.findByQuizIdAndStudentId(quizId, currentUser.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Active quiz session not found."));
+
+        if (request.answers() != null) {
+            session.setAnswers(normalizeAnswers(request.answers(), quiz));
+        }
+        if (request.currentQuestionIndex() != null) {
+            int lastIndex = Math.max((quiz.getQuestions() == null ? 0 : quiz.getQuestions().size()) - 1, 0);
+            session.setCurrentQuestionIndex(Math.max(0, Math.min(request.currentQuestionIndex(), lastIndex)));
+        }
+
+        session.prepareForSave();
+        return QuizSessionResponse.from(quizSessionRepository.save(session));
+    }
+
+    @Scheduled(fixedDelayString = "${app.quiz.auto-submit-interval-ms:15000}")
+    public void autoSubmitExpiredSessions() {
+        flushExpiredSessions();
+    }
+
+    private void flushExpiredSessions() {
+        List<QuizSessionEntity> expiredSessions = quizSessionRepository.findByEndsAtLessThanEqual(Instant.now());
+        for (QuizSessionEntity session : expiredSessions) {
+            try {
+                autoSubmitSession(session);
+            } catch (Exception error) {
+                System.err.println("[QuizService] Failed to auto-submit quiz session " + session.getId() + ": " + error.getMessage());
+            }
+        }
+    }
+
+    private void autoSubmitSession(QuizSessionEntity session) {
+        if (quizAttemptRepository.findByQuizIdAndStudentId(session.getQuizId(), session.getStudentId()).isPresent()) {
+            quizSessionRepository.delete(session);
+            return;
+        }
+
+        QuizEntity quiz = quizRepository.findById(session.getQuizId()).orElse(null);
+        if (quiz == null) {
+            quizSessionRepository.delete(session);
+            return;
+        }
+
+        List<Integer> answers = normalizeAnswers(session.getAnswers(), quiz);
+        int score = calculateScore(quiz, answers);
+
+        QuizAttemptEntity attempt = quizAttemptRepository.findByQuizIdAndStudentId(session.getQuizId(), session.getStudentId())
                 .orElseGet(QuizAttemptEntity::new);
         attempt.setQuizId(quiz.getId());
-        attempt.setStudentId(currentUser.getId());
-        attempt.setStudentName(currentUser.getName());
-        attempt.setStudentEmail(currentUser.getEmail());
-        attempt.setClassName(quiz.getClassName());
+        attempt.setStudentId(session.getStudentId());
+        attempt.setStudentName(session.getStudentName());
+        attempt.setStudentEmail(session.getStudentEmail());
+        attempt.setClassName(session.getClassName());
         attempt.setAnswers(new ArrayList<>(answers));
         attempt.setScore(score);
         attempt.setTotalPoints(quiz.getTotalPoints());
-        attempt.setSubmittedAt(Instant.now());
+        attempt.setSubmittedAt(session.getEndsAt() == null ? Instant.now() : session.getEndsAt());
         attempt.prepareForSave();
-
-        QuizAttemptEntity saved = quizAttemptRepository.save(attempt);
+        quizAttemptRepository.save(attempt);
+        quizSessionRepository.delete(session);
 
         notificationService.notifyRole(
                 Role.ADMIN,
-                "Quiz submission",
-                currentUser.getName() + " submitted " + quiz.getTitle() + ".",
+                "Quiz auto-submitted",
+                session.getStudentName() + "'s " + quiz.getTitle() + " attempt was auto-submitted when time ended.",
                 "info",
-                currentUser.getId()
+                session.getStudentId()
         );
-
-        return QuizAttemptResponse.from(saved);
     }
 
     private void apply(QuizEntity entity, QuizRequest request) {
@@ -228,6 +329,78 @@ public class QuizService {
         entity.setDurationMinutes(durationMinutes);
         entity.setStatus(status);
         entity.setQuestions(questions);
+    }
+
+    private QuizEntity validateOpenQuiz(String quizId) {
+        QuizEntity quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Quiz not found."));
+
+        if (!"published".equals(quiz.getStatus())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Quiz is not open for attempts.");
+        }
+
+        if (quiz.getDeadlineAt() != null && quiz.getDeadlineAt().isBefore(Instant.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Quiz deadline has passed.");
+        }
+
+        return quiz;
+    }
+
+    private List<Integer> defaultAnswers(QuizEntity quiz) {
+        int count = quiz.getQuestions() == null ? 0 : quiz.getQuestions().size();
+        List<Integer> answers = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            answers.add(-1);
+        }
+        return answers;
+    }
+
+    private List<Integer> normalizeAnswers(List<Integer> answers, QuizEntity quiz) {
+        List<Integer> normalized = new ArrayList<>(defaultAnswers(quiz));
+        for (int index = 0; index < normalized.size() && index < answers.size(); index++) {
+            Integer answer = answers.get(index);
+            normalized.set(index, answer == null ? -1 : answer);
+        }
+        return normalized;
+    }
+
+    private int calculateScore(QuizEntity quiz, List<Integer> answers) {
+        int score = 0;
+        List<QuizEntity.QuizQuestion> questions = quiz.getQuestions() == null ? List.of() : quiz.getQuestions();
+        for (int index = 0; index < questions.size(); index++) {
+            QuizEntity.QuizQuestion question = questions.get(index);
+            int answer = index < answers.size() ? answers.get(index) : -1;
+            if (answer == question.getCorrectOption()) {
+                score += question.getPoints() == null ? 0 : question.getPoints();
+            }
+        }
+        return score;
+    }
+
+    private QuizAttemptEntity saveAttempt(QuizEntity quiz, UserEntity currentUser, List<Integer> answers, int score, Instant submittedAt) {
+        QuizAttemptEntity attempt = quizAttemptRepository.findByQuizIdAndStudentId(quiz.getId(), currentUser.getId())
+                .orElseGet(QuizAttemptEntity::new);
+        attempt.setQuizId(quiz.getId());
+        attempt.setStudentId(currentUser.getId());
+        attempt.setStudentName(currentUser.getName());
+        attempt.setStudentEmail(currentUser.getEmail());
+        attempt.setClassName(quiz.getClassName());
+        attempt.setAnswers(new ArrayList<>(answers));
+        attempt.setScore(score);
+        attempt.setTotalPoints(quiz.getTotalPoints());
+        attempt.setSubmittedAt(submittedAt);
+        attempt.prepareForSave();
+        return quizAttemptRepository.save(attempt);
+    }
+
+    private void notifyAdminsAboutSubmission(UserEntity currentUser, QuizEntity quiz) {
+        notificationService.notifyRole(
+                Role.ADMIN,
+                "Quiz submission",
+                currentUser.getName() + " submitted " + quiz.getTitle() + ".",
+                "info",
+                currentUser.getId()
+        );
     }
 
     private String normalizeRequired(String value, String message) {

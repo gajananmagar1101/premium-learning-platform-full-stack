@@ -9,6 +9,7 @@ import { Modal } from '@/components/ui/Modal'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useQuizStore } from '@/store/useQuizStore'
 import { useUIStore } from '@/store/useUIStore'
+import { quizAPI } from '@/lib/services'
 import { btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
 import type { Quiz, QuizQuestion } from '@/types'
 
@@ -848,7 +849,20 @@ function StudentQuizzesView() {
     window.localStorage.setItem(ACTIVE_QUIZ_SESSION_KEY, JSON.stringify(activeSession))
   }, [activeSession, sessionRestored])
 
-  const openQuiz = (quiz: Quiz) => {
+  useEffect(() => {
+    if (!sessionRestored || !activeSession || attemptedQuizIds.has(activeSession.quizId)) return
+    const timeoutId = window.setTimeout(() => {
+      void quizAPI.updateSession(activeSession.quizId, {
+        answers: activeSession.answers,
+        currentQuestionIndex: activeSession.currentQuestionIndex,
+      }).catch((error) => {
+        console.error('[Quizzes] Failed to sync active quiz session:', error)
+      })
+    }, 300)
+    return () => window.clearTimeout(timeoutId)
+  }, [activeSession, attemptedQuizIds, sessionRestored])
+
+  const openQuiz = async (quiz: Quiz) => {
     if (!userId) return
     if (activeSession?.quizId === quiz.id) {
       navigate(`/quizzes/attempt/${quiz.id}`)
@@ -859,15 +873,21 @@ function StudentQuizzesView() {
       return
     }
 
-    const endsAt = new Date(Date.now() + Math.round(quiz.durationMinutes * 60 * 1000)).toISOString()
-    setActiveSession({
-      quizId: quiz.id,
-      studentId: userId,
-      answers: Array(quiz.questions.length).fill(-1),
-      currentQuestionIndex: 0,
-      endsAt,
-    })
-    navigate(`/quizzes/attempt/${quiz.id}`)
+    try {
+      const response = await quizAPI.startSession(quiz.id)
+      const session = response.data.session as ActiveQuizSession
+      setActiveSession({
+        quizId: session.quizId,
+        studentId: session.studentId,
+        answers: session.answers ?? Array(quiz.questions.length).fill(-1),
+        currentQuestionIndex: session.currentQuestionIndex ?? 0,
+        endsAt: session.endsAt,
+      })
+      navigate(`/quizzes/attempt/${quiz.id}`)
+    } catch (error) {
+      console.error('[Quizzes] Failed to start quiz session:', error)
+      addToast('Failed to start quiz. Please try again.', 'error')
+    }
   }
 
   const closeQuizView = () => {
