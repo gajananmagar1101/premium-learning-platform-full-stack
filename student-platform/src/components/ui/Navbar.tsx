@@ -4,6 +4,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart3,
   BookOpenCheck,
+  CalendarDays,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -57,6 +58,7 @@ export function Navbar({ title }: NavbarProps) {
       { to: '/student-dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { to: '/assessments', label: 'Assignments', icon: BookOpenCheck },
       { to: '/quizzes', label: 'Quizzes', icon: SearchCheck },
+      { to: '/student-planner', label: 'Planner', icon: CalendarDays },
       { to: '/profile', label: 'Profile', icon: UserCircle2 },
     ]
   }, [user?.role])

@@ -82,7 +82,7 @@ export function Register() {
                   placeholder="Gajanan"
                   {...register('name', { required: 'Name is required', minLength: { value: 2, message: 'Min 2 characters' } })}
                   onChange={() => clearError()}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder-gray-400"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/85 text-sm text-gray-900 caret-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder-gray-400"
                 />
               </div>
               {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}
@@ -101,7 +101,7 @@ export function Register() {
                     validate: (value) => isRealisticEmail(value) || getEmailValidationMessage(),
                   })}
                   onChange={() => clearError()}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder-gray-400"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/85 text-sm text-gray-900 caret-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder-gray-400"
                 />
               </div>
               {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
@@ -112,7 +112,7 @@ export function Register() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Academic Year</label>
               <select
                 {...register('grade')}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white/85 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
               >
                 <option value="">Select B.Tech year</option>
                 {btechYearOptions.map((option) => (
@@ -133,7 +133,7 @@ export function Register() {
                   placeholder="Min 6 characters"
                   {...register('password', { required: 'Password is required', minLength: { value: 6, message: 'Min 6 characters' } })}
                   onChange={() => clearError()}
-                  className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-gray-200 bg-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder-gray-400"
+                  className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-gray-200 bg-white/85 text-sm text-gray-900 caret-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder-gray-400"
                 />
                 <button type="button" onClick={() => setShowPassword((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -155,7 +155,7 @@ export function Register() {
                     required: 'Please confirm password',
                     validate: (v) => v === getValues('password') || 'Passwords do not match',
                   })}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/70 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder-gray-400"
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/85 text-sm text-gray-900 caret-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all placeholder-gray-400"
                 />
               </div>
               {errors.confirmPassword && <p className="text-xs text-red-500 mt-1">{errors.confirmPassword.message}</p>}

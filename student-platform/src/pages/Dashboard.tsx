@@ -164,6 +164,8 @@ export function Dashboard() {
     ? Math.round((gradedSubmissions.length / (adminAssignments.length || assessments.length)) * 100)
     : 0
 
+  const storedAssignmentsCount = adminAssignments.length || assessments.length
+
   const recentQuizAttempts = attempts.slice(0, 5)
 
   const quizOverview = useMemo(() => ({
@@ -181,7 +183,7 @@ export function Dashboard() {
         <StatCard title="Total Learners" value={displayAnalytics?.totalStudents ?? students.length} change="registered learners" positive icon={Users} iconColor="text-indigo-600" iconBg="bg-indigo-500/20" />
         <StatCard title="Average Score" value={loading ? '...' : `${displayAnalytics?.avgScore ?? 0}%`} change="based on graded work" positive icon={TrendingUp} iconColor="text-emerald-600" iconBg="bg-emerald-500/20" />
         <StatCard title="Completion Rate" value={`${completionRate}%`} change="completed assessments" positive icon={CheckCircle} iconColor="text-amber-600" iconBg="bg-amber-500/20" />
-        <StatCard title="Assignments" value={displayAnalytics?.totalAssessments ?? adminAssignments.length ?? assessments.length} change="currently stored" positive icon={BookOpen} iconColor="text-purple-600" iconBg="bg-purple-500/20" />
+        <StatCard title="Assignments" value={storedAssignmentsCount} change="currently stored" positive icon={BookOpen} iconColor="text-purple-600" iconBg="bg-purple-500/20" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

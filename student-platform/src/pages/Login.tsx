@@ -30,13 +30,13 @@ export function Login() {
           </motion.div>
           <p className="mb-0.5 text-[9px] font-medium uppercase tracking-wide text-indigo-500">Student Learning Portal</p>
           <h1 className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary sm:text-xl">KL University</h1>
-          <p className="mx-auto mt-1 max-w-[18rem] text-[10px] leading-4 text-light-ink-muted dark:text-dark-ink-muted lg:mx-0">
+          <p className="mx-auto mt-1 max-w-[18rem] text-[11px] leading-5 text-slate-600 dark:text-slate-300 lg:mx-0">
             One place for learning, assessments, and progress.
           </p>
           <div className="mx-auto mt-4 flex max-w-[21rem] flex-wrap items-center justify-center gap-2 lg:mx-0 lg:justify-start">
             {features.map(({ icon: Icon, label }) => (
-              <span key={label} className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/70 bg-white/65 px-3 py-1.5 text-[11px] font-medium text-light-ink-secondary shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/8 dark:text-dark-ink-secondary sm:text-xs">
-                <Icon size={11} className="text-indigo-400" /> {label}
+              <span key={label} className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200/90 bg-white/88 px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur-xl dark:border-slate-600/70 dark:bg-slate-800/80 dark:text-slate-100 sm:text-xs">
+                <Icon size={11} className="text-indigo-500 dark:text-indigo-300" /> {label}
               </span>
             ))}
           </div>

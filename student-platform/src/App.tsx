@@ -14,6 +14,7 @@ const Students = lazy(() => import('@/pages/Students').then((module) => ({ defau
 const Reports = lazy(() => import('@/pages/Reports').then((module) => ({ default: module.Reports })))
 const Profile = lazy(() => import('@/pages/Profile').then((module) => ({ default: module.Profile })))
 const StudentDashboard = lazy(() => import('@/pages/StudentDashboard').then((module) => ({ default: module.StudentDashboard })))
+const StudentPlannerPage = lazy(() => import('@/pages/StudentPlannerPage').then((module) => ({ default: module.StudentPlannerPage })))
 const SubjectAssignmentsPage = lazy(() => import('@/pages/SubjectAssignmentsPage').then((module) => ({ default: module.SubjectAssignmentsPage })))
 const ClassStudentsPage = lazy(() => import('@/pages/ClassStudentsPage').then((module) => ({ default: module.ClassStudentsPage })))
 const Quizzes = lazy(() => import('@/pages/Quizzes').then((module) => ({ default: module.Quizzes })))
@@ -91,6 +92,7 @@ export default function App() {
             <Route path="/reports" element={<ProtectedRoute adminOnly><Reports /></ProtectedRoute>} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/student-dashboard" element={<StudentDashboard />} />
+            <Route path="/student-planner" element={<StudentPlannerPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to={user ? (user.role === 'admin' ? '/dashboard' : '/student-dashboard') : '/login'} replace />} />
