@@ -21,6 +21,7 @@ export interface Assessment {
 }
 
 export type AssignmentSubmissionStatus = 'pending' | 'submitted' | 'graded'
+export type AssignmentStatus = 'draft' | 'published'
 
 export interface AssignmentSubmission {
   _id?: string
@@ -43,6 +44,7 @@ export interface AssignmentItem {
   description: string
   totalMarks: number
   deadline: string
+  publicationStatus: AssignmentStatus
   questionFileName?: string | null
   questionFileContent?: string | null
   createdAt?: string

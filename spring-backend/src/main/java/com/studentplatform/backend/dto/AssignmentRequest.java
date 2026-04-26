@@ -2,6 +2,7 @@ package com.studentplatform.backend.dto;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.studentplatform.backend.entity.AssignmentStatus;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -18,6 +19,7 @@ public record AssignmentRequest(
         @NotBlank String description,
         @NotNull @Min(1) Integer totalMarks,
         @NotNull @Future LocalDateTime deadline,
+        AssignmentStatus status,
         String questionFileName,
         String questionFileContent
 ) {

@@ -4,6 +4,7 @@ import com.studentplatform.backend.dto.AssignmentRequest;
 import com.studentplatform.backend.dto.AssignmentResponse;
 import com.studentplatform.backend.dto.StudentAssignmentResponse;
 import com.studentplatform.backend.entity.AssignmentEntity;
+import com.studentplatform.backend.entity.AssignmentStatus;
 import com.studentplatform.backend.entity.SubmissionEntity;
 import com.studentplatform.backend.entity.UserEntity;
 import com.studentplatform.backend.exception.ApiException;
@@ -58,7 +59,10 @@ public class AssignmentManagementService {
         return assignmentRepository.findAllByOrderByDeadlineAscCreatedAtDesc().stream()
                 .filter(assignment -> {
                     String assignmentClass = normalizeClassName(assignment.getClassName());
-                    return !assignmentClass.isBlank() && !studentClass.isBlank() && assignmentClass.equals(studentClass);
+                    return !assignmentClass.isBlank()
+                            && !studentClass.isBlank()
+                            && assignmentClass.equals(studentClass)
+                            && assignment.getStatus() == AssignmentStatus.PUBLISHED;
                 })
                 .map(assignment -> StudentAssignmentResponse.from(
                         assignment,
@@ -74,27 +78,51 @@ public class AssignmentManagementService {
         assignment.prepareForSave();
         AssignmentEntity saved = assignmentRepository.save(assignment);
 
-        notificationService.notifyStudentsByGrade(
-                saved.getClassName(),
-                "New assignment",
-                saved.getTitle() + " has been posted for your cohort.",
-                "info",
-                createdBy.getId()
-        );
+        if (saved.getStatus() == AssignmentStatus.PUBLISHED) {
+            notificationService.notifyStudentsByGrade(
+                    saved.getClassName(),
+                    "New assignment",
+                    saved.getTitle() + " has been posted for your cohort.",
+                    "info",
+                    createdBy.getId()
+            );
+        }
 
         return AssignmentResponse.from(saved);
     }
 
     public AssignmentResponse update(String id, AssignmentRequest request) {
         AssignmentEntity assignment = getEntity(id);
+        AssignmentStatus previousStatus = assignment.getStatus();
         apply(assignment, request);
+        assignment.prepareForSave();
+        AssignmentEntity saved = assignmentRepository.save(assignment);
+
+        if (saved.getStatus() == AssignmentStatus.PUBLISHED) {
+            notificationService.notifyStudentsByGrade(
+                    saved.getClassName(),
+                    previousStatus == AssignmentStatus.DRAFT ? "New assignment" : "Assignment updated",
+                    previousStatus == AssignmentStatus.DRAFT
+                            ? saved.getTitle() + " has been posted for your cohort."
+                            : saved.getTitle() + " has been updated.",
+                    "info",
+                    null
+            );
+        }
+
+        return AssignmentResponse.from(saved);
+    }
+
+    public AssignmentResponse publish(String id) {
+        AssignmentEntity assignment = getEntity(id);
+        assignment.setStatus(AssignmentStatus.PUBLISHED);
         assignment.prepareForSave();
         AssignmentEntity saved = assignmentRepository.save(assignment);
 
         notificationService.notifyStudentsByGrade(
                 saved.getClassName(),
-                "Assignment updated",
-                saved.getTitle() + " has been updated.",
+                "New assignment",
+                saved.getTitle() + " has been posted for your cohort.",
                 "info",
                 null
         );
@@ -121,6 +149,7 @@ public class AssignmentManagementService {
         assignment.setDescription(request.description().trim());
         assignment.setTotalMarks(request.totalMarks());
         assignment.setDeadline(request.deadline());
+        assignment.setStatus(request.status() == null ? AssignmentStatus.DRAFT : request.status());
         assignment.setQuestionFileName(request.questionFileName());
         assignment.setQuestionFileContent(request.questionFileContent());
     }

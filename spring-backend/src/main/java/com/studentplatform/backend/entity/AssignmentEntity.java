@@ -26,6 +26,8 @@ public class AssignmentEntity {
 
     private LocalDateTime deadline;
 
+    private AssignmentStatus status;
+
     private String questionFileName;
 
     private String questionFileContent;
@@ -40,6 +42,9 @@ public class AssignmentEntity {
         }
         if (className != null) {
             className = className.trim();
+        }
+        if (status == null) {
+            status = AssignmentStatus.DRAFT;
         }
     }
 
@@ -93,6 +98,14 @@ public class AssignmentEntity {
 
     public void setDeadline(LocalDateTime deadline) {
         this.deadline = deadline;
+    }
+
+    public AssignmentStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(AssignmentStatus status) {
+        this.status = status;
     }
 
     public UserEntity getCreatedBy() {

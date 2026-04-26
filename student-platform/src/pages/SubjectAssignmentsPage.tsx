@@ -18,6 +18,7 @@ type AssignmentFormData = {
   description: string
   totalMarks: number
   deadline: string
+  status: 'draft' | 'published'
 }
 
 const formatClassLabel = (value?: string) => {
@@ -94,6 +95,7 @@ export function SubjectAssignmentsPage() {
       description: assignment.description,
       totalMarks: assignment.totalMarks,
       deadline: toDateTimeInputValue(assignment.deadline),
+      status: assignment.publicationStatus,
     })
     setModalOpen(true)
   }
@@ -114,6 +116,7 @@ export function SubjectAssignmentsPage() {
         ...data,
         totalMarks: Number(data.totalMarks),
         deadline: new Date(data.deadline).toISOString().slice(0, 19),
+        status: data.status,
         questionFileName: questionFileName ?? undefined,
         questionFileContent: questionFileContent ?? undefined,
       })
@@ -138,8 +141,11 @@ export function SubjectAssignmentsPage() {
     }
   }
 
+  const activeCount = matchingAssignments.filter((assignment) => new Date(assignment.deadline) >= new Date()).length
+  const closedCount = matchingAssignments.length - activeCount
+
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6">
       <GlassCard className="p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
@@ -161,15 +167,19 @@ export function SubjectAssignmentsPage() {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              label={`${matchingAssignments.filter((assignment) => new Date(assignment.deadline) >= new Date()).length} active`}
-              variant="success"
-            />
-            <Badge
-              label={`${matchingAssignments.filter((assignment) => new Date(assignment.deadline) < new Date()).length} closed`}
-              variant="danger"
-            />
+          <div className="grid grid-cols-3 gap-3 lg:min-w-[24rem]">
+            <div className="rounded-2xl border border-light-border bg-white/40 px-4 py-3 dark:border-dark-border dark:bg-dark-card2/40">
+              <p className="text-xs uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">Total</p>
+              <p className="mt-2 text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">{matchingAssignments.length}</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-500/5 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-emerald-700">Active</p>
+              <p className="mt-2 text-2xl font-semibold text-emerald-700">{activeCount}</p>
+            </div>
+            <div className="rounded-2xl border border-red-200 bg-red-500/5 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-red-600">Closed</p>
+              <p className="mt-2 text-2xl font-semibold text-red-600">{closedCount}</p>
+            </div>
           </div>
         </div>
       </GlassCard>
@@ -182,7 +192,7 @@ export function SubjectAssignmentsPage() {
           </p>
         </GlassCard>
       ) : (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="space-y-4">
           {matchingAssignments.map((assignment) => (
             <SubjectAssignmentCard
               key={assignment.id}
@@ -223,6 +233,14 @@ export function SubjectAssignmentsPage() {
               className="form-input resize-none"
             />
             {errors.description && <p className="mt-1 text-xs text-red-400">{errors.description.message}</p>}
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-light-ink-secondary dark:text-dark-ink-secondary">Visibility</label>
+            <select {...register('status', { required: true })} className="form-input">
+              <option value="draft">Save as Draft</option>
+              <option value="published">Publish Now</option>
+            </select>
           </div>
 
           <div>
@@ -295,9 +313,9 @@ function SubjectAssignmentCard({
 
   return (
     <GlassCard className="p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0 flex-1 space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-300">
               {assignment.subject}
             </span>
@@ -305,10 +323,11 @@ function SubjectAssignmentCard({
               <FolderKanban size={12} className="mr-1.5" />
               {formatClassLabel(assignment.className)}
             </span>
+            <Badge label={isClosed ? 'Closed' : 'Open'} variant={isClosed ? 'danger' : 'success'} />
           </div>
           <div>
-            <p className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.title}</p>
-            <p className="mt-2 line-clamp-3 text-sm leading-6 text-light-ink-secondary dark:text-dark-ink-secondary">
+            <p className="text-xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.title}</p>
+            <p className="mt-2 text-sm leading-6 text-light-ink-secondary dark:text-dark-ink-secondary">
               {assignment.description}
             </p>
             {assignment.questionFileName && assignment.questionFileContent && (
@@ -321,32 +340,40 @@ function SubjectAssignmentCard({
               </a>
             )}
           </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-light-card2/80 p-4 dark:bg-dark-card2/80">
+              <p className="flex items-center gap-1.5 text-light-ink-muted dark:text-dark-ink-muted">
+                <ClipboardList size={13} /> Total Marks
+              </p>
+              <p className="mt-2 text-xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.totalMarks}</p>
+            </div>
+            <div className="rounded-xl bg-light-card2/80 p-4 dark:bg-dark-card2/80">
+              <p className="flex items-center gap-1.5 text-light-ink-muted dark:text-dark-ink-muted">
+                <Calendar size={13} /> Deadline
+              </p>
+              <p className="mt-2 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{formatDateTime(assignment.deadline)}</p>
+            </div>
+            <div className="rounded-xl bg-light-card2/80 p-4 dark:bg-dark-card2/80">
+              <p className="text-light-ink-muted dark:text-dark-ink-muted">Status</p>
+              <p className={`mt-2 text-sm font-semibold ${isClosed ? 'text-red-500' : 'text-emerald-600'}`}>
+                {isClosed ? 'Closed for submissions' : 'Open for learners'}
+              </p>
+            </div>
+          </div>
         </div>
-        <Badge label={isClosed ? 'Closed' : 'Open'} variant={isClosed ? 'danger' : 'success'} />
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-xl bg-light-card2/80 p-4 dark:bg-dark-card2/80">
-          <p className="flex items-center gap-1.5 text-light-ink-muted dark:text-dark-ink-muted">
-            <ClipboardList size={13} /> Total Marks
-          </p>
-          <p className="mt-2 font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.totalMarks}</p>
+        <div className="xl:w-[15rem] xl:flex-shrink-0">
+          <div className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
+            <p className="text-xs uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">Quick Actions</p>
+            <div className="mt-4 space-y-2.5">
+              <button type="button" onClick={onEdit} className="btn-ghost w-full justify-center">
+                <Pencil size={14} /> Edit
+              </button>
+              <button type="button" onClick={onDelete} className="btn-ghost w-full justify-center text-red-400 hover:bg-red-500/10">
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="rounded-xl bg-light-card2/80 p-4 dark:bg-dark-card2/80">
-          <p className="flex items-center gap-1.5 text-light-ink-muted dark:text-dark-ink-muted">
-            <Calendar size={13} /> Deadline
-          </p>
-          <p className="mt-2 font-semibold text-light-ink-primary dark:text-dark-ink-primary">{formatDateTime(assignment.deadline)}</p>
-        </div>
-      </div>
-
-      <div className="mt-5 flex gap-2">
-        <button type="button" onClick={onEdit} className="btn-ghost flex-1 justify-center">
-          <Pencil size={14} /> Edit
-        </button>
-        <button type="button" onClick={onDelete} className="btn-ghost flex-1 justify-center text-red-400 hover:bg-red-500/10">
-          <Trash2 size={14} /> Delete
-        </button>
       </div>
     </GlassCard>
   )

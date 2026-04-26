@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Calendar, CheckCheck, ChevronDown, ClipboardList, Clock3, Copy, Edit3, FileText, FolderKanban, NotebookPen, Plus, Save, Search, Trash2, Upload } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Calendar, CheckCheck, ChevronDown, ClipboardList, Clock3, Copy, Edit3, FileText, FolderKanban, NotebookPen, Plus, Save, Search, Send, Trash2, Upload } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
 import axios from 'axios'
@@ -12,7 +12,7 @@ import { useUIStore } from '@/store/useUIStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useStudentStore } from '@/store/useStudentStore'
 import { academicYearSortValue, btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
-import type { AdminSubmission, AssignmentItem, StudentAssignmentItem } from '@/types'
+import type { AdminSubmission, AssignmentItem, AssignmentStatus, StudentAssignmentItem } from '@/types'
 
 type AssignmentFormData = {
   title: string
@@ -21,6 +21,7 @@ type AssignmentFormData = {
   description: string
   totalMarks: number
   deadline: string
+  status: AssignmentStatus
 }
 
 type SubmissionFormData = {
@@ -49,6 +50,8 @@ const classSortValue = (value?: string) => {
 }
 
 const statusVariant = (status: string) => {
+  if (status === 'published') return 'success'
+  if (status === 'draft') return 'warning'
   if (status === 'graded') return 'success'
   if (status === 'submitted') return 'info'
   if (status === 'pending') return 'warning'
@@ -73,6 +76,7 @@ function AdminAssignmentsView() {
     fetchAdminSubmissions,
     createAssignment,
     deleteAssignment,
+    publishAssignment,
     updateAssignment,
     gradeSubmission,
   } = useAssignmentStore()
@@ -90,7 +94,9 @@ function AdminAssignmentsView() {
   const [gradeInputs, setGradeInputs] = useState<Record<string, string>>({})
   const [questionFileName, setQuestionFileName] = useState<string | null>(null)
   const [questionFileContent, setQuestionFileContent] = useState<string | null>(null)
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<AssignmentFormData>()
+  const [selectedQueueCohort, setSelectedQueueCohort] = useState<string | null>(null)
+  const [selectedQueueStudentId, setSelectedQueueStudentId] = useState<string | null>(null)
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<AssignmentFormData>()
 
   useEffect(() => {
     fetchAdminAssignments()
@@ -277,13 +283,16 @@ function AdminAssignmentsView() {
     const queue = new Map<string, {
       cohort: string
       totalPendingStudents: number
-      items: Array<{
-        assignmentId: string
-        assignmentTitle: string
-        subject: string
-        deadline: string
+      students: Array<{
+        studentId: string
+        studentName: string
         pendingCount: number
-        pendingStudents: string[]
+        assignments: Array<{
+          assignmentId: string
+          assignmentTitle: string
+          subject: string
+          deadline: string
+        }>
       }>
     }>()
 
@@ -304,36 +313,86 @@ function AdminAssignmentsView() {
 
         const pendingStudents = cohortStudents
           .filter((student) => !submittedStudentIds.has(student.id ?? student._id))
-          .map((student) => student.name)
 
         if (pendingStudents.length === 0) return
 
-        const current = queue.get(key) ?? { cohort: key, totalPendingStudents: 0, items: [] }
+        const current = queue.get(key) ?? { cohort: key, totalPendingStudents: 0, students: [] }
         current.totalPendingStudents += pendingStudents.length
-        current.items.push({
-          assignmentId: assignment.id,
-          assignmentTitle: assignment.title,
-          subject: assignment.subject,
-          deadline: assignment.deadline,
-          pendingCount: pendingStudents.length,
-          pendingStudents,
+
+        pendingStudents.forEach((student) => {
+          const studentId = student.id ?? student._id
+          if (!studentId) return
+
+          const existingStudent = current.students.find((item) => item.studentId === studentId)
+          if (existingStudent) {
+            existingStudent.pendingCount += 1
+            existingStudent.assignments.push({
+              assignmentId: assignment.id,
+              assignmentTitle: assignment.title,
+              subject: assignment.subject,
+              deadline: assignment.deadline,
+            })
+            return
+          }
+
+          current.students.push({
+            studentId,
+            studentName: student.name,
+            pendingCount: 1,
+            assignments: [{
+              assignmentId: assignment.id,
+              assignmentTitle: assignment.title,
+              subject: assignment.subject,
+              deadline: assignment.deadline,
+            }],
+          })
         })
+
         queue.set(key, current)
       })
 
     return [...queue.values()]
       .map((group) => ({
         ...group,
-        items: group.items.sort((first, second) =>
-          second.pendingCount - first.pendingCount ||
-          new Date(first.deadline).getTime() - new Date(second.deadline).getTime()
-        ),
+        studentCount: group.students.length,
+        students: group.students
+          .map((student) => ({
+            ...student,
+            assignments: student.assignments.sort((first, second) =>
+              new Date(first.deadline).getTime() - new Date(second.deadline).getTime()
+            ),
+          }))
+          .sort((first, second) =>
+            second.pendingCount - first.pendingCount ||
+            first.studentName.localeCompare(second.studentName)
+          ),
       }))
       .sort((first, second) =>
         second.totalPendingStudents - first.totalPendingStudents ||
         classSortValue(first.cohort) - classSortValue(second.cohort)
       )
   }, [filteredAssignments, students, submissions])
+
+  const selectedCohortQueue = useMemo(
+    () => pendingSubmissionQueue.find((group) => group.cohort === selectedQueueCohort) ?? null,
+    [pendingSubmissionQueue, selectedQueueCohort]
+  )
+
+  const selectedStudentQueue = useMemo(
+    () => selectedCohortQueue?.students.find((student) => student.studentId === selectedQueueStudentId) ?? null,
+    [selectedCohortQueue, selectedQueueStudentId]
+  )
+
+  const selectedPublicationStatus = watch('status')
+
+  useEffect(() => {
+    if (selectedQueueCohort && pendingSubmissionQueue.some((group) => group.cohort === selectedQueueCohort)) {
+      return
+    }
+
+    setSelectedQueueCohort(null)
+    setSelectedQueueStudentId(null)
+  }, [pendingSubmissionQueue, selectedQueueCohort])
 
   const openCreate = () => {
     setEditing(null)
@@ -346,6 +405,7 @@ function AdminAssignmentsView() {
       description: '',
       totalMarks: 10,
       deadline: '',
+      status: 'draft',
     })
     setModalOpen(true)
   }
@@ -369,6 +429,7 @@ function AdminAssignmentsView() {
       description: assignment.description,
       totalMarks: assignment.totalMarks,
       deadline: assignment.deadline ? new Date(assignment.deadline).toISOString().slice(0, 16) : '',
+      status: assignment.publicationStatus,
     })
     setModalOpen(true)
   }
@@ -384,6 +445,7 @@ function AdminAssignmentsView() {
       description: assignment.description,
       totalMarks: assignment.totalMarks,
       deadline: '',
+      status: 'draft',
     })
     setModalOpen(true)
   }
@@ -400,11 +462,22 @@ function AdminAssignmentsView() {
     }
   }
 
+  const handlePublishAssignment = async (assignment: AssignmentItem) => {
+    try {
+      await publishAssignment(assignment.id)
+      addToast('Assignment published', 'success')
+    } catch (error) {
+      console.error('[Assignments] Failed to publish assignment:', error)
+      addToast('Failed to publish assignment', 'error')
+    }
+  }
+
   const onSubmit = async (data: AssignmentFormData) => {
     const payload = {
       ...data,
       totalMarks: Number(data.totalMarks),
       deadline: new Date(data.deadline).toISOString().slice(0, 19),
+      status: data.status,
       questionFileName: questionFileName ?? undefined,
       questionFileContent: questionFileContent ?? undefined,
     }
@@ -553,7 +626,7 @@ function AdminAssignmentsView() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <GlassCard className="p-5">
+        <GlassCard className="flex min-h-[34rem] flex-col p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Admin Planner</h3>
@@ -563,98 +636,167 @@ function AdminAssignmentsView() {
             </div>
             <Badge label={`${plannerAssignments.length} planned`} variant="info" />
           </div>
-          <div className="mt-5 grid gap-3">
-            {plannerAssignments.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
-                No draft or upcoming assignments match the current filters.
-              </div>
-            ) : plannerAssignments.map((assignment) => (
-              <div key={assignment.id} className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.title}</p>
-                      <Badge
-                        label={(assignmentSubmissionStats[assignment.id]?.total ?? 0) === 0 ? 'draft ready' : 'live'}
-                        variant={(assignmentSubmissionStats[assignment.id]?.total ?? 0) === 0 ? 'warning' : 'success'}
-                      />
+          <div className="mt-5 flex-1 overflow-y-auto pr-1">
+            <div className="grid gap-3">
+              {plannerAssignments.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+                  No draft or upcoming assignments match the current filters.
+                </div>
+              ) : plannerAssignments.map((assignment) => (
+                <div key={assignment.id} className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
+                  <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.title}</p>
+                        <Badge
+                          label={assignment.publicationStatus === 'draft' ? 'draft' : 'published'}
+                          variant={assignment.publicationStatus === 'draft' ? 'warning' : 'success'}
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                        {assignment.subject} · {formatClassLabel(assignment.className)} · Due {formatDateTime(assignment.deadline)}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-light-ink-secondary dark:text-dark-ink-secondary">
+                        {assignment.publicationStatus === 'draft'
+                          ? 'Admin can plan this early and publish it later in one click.'
+                          : `${assignmentSubmissionStats[assignment.id]?.pending ?? 0} pending review · ${assignmentSubmissionStats[assignment.id]?.graded ?? 0} graded`}
+                      </p>
                     </div>
-                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
-                      {assignment.subject} · {formatClassLabel(assignment.className)} · Due {formatDateTime(assignment.deadline)}
-                    </p>
-                    <p className="mt-2 text-xs text-light-ink-secondary dark:text-dark-ink-secondary">
-                      {(assignmentSubmissionStats[assignment.id]?.total ?? 0) === 0
-                        ? 'No learner submissions yet. Keep this ready for the next publish cycle.'
-                        : `${assignmentSubmissionStats[assignment.id]?.pending ?? 0} pending review · ${assignmentSubmissionStats[assignment.id]?.graded ?? 0} graded`}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => openEdit(assignment)} className="btn-ghost px-3 py-2 text-xs">
-                      <Edit3 size={13} /> Edit
-                    </button>
-                    <button type="button" onClick={() => useAsTemplate(assignment)} className="btn-ghost px-3 py-2 text-xs">
-                      <Copy size={13} /> Template
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAssignmentToDelete(assignment)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
-                    >
-                      <Trash2 size={13} /> Delete
-                    </button>
+                    <div className="flex flex-wrap gap-2 xl:max-w-[17rem] xl:justify-end">
+                      {assignment.publicationStatus === 'draft' && (
+                        <button type="button" onClick={() => handlePublishAssignment(assignment)} className="btn-primary px-3 py-2 text-xs">
+                          <Send size={13} /> Publish
+                        </button>
+                      )}
+                      <button type="button" onClick={() => openEdit(assignment)} className="btn-ghost px-3 py-2 text-xs">
+                        <Edit3 size={13} /> Edit
+                      </button>
+                      <button type="button" onClick={() => useAsTemplate(assignment)} className="btn-ghost px-3 py-2 text-xs">
+                        <Copy size={13} /> Template
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAssignmentToDelete(assignment)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </GlassCard>
 
-        <GlassCard className="p-5">
+        <GlassCard className="flex min-h-[34rem] flex-col p-5">
           <div>
             <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Pending Submission Queue</h3>
             <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
-              Class-wise list of learners who still need to submit active assignments.
+              Open a year first, then a learner, and inspect all active pending submissions in the same area.
             </p>
           </div>
-          <div className="mt-5 space-y-3">
+          <div className="mt-5 flex-1 overflow-y-auto pr-1">
             {pendingSubmissionQueue.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
                 Pending learner lists will appear once active assignments and cohorts are available.
               </div>
-            ) : pendingSubmissionQueue.map((group) => (
-              <div key={group.cohort} className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">
-                      {group.cohort === 'UNASSIGNED' ? 'Unassigned' : formatAcademicYearLabel(group.cohort)}
-                    </p>
-                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
-                      {group.items.length} assignment{group.items.length === 1 ? '' : 's'} · {group.totalPendingStudents} learner{group.totalPendingStudents === 1 ? '' : 's'} pending
-                    </p>
-                  </div>
-                  <Badge label={`${group.totalPendingStudents} pending`} variant="warning" />
-                </div>
-                <div className="mt-3 space-y-2.5">
-                  {group.items.slice(0, 3).map((item) => (
-                    <div key={item.assignmentId} className="rounded-xl border border-light-border/70 bg-white/60 px-3 py-2.5 dark:border-dark-border dark:bg-dark-card2/60">
-                      <div className="flex items-start justify-between gap-3">
+            ) : (
+              <div className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
+                {!selectedCohortQueue && (
+                  <div className="space-y-2">
+                    {pendingSubmissionQueue.map((group) => (
+                      <button
+                        key={group.cohort}
+                        type="button"
+                        onClick={() => {
+                          setSelectedQueueCohort(group.cohort)
+                          setSelectedQueueStudentId(null)
+                        }}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-light-border/70 bg-white/60 px-4 py-4 text-left transition hover:border-indigo-400/40 hover:bg-indigo-500/5 dark:border-dark-border dark:bg-dark-card2/60"
+                      >
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{item.assignmentTitle}</p>
-                          <p className="mt-1 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
-                            {item.subject} · Due {formatDateTime(item.deadline)}
+                          <p className="truncate text-xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                            {group.cohort === 'UNASSIGNED' ? 'Unassigned' : formatAcademicYearLabel(group.cohort)}
+                          </p>
+                          <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                            {group.studentCount} learner{group.studentCount === 1 ? '' : 's'} · {group.totalPendingStudents} pending submissions
                           </p>
                         </div>
-                        <Badge label={`${item.pendingCount} pending`} variant="danger" />
+                        <Badge label={`${group.totalPendingStudents} pending`} variant="warning" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {selectedCohortQueue && !selectedStudentQueue && (
+                  <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                          {selectedCohortQueue.cohort === 'UNASSIGNED' ? 'Unassigned' : formatAcademicYearLabel(selectedCohortQueue.cohort)}
+                        </p>
+                        <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                          {selectedCohortQueue.studentCount} learner{selectedCohortQueue.studentCount === 1 ? '' : 's'} with pending submissions
+                        </p>
                       </div>
-                      <p className="mt-2 text-xs leading-5 text-light-ink-secondary dark:text-dark-ink-secondary">
-                        {item.pendingStudents.slice(0, 4).join(', ')}
-                        {item.pendingStudents.length > 4 ? ` +${item.pendingStudents.length - 4} more` : ''}
-                      </p>
+                      <button type="button" onClick={() => setSelectedQueueCohort(null)} className="btn-ghost px-3 py-2 text-xs">
+                        <ArrowLeft size={13} /> Back
+                      </button>
                     </div>
-                  ))}
-                </div>
+                    <div className="mt-3 space-y-2">
+                      {selectedCohortQueue.students.map((student) => (
+                        <button
+                          key={student.studentId}
+                          type="button"
+                          onClick={() => setSelectedQueueStudentId(student.studentId)}
+                          className="flex w-full items-center justify-between gap-3 rounded-xl border border-light-border/70 bg-white/60 px-3.5 py-3 text-left transition hover:border-indigo-400/40 hover:bg-indigo-500/5 dark:border-dark-border dark:bg-dark-card2/60"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{student.studentName}</p>
+                            <p className="mt-1 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
+                              {student.pendingCount} active pending assignment{student.pendingCount === 1 ? '' : 's'}
+                            </p>
+                          </div>
+                          <Badge label={`${student.pendingCount} pending`} variant="danger" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedCohortQueue && selectedStudentQueue && (
+                  <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{selectedStudentQueue.studentName}</p>
+                        <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                          {formatClassLabel(selectedCohortQueue.cohort)} · {selectedStudentQueue.pendingCount} active pending assignment{selectedStudentQueue.pendingCount === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                      <button type="button" onClick={() => setSelectedQueueStudentId(null)} className="btn-ghost px-3 py-2 text-xs">
+                        <ArrowLeft size={13} /> Back
+                      </button>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {selectedStudentQueue.assignments.map((item) => (
+                        <div key={item.assignmentId} className="rounded-xl border border-light-border/70 bg-white/60 px-3.5 py-3 dark:border-dark-border dark:bg-dark-card2/60">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{item.assignmentTitle}</p>
+                              <p className="mt-1 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
+                                {item.subject} · Due {formatDateTime(item.deadline)}
+                              </p>
+                            </div>
+                            <Badge label="pending" variant="danger" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
+            )}
           </div>
         </GlassCard>
       </div>
@@ -920,6 +1062,37 @@ function AdminAssignmentsView() {
       <Modal open={modalOpen} onClose={closeModal} title={editing ? 'Edit Assignment' : 'Create Assignment'}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Visibility</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setValue('status', 'draft', { shouldDirty: true, shouldValidate: true })}
+                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                  selectedPublicationStatus === 'draft'
+                    ? 'border-amber-400 bg-amber-50 text-amber-900 shadow-sm'
+                    : 'border-white/60 bg-white/70 text-light-ink-secondary hover:border-amber-200'
+                }`}
+              >
+                <span className="block text-sm font-semibold">Draft</span>
+                <span className="mt-1 block text-xs opacity-80">Save now and publish later.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setValue('status', 'published', { shouldDirty: true, shouldValidate: true })}
+                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                  selectedPublicationStatus === 'published'
+                    ? 'border-emerald-400 bg-emerald-50 text-emerald-900 shadow-sm'
+                    : 'border-white/60 bg-white/70 text-light-ink-secondary hover:border-emerald-200'
+                }`}
+              >
+                <span className="block text-sm font-semibold">Publish</span>
+                <span className="mt-1 block text-xs opacity-80">Make it visible to students immediately.</span>
+              </button>
+            </div>
+            <input type="hidden" {...register('status', { required: true })} />
+            {errors.status && <p className="text-xs text-red-400 mt-1">Visibility is required.</p>}
+          </div>
+          <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Title</label>
             <input {...register('title', { required: true })} className="form-input" />
             {errors.title && <p className="text-xs text-red-400 mt-1">Title is required.</p>}
@@ -996,7 +1169,7 @@ function AdminAssignmentsView() {
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={closeModal} className="btn-ghost flex-1 justify-center">Cancel</button>
             <button type="submit" className="btn-primary flex-1 justify-center">
-              {editing ? 'Update Assignment' : 'Create Assignment'}
+              {editing ? (selectedPublicationStatus === 'published' ? 'Update & Publish' : 'Update Draft') : (selectedPublicationStatus === 'published' ? 'Publish Assignment' : 'Save Draft')}
             </button>
           </div>
         </form>

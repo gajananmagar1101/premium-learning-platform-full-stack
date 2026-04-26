@@ -43,6 +43,7 @@ export const adminAssignmentAPI = {
   getAll: () => api.get('/admin/assignments'),
   create: (data: object) => api.post('/admin/assignments', data),
   update: (id: string, data: object) => api.put(`/admin/assignments/${id}`, data),
+  publish: (id: string) => api.post(`/admin/assignments/${id}/publish`),
   delete: (id: string) => api.delete(`/admin/assignments/${id}`),
 }
 

@@ -49,6 +49,11 @@ public class AdminAssignmentController {
         return Map.of("success", true, "assignment", assignmentManagementService.update(id, request));
     }
 
+    @PostMapping("/{id}/publish")
+    public Map<String, Object> publish(@PathVariable String id) {
+        return Map.of("success", true, "assignment", assignmentManagementService.publish(id));
+    }
+
     @DeleteMapping("/{id}")
     public Map<String, Object> delete(@PathVariable String id) {
         assignmentManagementService.delete(id);

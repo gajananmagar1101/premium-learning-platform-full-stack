@@ -2,6 +2,10 @@ import { create } from 'zustand/react'
 import type { AdminSubmission, AssignmentItem, AssignmentSubmission, StudentAssignmentItem } from '@/types'
 import { adminAssignmentAPI, studentAssignmentAPI, submissionAPI } from '@/lib/services'
 
+type AssignmentPayload = Omit<AssignmentItem, 'id' | '_id' | 'createdAt' | 'publicationStatus'> & {
+  status: 'draft' | 'published'
+}
+
 interface AssignmentStoreState {
   adminAssignments: AssignmentItem[]
   studentAssignments: StudentAssignmentItem[]
@@ -10,17 +14,19 @@ interface AssignmentStoreState {
   fetchAdminAssignments: () => Promise<void>
   fetchStudentAssignments: () => Promise<void>
   fetchAdminSubmissions: () => Promise<void>
-  createAssignment: (data: Omit<AssignmentItem, 'id' | '_id' | 'createdAt'>) => Promise<void>
-  updateAssignment: (id: string, data: Omit<AssignmentItem, 'id' | '_id' | 'createdAt'>) => Promise<void>
+  createAssignment: (data: AssignmentPayload) => Promise<void>
+  updateAssignment: (id: string, data: AssignmentPayload) => Promise<void>
+  publishAssignment: (id: string) => Promise<void>
   deleteAssignment: (id: string) => Promise<void>
   submitAssignment: (data: { assignmentId: string; content?: string; fileName?: string; fileContent?: string }) => Promise<void>
   updateSubmission: (id: string, data: { assignmentId: string; content?: string; fileName?: string; fileContent?: string }) => Promise<void>
   gradeSubmission: (id: string, marks: number) => Promise<void>
 }
 
-const normalizeAssignment = <T extends { _id?: string; id?: string }>(assignment: T): T & { id: string } => ({
+const normalizeAssignment = (assignment: AssignmentItem & { _id?: string; id?: string; status?: string }): AssignmentItem => ({
   ...assignment,
   id: assignment._id ?? assignment.id ?? '',
+  publicationStatus: assignment.publicationStatus ?? (assignment.status === 'published' ? 'published' : 'draft'),
 })
 
 const normalizeSubmission = <T extends { _id?: string; id?: string }>(submission: T): T & { id: string } => ({
@@ -86,6 +92,14 @@ export const useAssignmentStore = create<AssignmentStoreState>((set, get) => ({
 
   updateAssignment: async (id, data) => {
     const res = await adminAssignmentAPI.update(id, data)
+    const assignment = normalizeAssignment(res.data.assignment)
+    set((state) => ({
+      adminAssignments: state.adminAssignments.map((item) => item.id === id ? assignment : item),
+    }))
+  },
+
+  publishAssignment: async (id) => {
+    const res = await adminAssignmentAPI.publish(id)
     const assignment = normalizeAssignment(res.data.assignment)
     set((state) => ({
       adminAssignments: state.adminAssignments.map((item) => item.id === id ? assignment : item),

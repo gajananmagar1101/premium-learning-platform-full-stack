@@ -2,6 +2,7 @@ package com.studentplatform.backend.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.studentplatform.backend.entity.AssignmentEntity;
+import com.studentplatform.backend.entity.AssignmentStatus;
 
 public record AssignmentResponse(
         @JsonProperty("_id") String internalId,
@@ -12,6 +13,7 @@ public record AssignmentResponse(
         String description,
         Integer totalMarks,
         String deadline,
+        String status,
         String questionFileName,
         String questionFileContent,
         String createdAt
@@ -27,6 +29,7 @@ public record AssignmentResponse(
                 assignment.getDescription(),
                 assignment.getTotalMarks(),
                 assignment.getDeadline().toString(),
+                (assignment.getStatus() == null ? AssignmentStatus.DRAFT : assignment.getStatus()).name().toLowerCase(),
                 assignment.getQuestionFileName(),
                 assignment.getQuestionFileContent(),
                 assignment.getCreatedAt().toString()
