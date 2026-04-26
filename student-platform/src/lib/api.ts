@@ -8,7 +8,7 @@ const getBaseURL = () => {
     // ensure it always ends with /api
     return envURL.endsWith('/api') ? envURL : `${envURL.replace(/\/$/, '')}/api`
   }
-  return import.meta.env.DEV ? 'http://localhost:5002/api' : RENDER_URL
+  return import.meta.env.DEV ? 'http://127.0.0.1:5003/api' : RENDER_URL
 }
 
 const api = axios.create({

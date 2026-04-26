@@ -3,5 +3,18 @@ package com.studentplatform.backend.entity;
 public enum AssessmentStatus {
     UPCOMING,
     COMPLETED,
-    GRADING
+    GRADING;
+
+    public static AssessmentStatus fromValue(String value) {
+        if (value == null || value.isBlank()) {
+            return UPCOMING;
+        }
+
+        return switch (value.trim().toUpperCase()) {
+            case "UPCOMING" -> UPCOMING;
+            case "COMPLETED" -> COMPLETED;
+            case "GRADING" -> GRADING;
+            default -> throw new IllegalArgumentException("Unknown assessment status: " + value);
+        };
+    }
 }
