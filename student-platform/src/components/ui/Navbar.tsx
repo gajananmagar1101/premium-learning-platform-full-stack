@@ -83,8 +83,8 @@ export function Navbar({ title }: NavbarProps) {
 
   return (
     <header className="top-navbar sticky top-0 z-20 border-b border-white/45 bg-white/75 shadow-card backdrop-blur-xl dark:border-white/10 dark:bg-[#071225]/95">
-      <div className="flex items-center gap-3 px-3 py-3 lg:px-6">
-        <div className="order-last">
+      <div className="top-navbar-inner flex flex-wrap items-center gap-3 px-3 py-3 lg:flex-nowrap lg:px-6">
+        <div className="profile-menu order-2 ml-auto lg:order-last lg:ml-0">
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <motion.button
@@ -159,7 +159,7 @@ export function Navbar({ title }: NavbarProps) {
           <span className="hidden text-sm font-bold text-light-ink-primary dark:text-dark-ink-primary sm:block">B.Tech Hub</span>
         </button>
 
-        <nav className="hide-scrollbar min-w-0 flex-1 overflow-x-auto">
+        <nav className="mobile-nav-row hide-scrollbar order-4 -mx-1 w-[calc(100%+0.5rem)] min-w-0 overflow-x-auto lg:order-none lg:mx-0 lg:w-auto lg:flex-1">
           <LayoutGroup id="top-navigation">
           <div className="nav-switch flex w-max items-center gap-1 rounded-full border border-white/60 bg-white/60 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/20 dark:bg-slate-900/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_12px_34px_rgba(0,0,0,0.3)]">
             {topLinks.map((link) => {
@@ -192,7 +192,7 @@ export function Navbar({ title }: NavbarProps) {
           </LayoutGroup>
         </nav>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="navbar-actions order-1 ml-auto flex shrink-0 items-center gap-2 lg:order-none lg:ml-0">
           <SearchBar />
           <button
             onClick={toggleDarkMode}
