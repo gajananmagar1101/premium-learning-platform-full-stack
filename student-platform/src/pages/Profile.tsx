@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useStudentStore } from '@/store/useStudentStore'
@@ -24,6 +25,7 @@ export function Profile() {
   const [className, setClassName] = useState(user?.grade ?? '')
   const [savingProfile, setSavingProfile] = useState(false)
   const [performance, setPerformance] = useState<StudentPerformance | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
   const { addToast } = useUIStore()
 
   const student = user?.role === 'student' ? students.find((s) => s._id === (user._id ?? user.id)) : null
@@ -144,6 +146,18 @@ export function Profile() {
     setDisplayName(user?.name ?? '')
     setClassName(user?.grade ?? '')
   }, [user?.email, user?.grade, user?.name])
+
+  useEffect(() => {
+    const mode = searchParams.get('mode')
+    if (mode !== 'edit' || !user) return
+
+    setEditing(true)
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous)
+      next.delete('mode')
+      return next
+    }, { replace: true })
+  }, [searchParams, setSearchParams, user])
 
   const handleSave = async () => {
     if (!user) return

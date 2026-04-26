@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import { Sidebar } from '@/components/ui/Sidebar'
 import { Navbar } from '@/components/ui/Navbar'
 import { ToastContainer } from '@/components/ui/ToastContainer'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -18,12 +17,15 @@ const pageTitles: Record<string, string> = {
 }
 
 export function DashboardLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const { pathname } = useLocation()
   const fetchAssessments = useAssessmentStore((state) => state.fetchAssessments)
   const title = pathname.startsWith('/quizzes/attempt/')
     ? 'Attempt Quiz'
-    : pageTitles[pathname] ?? 'EduTrack'
+    : pathname.startsWith('/students/class')
+      ? 'Class Learners'
+      : pathname.startsWith('/students/profile/')
+        ? 'Learner Profile'
+        : pageTitles[pathname] ?? 'EduTrack'
 
   if (import.meta.env.DEV) {
     console.count(`[Render] DashboardLayout (${pathname})`)
@@ -35,9 +37,8 @@ export function DashboardLayout() {
 
   return (
     <div className="h-screen bg-light-base dark:bg-dark-base flex overflow-hidden">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        <Navbar onMenuClick={() => setSidebarOpen(true)} title={title} />
+        <Navbar title={title} />
         <main className="flex-1 min-h-0 overflow-x-hidden overflow-y-auto p-4 lg:p-6">
           <AnimatePresence mode="wait">
             <motion.div key={pathname}

@@ -122,7 +122,7 @@ export function SubjectAssignmentsPage() {
     } catch (error) {
       console.error('[SubjectAssignmentsPage] Failed to update assignment:', error)
       const message = axios.isAxiosError(error)
-        ? error.response?.data?.message ?? (error.request ? 'Cannot reach Spring backend on port 5003.' : error.message)
+        ? error.response?.data?.message ?? (error.request ? 'Cannot reach backend server. Check API URL and backend status.' : error.message)
         : 'Failed to update assignment'
       addToast(message, 'error')
     }

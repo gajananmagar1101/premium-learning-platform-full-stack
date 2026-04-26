@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, RefreshCw, Trash2, UserX } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Modal } from '@/components/ui/Modal'
@@ -9,7 +9,6 @@ import { useUIStore } from '@/store/useUIStore'
 import { studentAPI } from '@/lib/services'
 import { formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
 import type { DBStudent } from '@/types'
-import { StudentDrawer } from '@/pages/Students'
 
 const avatarColors = [
   'from-indigo-500 to-purple-600',
@@ -23,10 +22,8 @@ export function ClassStudentsPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const grade = searchParams.get('grade') ?? 'FE'
-  const studentId = searchParams.get('student')
   const { students, loading, error, fetchStudents, removeStudent } = useStudentStore()
   const { addToast } = useUIStore()
-  const [selected, setSelected] = useState<DBStudent | null>(null)
   const [search, setSearch] = useState('')
   const [studentToDelete, setStudentToDelete] = useState<DBStudent | null>(null)
 
@@ -35,14 +32,6 @@ export function ClassStudentsPage() {
       fetchStudents()
     }
   }, [fetchStudents, students.length])
-
-  useEffect(() => {
-    if (!studentId || students.length === 0) return
-    const targetStudent = students.find((student) => (student._id ?? student.id) === studentId)
-    if (targetStudent && normalizeAcademicYear(targetStudent.grade) === grade) {
-      setSelected(targetStudent)
-    }
-  }, [grade, studentId, students])
 
   const filtered = useMemo(
     () =>
@@ -70,7 +59,6 @@ export function ClassStudentsPage() {
       await studentAPI.delete(studentId)
       removeStudent(studentId)
       addToast('Learner deleted successfully', 'info')
-      if ((selected?._id ?? selected?.id) === studentId) setSelected(null)
       setStudentToDelete(null)
     } catch {
       addToast('Failed to delete learner', 'error')
@@ -143,7 +131,11 @@ export function ClassStudentsPage() {
             const colorIndex = studentIndex % avatarColors.length
             return (
               <motion.div key={student._id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: studentIndex * 0.04 }}>
-                <GlassCard hover className="p-5 cursor-pointer" onClick={() => setSelected(student)}>
+                <GlassCard
+                  hover
+                  className="p-5 cursor-pointer"
+                  onClick={() => navigate(`/students/profile/${student._id}?grade=${grade}`)}
+                >
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarColors[colorIndex]} flex items-center justify-center text-white font-semibold text-sm shadow-sm shrink-0`}>
                       {student.name.charAt(0).toUpperCase()}
@@ -173,10 +165,6 @@ export function ClassStudentsPage() {
           })}
         </div>
       )}
-
-      <AnimatePresence>
-        {selected && <StudentDrawer student={selected} onClose={() => setSelected(null)} />}
-      </AnimatePresence>
 
       <Modal
         open={Boolean(studentToDelete)}

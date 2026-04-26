@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
@@ -10,6 +10,7 @@ import { normalizeAcademicYear } from '@/lib/btech'
 export function SearchBar() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const searchRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const { assessments } = useAssessmentStore()
   const { students } = useStudentStore()
@@ -49,39 +50,71 @@ export function SearchBar() {
 
   const go = (path: string) => { navigate(path); setOpen(false); setQuery('') }
 
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!searchRef.current?.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [])
+
   return (
-    <div className="relative">
-      <button onClick={() => setOpen(true)}
-        className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-light-card2 dark:bg-dark-card2 border border-light-border dark:border-dark-border text-sm text-light-ink-muted dark:text-dark-ink-muted hover:border-accent/50 transition-colors w-48">
-        <Search size={13} /> Search...
-        <kbd className="ml-auto text-[10px] bg-light-base dark:bg-dark-base px-1.5 py-0.5 rounded font-mono text-light-ink-muted dark:text-dark-ink-muted">⌘K</kbd>
-      </button>
+    <div ref={searchRef} className="relative hidden md:block">
+      <div className="flex h-9 w-56 items-center gap-2 rounded-full border border-slate-200/80 bg-slate-100/80 px-3 text-light-ink-secondary shadow-sm transition-all focus-within:w-64 focus-within:border-slate-300 focus-within:bg-white dark:border-white/20 dark:bg-white/10 dark:text-slate-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] dark:focus-within:border-indigo-300/40 dark:focus-within:bg-white/15 lg:w-72 lg:focus-within:w-80">
+        <Search size={15} className="shrink-0 text-light-ink-muted dark:text-slate-300" />
+        <input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setOpen(false)
+            if (event.key === 'Enter' && results[0]) go(results[0].path)
+          }}
+          placeholder="Search"
+          className="min-w-0 flex-1 bg-transparent text-sm font-normal outline-none placeholder:text-light-ink-muted dark:text-slate-100 dark:placeholder:text-slate-300"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('')
+              setOpen(false)
+            }}
+            className="shrink-0 text-light-ink-muted transition-colors hover:text-light-ink-primary dark:text-slate-300 dark:hover:text-white"
+            aria-label="Clear search"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
 
       <AnimatePresence>
-        {open && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-              onClick={() => { setOpen(false); setQuery('') }} />
+        {open && query.trim().length > 1 && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.97, y: -8 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97, y: -8 }} transition={{ duration: 0.15 }}
-              className="fixed top-20 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 card overflow-hidden shadow-2xl">
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-light-border dark:border-dark-border">
-                <Search size={15} className="text-light-ink-muted dark:text-dark-ink-muted" />
-                <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search assignments, learners, quizzes..."
-                  className="flex-1 text-sm text-light-ink-primary dark:text-dark-ink-primary bg-transparent outline-none placeholder-light-ink-muted dark:placeholder-dark-ink-muted" />
-                <button onClick={() => { setOpen(false); setQuery('') }}>
-                  <X size={15} className="text-light-ink-muted dark:text-dark-ink-muted hover:text-light-ink-primary dark:hover:text-dark-ink-primary transition-colors" />
-                </button>
-              </div>
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.14 }}
+              className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-2xl border border-light-border bg-white/95 p-2 shadow-2xl backdrop-blur-xl dark:border-dark-border dark:bg-dark-card/95"
+            >
               {results.length > 0 && (
-                <div className="py-2">
+                <div className="space-y-1">
                   {results.map((r, i) => (
-                    <button key={i} onClick={() => go(r.path)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-light-hover dark:hover:bg-dark-hover transition-colors text-left">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-medium shrink-0">{r.kind}</span>
+                    <button
+                      key={i}
+                      onMouseDown={(event) => {
+                        event.preventDefault()
+                        go(r.path)
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-light-hover dark:hover:bg-dark-hover"
+                    >
+                      <span className="shrink-0 rounded-full bg-indigo-500/12 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300">{r.kind}</span>
                       <div>
                         <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">{r.label}</p>
                         <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">{r.sub}</p>
@@ -90,11 +123,10 @@ export function SearchBar() {
                   ))}
                 </div>
               )}
-              {query.trim().length > 1 && results.length === 0 && (
-                <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted text-center py-6">No results found</p>
+              {results.length === 0 && (
+                <p className="py-5 text-center text-sm text-light-ink-muted dark:text-dark-ink-muted">No results found</p>
               )}
             </motion.div>
-          </>
         )}
       </AnimatePresence>
     </div>

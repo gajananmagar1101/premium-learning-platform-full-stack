@@ -16,6 +16,7 @@ import { StudentDashboard } from '@/pages/StudentDashboard'
 import { SubjectAssignmentsPage } from '@/pages/SubjectAssignmentsPage'
 import { ClassStudentsPage } from '@/pages/ClassStudentsPage'
 import { Quizzes } from '@/pages/Quizzes'
+import { StudentProfilePage } from '@/pages/StudentProfilePage'
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, hydrated } = useAuthStore()
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="/assessments/subject" element={<ProtectedRoute adminOnly><SubjectAssignmentsPage /></ProtectedRoute>} />
           <Route path="/students" element={<ProtectedRoute adminOnly><Students /></ProtectedRoute>} />
           <Route path="/students/class" element={<ProtectedRoute adminOnly><ClassStudentsPage /></ProtectedRoute>} />
+          <Route path="/students/profile/:studentId" element={<ProtectedRoute adminOnly><StudentProfilePage /></ProtectedRoute>} />
           <Route path="/reports" element={<ProtectedRoute adminOnly><Reports /></ProtectedRoute>} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/student-dashboard" element={<StudentDashboard />} />

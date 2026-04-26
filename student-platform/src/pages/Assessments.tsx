@@ -349,7 +349,7 @@ function AdminAssignmentsView() {
     } catch (error) {
       console.error('[Assignments] Failed to save assignment:', error)
       const message = axios.isAxiosError(error)
-        ? error.response?.data?.message ?? (error.request ? 'Cannot reach Spring backend on port 5003.' : error.message)
+        ? error.response?.data?.message ?? (error.request ? 'Cannot reach backend server. Check API URL and backend status.' : error.message)
         : 'Failed to save assignment'
       addToast(message, 'error')
     }
