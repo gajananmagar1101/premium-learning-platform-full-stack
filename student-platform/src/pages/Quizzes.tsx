@@ -9,7 +9,7 @@ import { Modal } from '@/components/ui/Modal'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useQuizStore } from '@/store/useQuizStore'
 import { useUIStore } from '@/store/useUIStore'
-import { quizAPI } from '@/lib/services'
+import { quizAPI, studentAPI } from '@/lib/services'
 import { btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
 import type { Quiz, QuizQuestion } from '@/types'
 
@@ -76,6 +76,7 @@ function AdminQuizzesView() {
   const [editing, setEditing] = useState<Quiz | null>(null)
   const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null)
   const [yearFilter, setYearFilter] = useState<'all' | string>('all')
+  const [activeStudentIds, setActiveStudentIds] = useState<string[]>([])
   const isCreateRoute = pathname === '/quizzes/create'
   const [questions, setQuestions] = useState<QuizQuestion[]>([questionTemplate()])
   const [applySamePoints, setApplySamePoints] = useState(false)
@@ -93,19 +94,45 @@ function AdminQuizzesView() {
     [quizzes, yearFilter]
   )
 
-  const quizStats = useMemo(() => ({
-    total: quizzes.length,
-    published: quizzes.filter((quiz) => quiz.status === 'published').length,
-    attempts: attempts.length,
-    average: attempts.length ? Math.round((attempts.reduce((sum, attempt) => sum + ((attempt.score / attempt.totalPoints) * 100), 0) / attempts.length)) : 0,
-  }), [attempts, quizzes])
-
   const questionCount = questions.length
 
   useEffect(() => {
     fetchQuizzes()
     fetchAttempts()
   }, [fetchAttempts, fetchQuizzes])
+
+  useEffect(() => {
+    let cancelled = false
+    studentAPI.getAll()
+      .then((response) => {
+        if (cancelled) return
+        const ids = (response.data.students ?? [])
+          .map((student: { _id?: string; id?: string }) => student._id ?? student.id)
+          .filter((studentId: string | undefined): studentId is string => Boolean(studentId))
+        setActiveStudentIds(ids)
+      })
+      .catch((error) => {
+        console.error('[Quizzes] Failed to load students for attempt filtering:', error)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const visibleAttempts = useMemo(
+    () => (activeStudentIds.length === 0
+      ? attempts
+      : attempts.filter((attempt) => activeStudentIds.includes(attempt.studentId))),
+    [activeStudentIds, attempts]
+  )
+
+  const quizStats = useMemo(() => ({
+    total: quizzes.length,
+    published: quizzes.filter((quiz) => quiz.status === 'published').length,
+    attempts: visibleAttempts.length,
+    average: visibleAttempts.length ? Math.round((visibleAttempts.reduce((sum, attempt) => sum + ((attempt.score / attempt.totalPoints) * 100), 0) / visibleAttempts.length)) : 0,
+  }), [quizzes, visibleAttempts])
 
   const addQuestion = () => {
     setQuestions((current) => {
@@ -250,11 +277,11 @@ function AdminQuizzesView() {
   }
 
   const attemptsByQuiz = useMemo(
-    () => attempts.reduce<Record<string, number>>((collection, attempt) => {
+    () => visibleAttempts.reduce<Record<string, number>>((collection, attempt) => {
       collection[attempt.quizId] = (collection[attempt.quizId] ?? 0) + 1
       return collection
     }, {}),
-    [attempts]
+    [visibleAttempts]
   )
 
   if (isCreateRoute) {
@@ -512,13 +539,13 @@ function AdminQuizzesView() {
               </tr>
             </thead>
             <tbody>
-              {attempts.length === 0 ? (
+              {visibleAttempts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-16 text-center text-light-ink-muted dark:text-dark-ink-muted">
                     No quiz attempts yet.
                   </td>
                 </tr>
-              ) : attempts.slice(0, 8).map((attempt) => {
+              ) : visibleAttempts.slice(0, 8).map((attempt) => {
                 const quiz = quizzes.find((item) => item.id === attempt.quizId)
                 const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
                 return (
