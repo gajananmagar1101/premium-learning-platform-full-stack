@@ -13,7 +13,12 @@ const typeIcon = (type: Notification['type']) => {
 
 export function NotificationPanel() {
   const [open, setOpen] = useState(false)
-  const { notifications, notificationsLoading, fetchNotifications, markAllRead, markRead, deleteNotification } = useUIStore()
+  const notifications = useUIStore((state) => state.notifications)
+  const notificationsLoading = useUIStore((state) => state.notificationsLoading)
+  const fetchNotifications = useUIStore((state) => state.fetchNotifications)
+  const markAllRead = useUIStore((state) => state.markAllRead)
+  const markRead = useUIStore((state) => state.markRead)
+  const deleteNotification = useUIStore((state) => state.deleteNotification)
   const unread = notifications.filter((n) => !n.read).length
   const ref = useRef<HTMLDivElement>(null)
 

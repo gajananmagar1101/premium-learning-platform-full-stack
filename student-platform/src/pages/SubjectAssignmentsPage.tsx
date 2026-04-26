@@ -60,7 +60,7 @@ export function SubjectAssignmentsPage() {
   const [questionFileContent, setQuestionFileContent] = useState<string | null>(null)
 
   const { adminAssignments, fetchAdminAssignments, updateAssignment, deleteAssignment } = useAssignmentStore()
-  const { addToast } = useUIStore()
+  const addToast = useUIStore((state) => state.addToast)
   const { register, handleSubmit, reset, formState: { errors } } = useForm<AssignmentFormData>()
 
   useEffect(() => {

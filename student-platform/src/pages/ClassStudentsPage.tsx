@@ -23,7 +23,7 @@ export function ClassStudentsPage() {
   const [searchParams] = useSearchParams()
   const grade = searchParams.get('grade') ?? 'FE'
   const { students, loading, error, fetchStudents, removeStudent } = useStudentStore()
-  const { addToast } = useUIStore()
+  const addToast = useUIStore((state) => state.addToast)
   const [search, setSearch] = useState('')
   const [studentToDelete, setStudentToDelete] = useState<DBStudent | null>(null)
 

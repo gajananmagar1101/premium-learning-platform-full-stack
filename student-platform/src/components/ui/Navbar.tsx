@@ -35,7 +35,8 @@ const isLinkActive = (pathname: string, to: string) => {
 
 export function Navbar({ title }: NavbarProps) {
   const { user, logout } = useAuthStore()
-  const { darkMode, toggleDarkMode } = useUIStore()
+  const darkMode = useUIStore((state) => state.darkMode)
+  const toggleDarkMode = useUIStore((state) => state.toggleDarkMode)
   const navigate = useNavigate()
   const location = useLocation()
   const initial = user?.name?.charAt(0).toUpperCase() ?? 'U'

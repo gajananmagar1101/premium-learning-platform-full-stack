@@ -33,7 +33,7 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
     submissions,
     fetchAdminSubmissions,
   } = useAssignmentStore()
-  const { addToast } = useUIStore()
+  const addToast = useUIStore((state) => state.addToast)
   const { quizzes, attempts, fetchQuizzes, fetchAttempts } = useQuizStore()
   const [scores, setScores] = useState<ScoreWithAssessment[]>([])
   const [performance, setPerformance] = useState<StudentPerformance | null>(null)

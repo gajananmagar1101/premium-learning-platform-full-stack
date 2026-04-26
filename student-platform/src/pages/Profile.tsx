@@ -19,14 +19,15 @@ export function Profile() {
   const { students } = useStudentStore()
   const { studentAssignments, fetchStudentAssignments } = useAssignmentStore()
   const { quizzes, attempts, fetchQuizzes, fetchAttempts } = useQuizStore()
-  const { darkMode, toggleDarkMode } = useUIStore()
+  const darkMode = useUIStore((state) => state.darkMode)
+  const toggleDarkMode = useUIStore((state) => state.toggleDarkMode)
   const [editing, setEditing] = useState(false)
   const [displayName, setDisplayName] = useState(user?.name ?? '')
   const [className, setClassName] = useState(user?.grade ?? '')
   const [savingProfile, setSavingProfile] = useState(false)
   const [performance, setPerformance] = useState<StudentPerformance | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
-  const { addToast } = useUIStore()
+  const addToast = useUIStore((state) => state.addToast)
 
   const student = user?.role === 'student' ? students.find((s) => s._id === (user._id ?? user.id)) : null
 

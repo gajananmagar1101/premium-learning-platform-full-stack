@@ -71,37 +71,40 @@ export const useUIStore = create<UIState>()(
       },
 
       markAllRead: async () => {
+        const previousNotifications = get().notifications
+        set((state) => ({
+          notifications: state.notifications.map((notification) => ({ ...notification, read: true })),
+        }))
         try {
           await notificationAPI.markAllRead()
-          set((state) => ({
-            notifications: state.notifications.map((notification) => ({ ...notification, read: true })),
-          }))
         } catch {
-          // keep UI unchanged on API failure
+          set({ notifications: previousNotifications })
         }
       },
 
       markRead: async (id) => {
+        const previousNotifications = get().notifications
+        set((state) => ({
+          notifications: state.notifications.map((notification) => (
+            notification.id === id ? { ...notification, read: true } : notification
+          )),
+        }))
         try {
           await notificationAPI.markRead(id)
-          set((state) => ({
-            notifications: state.notifications.map((notification) => (
-              notification.id === id ? { ...notification, read: true } : notification
-            )),
-          }))
         } catch {
-          // keep UI unchanged on API failure
+          set({ notifications: previousNotifications })
         }
       },
 
       deleteNotification: async (id) => {
+        const previousNotifications = get().notifications
+        set((state) => ({
+          notifications: state.notifications.filter((notification) => notification.id !== id),
+        }))
         try {
           await notificationAPI.delete(id)
-          set((state) => ({
-            notifications: state.notifications.filter((notification) => notification.id !== id),
-          }))
         } catch {
-          // keep UI unchanged on API failure
+          set({ notifications: previousNotifications })
         }
       },
 

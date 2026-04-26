@@ -46,7 +46,8 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const { user, hydrated, markHydrated } = useAuthStore()
-  const { darkMode, fetchNotifications } = useUIStore()
+  const darkMode = useUIStore((state) => state.darkMode)
+  const fetchNotifications = useUIStore((state) => state.fetchNotifications)
 
   useEffect(() => {
     if (darkMode) {

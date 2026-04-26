@@ -76,7 +76,7 @@ function AdminAssignmentsView() {
     updateAssignment,
     gradeSubmission,
   } = useAssignmentStore()
-  const { addToast } = useUIStore()
+  const addToast = useUIStore((state) => state.addToast)
   const { students, fetchStudents } = useStudentStore()
   const [search, setSearch] = useState('')
   const [assignmentYearFilter, setAssignmentYearFilter] = useState<'all' | string>('all')
@@ -941,7 +941,7 @@ function StudentAssignmentsView() {
     submitAssignment,
     updateSubmission,
   } = useAssignmentStore()
-  const { addToast } = useUIStore()
+  const addToast = useUIStore((state) => state.addToast)
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [activeAssignment, setActiveAssignment] = useState<StudentAssignmentItem | null>(null)
