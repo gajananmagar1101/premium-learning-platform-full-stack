@@ -14,7 +14,7 @@ const variants = {
 
 export function Badge({ label, variant }: BadgeProps) {
   return (
-    <span className={cn('px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize', variants[variant])}>
+    <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize leading-5', variants[variant])}>
       {label}
     </span>
   )

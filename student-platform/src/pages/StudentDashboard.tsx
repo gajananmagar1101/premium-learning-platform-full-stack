@@ -191,43 +191,43 @@ export function StudentDashboard() {
     : 0
 
   return (
-    <div className="space-y-6">
-      <GlassCard className="p-5 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-pink-500/10 border-indigo-200/30">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="space-y-4">
+      <GlassCard className="border-indigo-200/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-pink-500/10 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Welcome back, {user?.name.split(' ')[0]}!</h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <h2 className="text-base font-semibold text-gray-900">Welcome back, {user?.name.split(' ')[0]}!</h2>
+            <p className="mt-1 text-sm text-gray-500">
               Track your real scores, pending work, and upcoming deadlines from one place.
             </p>
           </div>
-          <div className="flex gap-6">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:flex sm:gap-5">
             <div className="text-center">
-              <p className="text-3xl font-bold text-indigo-600">{loading ? '...' : `${averageScore}%`}</p>
+              <p className="text-2xl font-bold text-indigo-600">{loading ? '...' : `${averageScore}%`}</p>
               <p className="text-xs text-gray-500">Average</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-emerald-600">{loading ? '...' : `${bestScore}%`}</p>
+              <p className="text-2xl font-bold text-emerald-600">{loading ? '...' : `${bestScore}%`}</p>
               <p className="text-xs text-gray-500">Best</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-amber-600">{loading ? '...' : displayPerformance?.totalSubmissions ?? 0}</p>
+              <p className="text-2xl font-bold text-amber-600">{loading ? '...' : displayPerformance?.totalSubmissions ?? 0}</p>
               <p className="text-xs text-gray-500">Graded</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold text-fuchsia-600">{myQuizAttempts.length ? `${quizAverage}%` : '0%'}</p>
+              <p className="text-2xl font-bold text-fuchsia-600">{myQuizAttempts.length ? `${quizAverage}%` : '0%'}</p>
               <p className="text-xs text-gray-500">Quiz Avg</p>
             </div>
           </div>
         </div>
       </GlassCard>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <GlassCard className="p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Subject Progress</h2>
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+        <GlassCard className="p-4">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900">Subject Progress</h2>
           {!subjectProgress.length ? (
-            <p className="text-sm text-gray-400 text-center py-8">No subject data yet.</p>
+            <p className="py-8 text-center text-sm text-gray-400">No subject data yet.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {subjectProgress.map((item) => (
                 <ProgressBar
                   key={item.subject}
@@ -240,10 +240,10 @@ export function StudentDashboard() {
           )}
         </GlassCard>
 
-        <GlassCard className="p-5 xl:col-span-2">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Performance Trend</h2>
+        <GlassCard className="p-4 xl:col-span-2">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900">Performance Trend</h2>
           {!trendData.length ? (
-            <p className="text-sm text-gray-400 text-center py-12">No completed assessments yet.</p>
+            <p className="py-10 text-center text-sm text-gray-400">No completed assessments yet.</p>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={trendData}>
@@ -258,11 +258,11 @@ export function StudentDashboard() {
         </GlassCard>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <GlassCard className="p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Skill Overview</h2>
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <GlassCard className="p-4">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900">Skill Overview</h2>
           {!subjectProgress.length ? (
-            <p className="text-sm text-gray-400 text-center py-12">Complete assessments to unlock the radar chart.</p>
+            <p className="py-10 text-center text-sm text-gray-400">Complete assessments to unlock the radar chart.</p>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <RadarChart data={subjectProgress.map((item) => ({ subject: item.subject.slice(0, 6), score: item.progress }))}>
@@ -274,16 +274,16 @@ export function StudentDashboard() {
           )}
         </GlassCard>
 
-        <GlassCard className="p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <GlassCard className="p-4">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
             <Calendar size={16} className="text-indigo-500" /> Upcoming Assessments
           </h2>
           {!upcomingAssessments.length ? (
-            <p className="text-sm text-gray-400 text-center py-12">No upcoming assessments right now.</p>
+            <p className="py-10 text-center text-sm text-gray-400">No upcoming assessments right now.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {upcomingAssessments.map((assessment) => (
-                <div key={assessment.id ?? assessment._id} className="flex items-center justify-between p-3 rounded-xl bg-white/30 hover:bg-white/50 transition-colors">
+                <div key={assessment.id ?? assessment._id} className="flex items-center justify-between rounded-xl bg-white/30 p-2.5 transition-colors hover:bg-white/50">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{assessment.title}</p>
                     <p className="text-xs text-gray-500">{assessment.subject} · {assessment.date}</p>
@@ -296,15 +296,15 @@ export function StudentDashboard() {
         </GlassCard>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <GlassCard className="p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Available Quizzes</h2>
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <GlassCard className="p-4">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900">Available Quizzes</h2>
           {!availableQuizzes.length ? (
-            <p className="text-sm text-gray-400 text-center py-12">No published quizzes for your cohort right now.</p>
+            <p className="py-10 text-center text-sm text-gray-400">No published quizzes for your cohort right now.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {availableQuizzes.slice(0, 4).map((quiz) => (
-                <div key={quiz.id} className="flex items-center justify-between p-3 rounded-xl bg-white/30 hover:bg-white/50 transition-colors">
+                <div key={quiz.id} className="flex items-center justify-between rounded-xl bg-white/30 p-2.5 transition-colors hover:bg-white/50">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{quiz.title}</p>
                     <p className="text-xs text-gray-500">{quiz.subject} · {quiz.questions.length} questions · {quiz.durationMinutes} mins</p>
@@ -316,17 +316,17 @@ export function StudentDashboard() {
           )}
         </GlassCard>
 
-        <GlassCard className="p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Recent Quiz Results</h2>
+        <GlassCard className="p-4">
+          <h2 className="mb-3 text-sm font-semibold text-gray-900">Recent Quiz Results</h2>
           {!myQuizAttempts.length ? (
-            <p className="text-sm text-gray-400 text-center py-12">Attempt quizzes to see your scores here.</p>
+            <p className="py-10 text-center text-sm text-gray-400">Attempt quizzes to see your scores here.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {myQuizAttempts.slice(0, 4).map((attempt) => {
                 const quiz = quizzes.find((item) => item.id === attempt.quizId)
                 const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
                 return (
-                  <div key={attempt.id} className="flex items-center justify-between p-3 rounded-xl bg-white/30 hover:bg-white/50 transition-colors">
+                  <div key={attempt.id} className="flex items-center justify-between rounded-xl bg-white/30 p-2.5 transition-colors hover:bg-white/50">
                     <div>
                       <p className="text-sm font-medium text-gray-900">{quiz?.title ?? 'Quiz'}</p>
                       <p className="text-xs text-gray-500">{quiz?.subject ?? 'Subject'} · {new Date(attempt.submittedAt).toLocaleDateString()}</p>
@@ -340,19 +340,19 @@ export function StudentDashboard() {
         </GlassCard>
       </div>
 
-      <GlassCard className="p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+      <GlassCard className="p-4">
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
           <CheckCircle2 size={16} className="text-emerald-500" /> Graded Assessments
         </h2>
         {!displayPerformance?.scoreHistory?.length ? (
-          <p className="text-sm text-gray-400 text-center py-12">No grades published yet.</p>
+          <p className="py-10 text-center text-sm text-gray-400">No grades published yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">
                   {['Assessment', 'Subject', 'Score', 'Grade', 'Updated'].map((heading) => (
-                    <th key={heading} className="text-left py-2 px-3 text-gray-500 font-medium">{heading}</th>
+                    <th key={heading} className="px-3 py-2 text-left text-xs font-medium text-gray-500">{heading}</th>
                   ))}
                 </tr>
               </thead>
@@ -361,11 +361,11 @@ export function StudentDashboard() {
                   const percent = Math.round((item.marks / (item.totalMarks || 100)) * 100)
                   return (
                     <tr key={item.submissionId} className="border-b border-gray-50">
-                      <td className="py-3 px-3 text-gray-900 font-medium">{item.assignmentTitle}</td>
-                      <td className="py-3 px-3 text-gray-600">{item.subject}</td>
-                      <td className="py-3 px-3 text-gray-600">{item.marks}/{item.totalMarks}</td>
-                      <td className="py-3 px-3 text-gray-600">{getLetterGrade(percent)}</td>
-                      <td className="py-3 px-3 text-gray-600">{new Date(item.gradedAt).toLocaleDateString()}</td>
+                      <td className="px-3 py-2.5 font-medium text-gray-900">{item.assignmentTitle}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{item.subject}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{item.marks}/{item.totalMarks}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{getLetterGrade(percent)}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{new Date(item.gradedAt).toLocaleDateString()}</td>
                     </tr>
                   )
                 })}

@@ -1,18 +1,23 @@
 import axios from 'axios'
 
 const RENDER_URL = 'https://student-learning-platform-api.onrender.com/api'
+const LOCAL_API_CANDIDATES = ['http://127.0.0.1:5003/api', 'http://127.0.0.1:5002/api']
 
-const getBaseURL = () => {
+const normalizeApiUrl = (url: string) => (url.endsWith('/api') ? url : `${url.replace(/\/$/, '')}/api`)
+
+const getBaseURLs = () => {
   const envURL = import.meta.env.VITE_API_URL
   if (envURL) {
-    // ensure it always ends with /api
-    return envURL.endsWith('/api') ? envURL : `${envURL.replace(/\/$/, '')}/api`
+    return [normalizeApiUrl(envURL)]
   }
-  return import.meta.env.DEV ? 'http://127.0.0.1:5003/api' : RENDER_URL
+
+  return import.meta.env.DEV ? [...LOCAL_API_CANDIDATES, RENDER_URL] : [RENDER_URL]
 }
 
+const BASE_URLS = getBaseURLs()
+
 const api = axios.create({
-  baseURL: getBaseURL(),
+  baseURL: BASE_URLS[0],
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -28,7 +33,21 @@ api.interceptors.request.use((config) => {
 // Handle 401 globally
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
+  async (err) => {
+    const requestConfig = err.config as (typeof err.config & { __baseUrlRetryIndex?: number }) | undefined
+
+    if (err.request && !err.response && requestConfig) {
+      const currentRetryIndex = requestConfig.__baseUrlRetryIndex ?? 0
+      const nextBaseURL = BASE_URLS[currentRetryIndex + 1]
+
+      if (nextBaseURL) {
+        requestConfig.__baseUrlRetryIndex = currentRetryIndex + 1
+        requestConfig.baseURL = nextBaseURL
+        api.defaults.baseURL = nextBaseURL
+        return api.request(requestConfig)
+      }
+    }
+
     if (err.response?.status === 401 && !handlingUnauthorized) {
       handlingUnauthorized = true
       localStorage.removeItem('token')

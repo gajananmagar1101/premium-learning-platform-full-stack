@@ -50,21 +50,21 @@ export function StudentProfileDetailPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <GlassCard className="p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-4">
+      <GlassCard className="p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <button
               type="button"
               onClick={goBack}
-              className="mb-3 inline-flex items-center gap-2 text-sm text-light-ink-muted transition-colors hover:text-light-ink-primary dark:text-dark-ink-muted dark:hover:text-dark-ink-primary"
+              className="mb-2 inline-flex items-center gap-2 text-sm text-light-ink-muted transition-colors hover:text-light-ink-primary dark:text-dark-ink-muted dark:hover:text-dark-ink-primary"
             >
               <ArrowLeft size={14} />
               Back to Learner Profile
             </button>
             <div className="flex items-center gap-2">
               <meta.icon size={18} className="text-indigo-500" />
-              <h1 className="text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">{meta.title}</h1>
+              <h1 className="text-xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">{meta.title}</h1>
             </div>
             <p className="mt-2 text-sm text-light-ink-muted dark:text-dark-ink-muted">
               {titleSuffix} · {profile.student?.grade ? formatAcademicYearLabel(profile.student.grade) : 'Unassigned'} · {meta.description}
@@ -74,7 +74,7 @@ export function StudentProfileDetailPage() {
       </GlassCard>
 
       {section === 'assignments' ? (
-        <GlassCard className="p-6">
+        <GlassCard className="p-4 sm:p-5">
           {profile.assignmentRows.length === 0 ? (
             <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">No assignments found for this learner yet.</p>
           ) : (
@@ -93,16 +93,16 @@ export function StudentProfileDetailPage() {
                 <tbody>
                   {profile.assignmentRows.map((row) => (
                     <tr key={row.id} className="border-b border-light-border/70 transition-colors hover:bg-indigo-50/50 dark:border-dark-border/70 dark:hover:bg-white/5">
-                      <td className="px-2 py-3 font-medium text-light-ink-primary dark:text-dark-ink-primary">{row.title}</td>
-                      <td className="px-2 py-3 text-light-ink-secondary dark:text-dark-ink-secondary">{row.subject}</td>
-                      <td className="px-2 py-3 text-light-ink-secondary dark:text-dark-ink-secondary">{new Date(row.deadline).toLocaleDateString()}</td>
-                      <td className="px-2 py-3 text-light-ink-secondary dark:text-dark-ink-secondary">
+                      <td className="px-2 py-2.5 font-medium text-light-ink-primary dark:text-dark-ink-primary">{row.title}</td>
+                      <td className="px-2 py-2.5 text-light-ink-secondary dark:text-dark-ink-secondary">{row.subject}</td>
+                      <td className="px-2 py-2.5 text-light-ink-secondary dark:text-dark-ink-secondary">{new Date(row.deadline).toLocaleDateString()}</td>
+                      <td className="px-2 py-2.5 text-light-ink-secondary dark:text-dark-ink-secondary">
                         {row.submittedAt ? new Date(row.submittedAt).toLocaleDateString() : 'Not submitted'}
                       </td>
-                      <td className="px-2 py-3 text-light-ink-primary dark:text-dark-ink-primary">
+                      <td className="px-2 py-2.5 text-light-ink-primary dark:text-dark-ink-primary">
                         {row.marks == null ? 'Pending' : `${row.marks}/${row.totalMarks} (${row.percentage}%)`}
                       </td>
-                      <td className="px-2 py-3">
+                      <td className="px-2 py-2.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge
                             label={row.status}
@@ -121,7 +121,7 @@ export function StudentProfileDetailPage() {
       ) : null}
 
       {section === 'quizzes' ? (
-        <GlassCard className="p-6">
+        <GlassCard className="p-4 sm:p-5">
           {profile.quizRows.length === 0 ? (
             <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">No quiz attempts yet.</p>
           ) : (
@@ -139,11 +139,11 @@ export function StudentProfileDetailPage() {
                 <tbody>
                   {profile.quizRows.map((row) => (
                     <tr key={row.id} className="border-b border-light-border/70 transition-colors hover:bg-indigo-50/50 dark:border-dark-border/70 dark:hover:bg-white/5">
-                      <td className="px-2 py-3 font-medium text-light-ink-primary dark:text-dark-ink-primary">{row.title}</td>
-                      <td className="px-2 py-3 text-light-ink-secondary dark:text-dark-ink-secondary">{row.subject}</td>
-                      <td className="px-2 py-3 text-light-ink-secondary dark:text-dark-ink-secondary">{new Date(row.submittedAt).toLocaleDateString()}</td>
-                      <td className="px-2 py-3 text-light-ink-primary dark:text-dark-ink-primary">{row.marks}/{row.totalMarks} ({row.percentage}%)</td>
-                      <td className="px-2 py-3">
+                      <td className="px-2 py-2.5 font-medium text-light-ink-primary dark:text-dark-ink-primary">{row.title}</td>
+                      <td className="px-2 py-2.5 text-light-ink-secondary dark:text-dark-ink-secondary">{row.subject}</td>
+                      <td className="px-2 py-2.5 text-light-ink-secondary dark:text-dark-ink-secondary">{new Date(row.submittedAt).toLocaleDateString()}</td>
+                      <td className="px-2 py-2.5 text-light-ink-primary dark:text-dark-ink-primary">{row.marks}/{row.totalMarks} ({row.percentage}%)</td>
+                      <td className="px-2 py-2.5">
                         <Badge
                           label={row.grade}
                           variant={row.percentage >= 85 ? 'success' : row.percentage >= 60 ? 'info' : 'warning'}
@@ -159,15 +159,15 @@ export function StudentProfileDetailPage() {
       ) : null}
 
       {section === 'history' ? (
-        <GlassCard className="p-6">
+        <GlassCard className="p-4 sm:p-5">
           {profile.scoreHistoryRows.length === 0 ? (
             <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">No system score history available yet.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {profile.scoreHistoryRows.map((item) => (
                 <div
                   key={item.submissionId}
-                  className="rounded-2xl border border-light-border bg-light-card2/70 p-4 dark:border-dark-border dark:bg-dark-card2/80"
+                  className="rounded-2xl border border-light-border bg-light-card2/70 p-3 dark:border-dark-border dark:bg-dark-card2/80"
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
@@ -192,17 +192,17 @@ export function StudentProfileDetailPage() {
         </GlassCard>
       ) : null}
 
-      <GlassCard className="p-6">
-        <div className="mb-4 flex items-center gap-2">
+      <GlassCard className="p-4 sm:p-5">
+        <div className="mb-3 flex items-center gap-2">
           <GraduationCap size={16} className="text-indigo-500" />
-          <h2 className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">Subject-wise Grade Snapshot</h2>
+          <h2 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Subject-wise Grade Snapshot</h2>
         </div>
         {!profile.subjectProgress.length ? (
           <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">No subject-wise grades available yet.</p>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-2.5 md:grid-cols-2">
             {profile.subjectProgress.map((item) => (
-              <div key={item.subject} className="rounded-2xl border border-light-border bg-light-card2/70 p-4 dark:border-dark-border dark:bg-dark-card2/80">
+              <div key={item.subject} className="rounded-2xl border border-light-border bg-light-card2/70 p-3 dark:border-dark-border dark:bg-dark-card2/80">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-light-ink-primary dark:text-dark-ink-primary">{item.subject}</p>
@@ -212,7 +212,7 @@ export function StudentProfileDetailPage() {
                   </div>
                   <Badge label={item.grade} variant={item.progress >= 85 ? 'success' : item.progress >= 60 ? 'info' : 'warning'} />
                 </div>
-                <p className="mt-3 text-xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">{item.progress}%</p>
+                <p className="mt-2 text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{item.progress}%</p>
               </div>
             ))}
           </div>

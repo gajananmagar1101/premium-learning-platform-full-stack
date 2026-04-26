@@ -56,6 +56,10 @@ Set this environment variable in Vercel:
 
 - `VITE_API_URL=https://student-learning-platform-api.onrender.com/api`
 
+For local frontend development with the Spring backend, use:
+
+- `VITE_API_URL=http://localhost:5003/api`
+
 After Vercel gives you a live domain, set Render's `FRONTEND_URL` to that exact
 domain so browser requests are allowed by CORS.
 

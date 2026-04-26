@@ -11,6 +11,7 @@ npm install
 ```
 
 2. Create an env file from `.env.example` and point `VITE_API_URL` to your backend.
+   For the Spring backend in this repo, use `http://localhost:5003/api`.
 
 3. Start the app:
 

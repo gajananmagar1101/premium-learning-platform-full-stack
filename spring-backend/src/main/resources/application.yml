@@ -17,6 +17,8 @@ app:
       - http://localhost:5174
       - http://127.0.0.1:5174
     allowed-origin-patterns:
+      - http://localhost:*
+      - http://127.0.0.1:*
       - ${VERCEL_ORIGIN_PATTERN:https://*.vercel.app}
   seed:
     enabled: ${SEED_DEMO_DATA:false}

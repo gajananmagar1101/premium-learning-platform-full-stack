@@ -132,6 +132,25 @@ function AdminAssignmentsView() {
     return Math.round((gradedCount / submissions.length) * 100)
   }, [gradedCount, submissions.length])
 
+  const assignmentSubmissionStats = useMemo(
+    () =>
+      submissions.reduce<Record<string, { total: number; graded: number; pending: number }>>((collection, submission) => {
+        if (!collection[submission.assignmentId]) {
+          collection[submission.assignmentId] = { total: 0, graded: 0, pending: 0 }
+        }
+
+        collection[submission.assignmentId].total += 1
+        if (submission.status === 'graded') {
+          collection[submission.assignmentId].graded += 1
+        } else {
+          collection[submission.assignmentId].pending += 1
+        }
+
+        return collection
+      }, {}),
+    [submissions]
+  )
+
   const subjectOptions = useMemo(
     () =>
       [...new Set(adminAssignments.map((assignment) => assignment.subject?.trim()).filter(Boolean))]
@@ -241,27 +260,80 @@ function AdminAssignmentsView() {
     const now = new Date().getTime()
     return filteredAssignments
       .filter((assignment) => new Date(assignment.deadline).getTime() >= now)
-      .slice(0, 4)
-  }, [filteredAssignments])
+      .sort((first, second) => {
+        const firstSubmissionCount = assignmentSubmissionStats[first.id]?.total ?? 0
+        const secondSubmissionCount = assignmentSubmissionStats[second.id]?.total ?? 0
 
-  const cohortWorkload = useMemo(() => {
-    const grouped = filteredAssignments.reduce<Record<string, { total: number; dueSoon: number; pendingReview: number }>>((collection, assignment) => {
-      const key = normalizeAcademicYear(assignment.className) || 'UNASSIGNED'
-      if (!collection[key]) collection[key] = { total: 0, dueSoon: 0, pendingReview: 0 }
-      collection[key].total += 1
-      const deadline = new Date(assignment.deadline).getTime()
-      const now = Date.now()
-      if (deadline >= now && deadline - now <= 1000 * 60 * 60 * 24 * 3) {
-        collection[key].dueSoon += 1
-      }
-      collection[key].pendingReview += submissions.filter((submission) => submission.assignmentId === assignment.id && submission.status !== 'graded').length
-      return collection
-    }, {})
+        if (firstSubmissionCount === 0 && secondSubmissionCount > 0) return -1
+        if (secondSubmissionCount === 0 && firstSubmissionCount > 0) return 1
 
-    return Object.entries(grouped)
-      .sort((first, second) => second[1].pendingReview - first[1].pendingReview || second[1].total - first[1].total)
+        return new Date(first.deadline).getTime() - new Date(second.deadline).getTime()
+      })
       .slice(0, 4)
-  }, [filteredAssignments, submissions])
+  }, [assignmentSubmissionStats, filteredAssignments])
+
+  const pendingSubmissionQueue = useMemo(() => {
+    const now = Date.now()
+    const queue = new Map<string, {
+      cohort: string
+      totalPendingStudents: number
+      items: Array<{
+        assignmentId: string
+        assignmentTitle: string
+        subject: string
+        deadline: string
+        pendingCount: number
+        pendingStudents: string[]
+      }>
+    }>()
+
+    filteredAssignments
+      .filter((assignment) => new Date(assignment.deadline).getTime() >= now)
+      .forEach((assignment) => {
+        const normalizedCohort = normalizeAcademicYear(assignment.className)
+        const key = normalizedCohort || 'UNASSIGNED'
+        const cohortStudents = students.filter((student) => normalizeAcademicYear(student.grade) === normalizedCohort)
+
+        if (cohortStudents.length === 0) return
+
+        const submittedStudentIds = new Set(
+          submissions
+            .filter((submission) => submission.assignmentId === assignment.id)
+            .map((submission) => submission.studentId)
+        )
+
+        const pendingStudents = cohortStudents
+          .filter((student) => !submittedStudentIds.has(student.id ?? student._id))
+          .map((student) => student.name)
+
+        if (pendingStudents.length === 0) return
+
+        const current = queue.get(key) ?? { cohort: key, totalPendingStudents: 0, items: [] }
+        current.totalPendingStudents += pendingStudents.length
+        current.items.push({
+          assignmentId: assignment.id,
+          assignmentTitle: assignment.title,
+          subject: assignment.subject,
+          deadline: assignment.deadline,
+          pendingCount: pendingStudents.length,
+          pendingStudents,
+        })
+        queue.set(key, current)
+      })
+
+    return [...queue.values()]
+      .map((group) => ({
+        ...group,
+        items: group.items.sort((first, second) =>
+          second.pendingCount - first.pendingCount ||
+          new Date(first.deadline).getTime() - new Date(second.deadline).getTime()
+        ),
+      }))
+      .sort((first, second) =>
+        second.totalPendingStudents - first.totalPendingStudents ||
+        classSortValue(first.cohort) - classSortValue(second.cohort)
+      )
+  }, [filteredAssignments, students, submissions])
 
   const openCreate = () => {
     setEditing(null)
@@ -400,81 +472,81 @@ function AdminAssignmentsView() {
         </div>
       </GlassCard>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <GlassCard className="p-5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+        <GlassCard className="min-h-[104px] p-3.5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Assignments</p>
-              <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{adminAssignments.length}</p>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Assignments</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{adminAssignments.length}</p>
             </div>
-            <div className="rounded-2xl bg-indigo-500/10 p-3 text-indigo-400">
-              <NotebookPen size={18} />
+            <div className="rounded-xl bg-indigo-500/10 p-2 text-indigo-400">
+              <NotebookPen size={15} />
             </div>
           </div>
         </GlassCard>
-        <GlassCard className="p-5">
+        <GlassCard className="min-h-[104px] p-3.5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Submissions</p>
-              <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{submissions.length}</p>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Submissions</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{submissions.length}</p>
             </div>
-            <div className="rounded-2xl bg-sky-500/10 p-3 text-sky-400">
-              <Upload size={18} />
+            <div className="rounded-xl bg-sky-500/10 p-2 text-sky-400">
+              <Upload size={15} />
             </div>
           </div>
         </GlassCard>
-        <GlassCard className="p-5">
+        <GlassCard className="min-h-[104px] p-3.5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Pending Review</p>
-              <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{pendingReviewCount}</p>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Pending Review</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{pendingReviewCount}</p>
             </div>
-            <div className="rounded-2xl bg-amber-500/10 p-3 text-amber-400">
-              <ClipboardList size={18} />
+            <div className="rounded-xl bg-amber-500/10 p-2 text-amber-400">
+              <ClipboardList size={15} />
             </div>
           </div>
         </GlassCard>
-        <GlassCard className="p-5">
+        <GlassCard className="min-h-[104px] p-3.5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Graded</p>
-              <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{gradedCount}</p>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Graded</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{gradedCount}</p>
             </div>
-            <div className="rounded-2xl bg-emerald-500/10 p-3 text-emerald-400">
-              <Save size={18} />
+            <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-400">
+              <Save size={15} />
             </div>
           </div>
         </GlassCard>
-        <GlassCard className="p-5">
+        <GlassCard className="min-h-[104px] p-3.5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Due In 3 Days</p>
-              <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{dueSoonCount}</p>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Due In 3 Days</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{dueSoonCount}</p>
             </div>
-            <div className="rounded-2xl bg-rose-500/10 p-3 text-rose-400">
-              <Clock3 size={18} />
+            <div className="rounded-xl bg-rose-500/10 p-2 text-rose-400">
+              <Clock3 size={15} />
             </div>
           </div>
         </GlassCard>
-        <GlassCard className="p-5">
+        <GlassCard className="min-h-[104px] p-3.5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Late Submissions</p>
-              <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{lateSubmissionCount}</p>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Late Submissions</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{lateSubmissionCount}</p>
             </div>
-            <div className="rounded-2xl bg-red-500/10 p-3 text-red-400">
-              <AlertTriangle size={18} />
+            <div className="rounded-xl bg-red-500/10 p-2 text-red-400">
+              <AlertTriangle size={15} />
             </div>
           </div>
         </GlassCard>
-        <GlassCard className="p-5">
+        <GlassCard className="min-h-[104px] p-3.5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Grading Progress</p>
-              <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{gradingCompletionRate}%</p>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Grading Progress</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{gradingCompletionRate}%</p>
             </div>
-            <div className="rounded-2xl bg-emerald-500/10 p-3 text-emerald-400">
-              <CheckCheck size={18} />
+            <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-400">
+              <CheckCheck size={15} />
             </div>
           </div>
         </GlassCard>
@@ -486,23 +558,34 @@ function AdminAssignmentsView() {
             <div>
               <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Admin Planner</h3>
               <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
-                Quick actions for upcoming work, edits, and cleanup.
+                Draft-ready and upcoming assignments you can edit or publish next.
               </p>
             </div>
-            <Badge label={`${plannerAssignments.length} upcoming`} variant="info" />
+            <Badge label={`${plannerAssignments.length} planned`} variant="info" />
           </div>
           <div className="mt-5 grid gap-3">
             {plannerAssignments.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
-                No upcoming assignments match the current filters.
+                No draft or upcoming assignments match the current filters.
               </div>
             ) : plannerAssignments.map((assignment) => (
               <div key={assignment.id} className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
-                    <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.title}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.title}</p>
+                      <Badge
+                        label={(assignmentSubmissionStats[assignment.id]?.total ?? 0) === 0 ? 'draft ready' : 'live'}
+                        variant={(assignmentSubmissionStats[assignment.id]?.total ?? 0) === 0 ? 'warning' : 'success'}
+                      />
+                    </div>
                     <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
                       {assignment.subject} · {formatClassLabel(assignment.className)} · Due {formatDateTime(assignment.deadline)}
+                    </p>
+                    <p className="mt-2 text-xs text-light-ink-secondary dark:text-dark-ink-secondary">
+                      {(assignmentSubmissionStats[assignment.id]?.total ?? 0) === 0
+                        ? 'No learner submissions yet. Keep this ready for the next publish cycle.'
+                        : `${assignmentSubmissionStats[assignment.id]?.pending ?? 0} pending review · ${assignmentSubmissionStats[assignment.id]?.graded ?? 0} graded`}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -528,31 +611,47 @@ function AdminAssignmentsView() {
 
         <GlassCard className="p-5">
           <div>
-            <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Cohort Review Queue</h3>
+            <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Pending Submission Queue</h3>
             <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
-              Which B.Tech cohorts need the most grading attention right now.
+              Class-wise list of learners who still need to submit active assignments.
             </p>
           </div>
           <div className="mt-5 space-y-3">
-            {cohortWorkload.length === 0 ? (
+            {pendingSubmissionQueue.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
-                Cohort workload will appear once assignments are available.
+                Pending learner lists will appear once active assignments and cohorts are available.
               </div>
-            ) : cohortWorkload.map(([cohort, stats]) => (
-              <div key={cohort} className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
-                <div className="flex items-center justify-between gap-3">
+            ) : pendingSubmissionQueue.map((group) => (
+              <div key={group.cohort} className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">
-                      {cohort === 'UNASSIGNED' ? 'Unassigned' : formatAcademicYearLabel(cohort)}
+                      {group.cohort === 'UNASSIGNED' ? 'Unassigned' : formatAcademicYearLabel(group.cohort)}
                     </p>
                     <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
-                      {stats.total} assignment{stats.total === 1 ? '' : 's'} · {stats.pendingReview} awaiting review
+                      {group.items.length} assignment{group.items.length === 1 ? '' : 's'} · {group.totalPendingStudents} learner{group.totalPendingStudents === 1 ? '' : 's'} pending
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge label={`${stats.dueSoon} due soon`} variant={stats.dueSoon > 0 ? 'warning' : 'info'} />
-                    <Badge label={`${stats.pendingReview} review`} variant={stats.pendingReview > 0 ? 'danger' : 'success'} />
-                  </div>
+                  <Badge label={`${group.totalPendingStudents} pending`} variant="warning" />
+                </div>
+                <div className="mt-3 space-y-2.5">
+                  {group.items.slice(0, 3).map((item) => (
+                    <div key={item.assignmentId} className="rounded-xl border border-light-border/70 bg-white/60 px-3 py-2.5 dark:border-dark-border dark:bg-dark-card2/60">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{item.assignmentTitle}</p>
+                          <p className="mt-1 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
+                            {item.subject} · Due {formatDateTime(item.deadline)}
+                          </p>
+                        </div>
+                        <Badge label={`${item.pendingCount} pending`} variant="danger" />
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-light-ink-secondary dark:text-dark-ink-secondary">
+                        {item.pendingStudents.slice(0, 4).join(', ')}
+                        {item.pendingStudents.length > 4 ? ` +${item.pendingStudents.length - 4} more` : ''}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

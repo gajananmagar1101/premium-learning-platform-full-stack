@@ -63,8 +63,8 @@ export function SearchBar() {
 
   return (
     <div ref={searchRef} className="relative hidden md:block">
-      <div className="flex h-9 w-56 items-center gap-2 rounded-full border border-slate-200/80 bg-slate-100/80 px-3 text-light-ink-secondary shadow-sm transition-all focus-within:w-64 focus-within:border-slate-300 focus-within:bg-white dark:border-white/20 dark:bg-white/10 dark:text-slate-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] dark:focus-within:border-indigo-300/40 dark:focus-within:bg-white/15 lg:w-72 lg:focus-within:w-80">
-        <Search size={15} className="shrink-0 text-light-ink-muted dark:text-slate-300" />
+      <div className="flex h-[2.125rem] w-48 items-center gap-2 rounded-full border border-slate-200/80 bg-slate-100/80 px-3 text-light-ink-secondary shadow-sm transition-all focus-within:w-56 focus-within:border-slate-300 focus-within:bg-white dark:border-white/20 dark:bg-white/10 dark:text-slate-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] dark:focus-within:border-indigo-300/40 dark:focus-within:bg-white/15 lg:w-64 lg:focus-within:w-72">
+        <Search size={14} className="shrink-0 text-light-ink-muted dark:text-slate-300" />
         <input
           value={query}
           onChange={(e) => {
@@ -77,7 +77,7 @@ export function SearchBar() {
             if (event.key === 'Enter' && results[0]) go(results[0].path)
           }}
           placeholder="Search"
-          className="min-w-0 flex-1 bg-transparent text-sm font-normal outline-none placeholder:text-light-ink-muted dark:text-slate-100 dark:placeholder:text-slate-300"
+          className="min-w-0 flex-1 bg-transparent text-[13px] font-normal outline-none placeholder:text-light-ink-muted dark:text-slate-100 dark:placeholder:text-slate-300"
         />
         {query && (
           <button
@@ -101,7 +101,7 @@ export function SearchBar() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.14 }}
-              className="absolute right-0 top-11 z-50 w-80 overflow-hidden rounded-2xl border border-light-border bg-white/95 p-2 shadow-2xl backdrop-blur-xl dark:border-dark-border dark:bg-dark-card/95"
+            className="absolute right-0 top-10 z-50 w-72 overflow-hidden rounded-2xl border border-light-border bg-white/95 p-2 shadow-2xl backdrop-blur-xl dark:border-dark-border dark:bg-dark-card/95"
             >
               {results.length > 0 && (
                 <div className="space-y-1">
@@ -112,7 +112,7 @@ export function SearchBar() {
                         event.preventDefault()
                         go(r.path)
                       }}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-light-hover dark:hover:bg-dark-hover"
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-light-hover dark:hover:bg-dark-hover"
                     >
                       <span className="shrink-0 rounded-full bg-indigo-500/12 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300">{r.kind}</span>
                       <div>

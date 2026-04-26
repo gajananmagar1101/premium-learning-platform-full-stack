@@ -35,7 +35,7 @@ function AppShellFallback() {
 
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { user, hydrated } = useAuthStore()
-  if (!hydrated) return null
+  if (!hydrated) return <AppShellFallback />
   if (!user) return <Navigate to="/login" replace />
   if (adminOnly && user.role !== 'admin') return <Navigate to="/student-dashboard" replace />
   return <>{children}</>
@@ -43,7 +43,7 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
 
 function GuestRoute({ children }: { children: React.ReactNode }) {
   const { user, hydrated } = useAuthStore()
-  if (!hydrated) return null
+  if (!hydrated) return <AppShellFallback />
   if (user) return <Navigate to={user.role === 'admin' ? '/dashboard' : '/student-dashboard'} replace />
   return <>{children}</>
 }
@@ -64,7 +64,12 @@ export default function App() {
   useEffect(() => {
     if (!hydrated) {
       markHydrated()
+      const timeoutId = window.setTimeout(() => {
+        markHydrated()
+      }, 150)
+      return () => window.clearTimeout(timeoutId)
     }
+    return undefined
   }, [hydrated, markHydrated])
 
   useEffect(() => {

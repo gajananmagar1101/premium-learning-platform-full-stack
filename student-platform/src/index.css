@@ -54,7 +54,7 @@
   }
 
   .glass-icon {
-    @apply inline-flex items-center justify-center rounded-2xl border border-white/50 bg-white/60 text-indigo-600 shadow-sm backdrop-blur-md dark:border-white/20 dark:bg-white/15 dark:text-indigo-100;
+    @apply inline-flex items-center justify-center rounded-xl border border-white/50 bg-white/60 text-indigo-600 shadow-sm backdrop-blur-md dark:border-white/20 dark:bg-white/15 dark:text-indigo-100;
   }
 
   .hide-scrollbar {
@@ -67,12 +67,12 @@
 
   /* Card */
   .card {
-    @apply border border-white/45 bg-white/70 shadow-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5 rounded-2xl;
+    @apply rounded-[1.35rem] border border-white/45 bg-white/70 shadow-card backdrop-blur-xl dark:border-white/10 dark:bg-white/5;
   }
 
   /* Input / Select */
   .form-input {
-    @apply w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all bg-light-base dark:bg-dark-base border border-light-border dark:border-dark-border text-light-ink-primary dark:text-dark-ink-primary;
+    @apply w-full rounded-xl border border-light-border bg-light-base px-3 py-2 text-sm outline-none transition-all dark:border-dark-border dark:bg-dark-base dark:text-dark-ink-primary text-light-ink-primary;
     font-weight: 400;
   }
   .form-input::placeholder {
@@ -85,7 +85,7 @@
 
   /* Primary button */
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all bg-accent text-white shadow-glow;
+    @apply inline-flex items-center gap-2 rounded-full bg-accent px-3.5 py-2 text-sm font-medium text-white shadow-glow transition-all;
   }
   .btn-primary:hover {
     @apply bg-accent-hover shadow-glow;
@@ -95,7 +95,7 @@
 
   /* Ghost button */
   .btn-ghost {
-    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all border border-light-border dark:border-dark-border text-light-ink-secondary dark:text-dark-ink-secondary bg-transparent;
+    @apply inline-flex items-center gap-2 rounded-full border border-light-border bg-transparent px-3.5 py-2 text-sm font-medium text-light-ink-secondary transition-all dark:border-dark-border dark:text-dark-ink-secondary;
   }
   .btn-ghost:hover {
     @apply border-accent text-light-ink-primary dark:text-dark-ink-primary;
@@ -108,7 +108,7 @@
     @apply bg-light-base dark:bg-dark-base border-b-2 border-light-border dark:border-dark-border;
   }
   .data-table thead th {
-    @apply text-left py-3 px-4 font-semibold uppercase tracking-wide text-xs text-light-ink-muted dark:text-dark-ink-muted;
+    @apply px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted;
   }
   .data-table tbody tr {
     @apply border-b border-light-border dark:border-dark-border transition-colors;
@@ -120,12 +120,12 @@
     @apply bg-light-hover dark:bg-dark-hover;
   }
   .data-table tbody td {
-    @apply py-3.5 px-4 text-light-ink-primary dark:text-dark-ink-primary;
+    @apply px-3 py-2.5 text-light-ink-primary dark:text-dark-ink-primary;
   }
 
   /* Nav link */
   .nav-link {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-light-ink-secondary dark:text-dark-ink-secondary;
+    @apply flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm font-medium text-light-ink-secondary transition-all duration-150 dark:text-dark-ink-secondary;
   }
   .nav-link:hover {
     @apply bg-light-hover dark:bg-dark-hover text-light-ink-primary dark:text-dark-ink-primary;
@@ -178,8 +178,8 @@ button,
 .nav-icon-bubble {
   position: relative;
   display: inline-flex;
-  width: 1.65rem;
-  height: 1.65rem;
+  width: 1.5rem;
+  height: 1.5rem;
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
@@ -188,7 +188,7 @@ button,
   border: 1px solid rgba(226, 232, 240, 0.52);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.48),
-    0 2px 6px rgba(15, 23, 42, 0.035);
+    0 1px 4px rgba(15, 23, 42, 0.03);
 }
 
 .nav-icon-bubble.is-active {

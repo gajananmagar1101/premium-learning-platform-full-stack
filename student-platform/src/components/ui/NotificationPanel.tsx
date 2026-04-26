@@ -36,10 +36,10 @@ export function NotificationPanel() {
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen((v) => !v)}
-        className="p-2 rounded-xl hover:bg-light-hover dark:hover:bg-dark-hover transition-colors relative">
-        <Bell size={17} className="text-light-ink-secondary dark:text-dark-ink-secondary" />
+        className="relative rounded-xl p-1.5 transition-colors hover:bg-light-hover dark:hover:bg-dark-hover">
+        <Bell size={16} className="text-light-ink-secondary dark:text-dark-ink-secondary" />
         {unread > 0 && (
-          <span className="absolute top-1 right-1 w-4 h-4 bg-accent rounded-full text-white text-[9px] font-bold flex items-center justify-center">
+          <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[9px] font-bold text-white">
             {unread}
           </span>
         )}
@@ -49,7 +49,7 @@ export function NotificationPanel() {
         {open && (
           <motion.div initial={{ opacity: 0, y: 6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.97 }} transition={{ duration: 0.15 }}
-            className="fixed left-3 right-3 top-20 z-[140] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.32)] dark:border-slate-700 dark:bg-slate-950 sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-80">
+            className="fixed left-3 right-3 top-16 z-[140] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.32)] dark:border-slate-700 dark:bg-slate-950 sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-72">
             <div className="max-h-[min(72vh,32rem)] overflow-hidden bg-white dark:bg-slate-950">
             <div className="flex items-center justify-between gap-3 border-b border-light-border bg-white px-4 py-3 dark:border-dark-border dark:bg-slate-950">
               <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Notifications</p>

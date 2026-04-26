@@ -188,9 +188,9 @@ export function StudentPerformancePage() {
   ] as const
 
   return (
-    <div className="max-w-4xl space-y-4">
-      <GlassCard className="p-5">
-        <h1 className="text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">My Performance</h1>
+    <div className="max-w-4xl space-y-3.5">
+      <GlassCard className="p-4">
+        <h1 className="text-xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">My Performance</h1>
         <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
           Subject-wise grades, submission stats, and complete score history in one place.
         </p>
@@ -204,26 +204,26 @@ export function StudentPerformancePage() {
           { label: 'Pending Submissions', value: `${pendingAssignments}`, color: 'text-rose-500', icon: ClipboardList },
           { label: 'Overall Grade', value: displayPerformance.overallGrade, color: 'text-amber-600', icon: Trophy },
         ].map((stat) => (
-          <GlassCard key={stat.label} className="min-h-[104px] p-4">
+          <GlassCard key={stat.label} className="min-h-[92px] p-3.5">
             <div className="flex items-start justify-between gap-2">
               <p className="text-[11px] font-medium text-light-ink-muted dark:text-dark-ink-muted">{stat.label}</p>
-              <span className="glass-icon h-7 w-7 shrink-0">
+              <span className="glass-icon h-6 w-6 shrink-0">
                 <stat.icon size={13} />
               </span>
             </div>
-            <p className={`mt-4 text-[1.65rem] leading-none font-bold ${stat.color}`}>{stat.value}</p>
+            <p className={`mt-3 text-[1.45rem] leading-none font-bold ${stat.color}`}>{stat.value}</p>
           </GlassCard>
         ))}
       </div>
 
-      <GlassCard className="p-6">
-        <div className="mb-4 flex items-center justify-between gap-4">
+      <GlassCard className="p-4 sm:p-5">
+        <div className="mb-3 flex items-center justify-between gap-4">
           <div>
             <h2 className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Performance Progress</h2>
             <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">Updates automatically when admin posts grades.</p>
           </div>
           <div className="text-right">
-            <p className="text-lg font-bold text-indigo-600">{displayPerformance.overallGrade}</p>
+            <p className="text-base font-bold text-indigo-600">{displayPerformance.overallGrade}</p>
             <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Overall Grade</p>
           </div>
         </div>
@@ -232,23 +232,23 @@ export function StudentPerformancePage() {
           value={displayPerformance.progressPercent ?? 0}
           color={(displayPerformance.progressPercent ?? 0) >= 85 ? 'bg-emerald-500' : (displayPerformance.progressPercent ?? 0) >= 70 ? 'bg-indigo-500' : 'bg-amber-500'}
         />
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-light-card2/70 p-3 dark:bg-dark-card2/80">
+        <div className="mt-3 grid grid-cols-2 gap-2.5">
+          <div className="rounded-xl bg-light-card2/70 p-2.5 dark:bg-dark-card2/80">
             <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Average Percentage</p>
             <p className="mt-1 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{displayPerformance.avgPercentage ?? 0}%</p>
           </div>
-          <div className="rounded-xl bg-light-card2/70 p-3 dark:bg-dark-card2/80">
+          <div className="rounded-xl bg-light-card2/70 p-2.5 dark:bg-dark-card2/80">
             <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Best Percentage</p>
             <p className="mt-1 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{displayPerformance.bestPercentage ?? 0}%</p>
           </div>
         </div>
       </GlassCard>
 
-      <GlassCard className="p-6">
-        <div className="mb-4 flex items-center justify-between gap-2">
+      <GlassCard className="p-4 sm:p-5">
+        <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <GraduationCap size={16} className="text-indigo-500" />
-            <h2 className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">Subject-wise Progress</h2>
+            <h2 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Subject-wise Progress</h2>
           </div>
           <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300">
             Subject-wise grade included
@@ -257,10 +257,10 @@ export function StudentPerformancePage() {
         {subjectProgress.length === 0 ? (
           <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">No graded records yet.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {subjectProgress.map((item) => (
-              <div key={item.subject} className="rounded-2xl border border-light-border bg-light-card2/60 p-4 dark:border-dark-border dark:bg-dark-card2/70">
-                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <div key={item.subject} className="rounded-2xl border border-light-border bg-light-card2/60 p-3 dark:border-dark-border dark:bg-dark-card2/70">
+                <div className="mb-2.5 flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{item.subject}</p>
                     <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
@@ -283,23 +283,23 @@ export function StudentPerformancePage() {
         )}
       </GlassCard>
 
-      <GlassCard className="p-6">
-        <h2 className="mb-4 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">System Score History</h2>
-        <div className="space-y-4">
+      <GlassCard className="p-4 sm:p-5">
+        <h2 className="mb-3 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">System Score History</h2>
+        <div className="space-y-3">
           {historySections.map((section) => (
             <button
               key={section.key}
               type="button"
               onClick={() => navigate(`/student-performance/${section.key}`)}
-              className="w-full rounded-2xl border border-light-border bg-light-card2/60 p-4 text-left transition-colors hover:bg-light-hover dark:border-dark-border dark:bg-dark-card2/70 dark:hover:bg-dark-hover"
+              className="w-full rounded-2xl border border-light-border bg-light-card2/60 p-3 text-left transition-colors hover:bg-light-hover dark:border-dark-border dark:bg-dark-card2/70 dark:hover:bg-dark-hover"
             >
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-start gap-3">
-                  <span className="glass-icon mt-0.5 h-9 w-9 shrink-0">
+                  <span className="glass-icon mt-0.5 h-8 w-8 shrink-0">
                     <section.icon size={16} />
                   </span>
                   <div>
-                    <span className="inline-flex items-center gap-2 text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">
                       {section.title}
                       <ExternalLink size={14} />
                     </span>

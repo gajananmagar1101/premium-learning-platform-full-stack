@@ -50,6 +50,9 @@ The app reads these values from environment variables and falls back to local de
 - `ADMIN_NAME`
 - `SEED_DEMO_DATA` default `false`
 
+Local CORS is already configured for `localhost` and `127.0.0.1` on any Vite dev
+port, so `5173`, `5174`, `5183`, and similar ports work without extra changes.
+
 ## Run Locally
 
 1. Start MongoDB locally or provide a hosted Mongo URI.
