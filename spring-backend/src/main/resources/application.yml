@@ -16,6 +16,8 @@ app:
       - http://127.0.0.1:5173
       - http://localhost:5174
       - http://127.0.0.1:5174
+    allowed-origin-patterns:
+      - ${VERCEL_ORIGIN_PATTERN:https://*.vercel.app}
   seed:
     enabled: ${SEED_DEMO_DATA:false}
     admin-email: ${ADMIN_EMAIL:gajananmagar.11.01@gmail.com}
