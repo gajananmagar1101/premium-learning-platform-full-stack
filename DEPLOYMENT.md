@@ -2,9 +2,14 @@
 
 This project is set up for:
 
-- Frontend: Netlify
+- Frontend: Netlify or Vercel
 - Backend: Render
 - Database: MongoDB Atlas
+
+If the Netlify URL shows "Site not available" and says the site reached usage
+limits, the app code is not the problem. Netlify has paused that deployed site
+at the account level. Fix it by upgrading/unpausing the Netlify account, moving
+the frontend to a new Netlify site/account, or deploying the frontend to Vercel.
 
 ## 1. MongoDB Atlas
 
@@ -36,7 +41,20 @@ Backend URL example:
 
 - `https://student-learning-platform-api.onrender.com`
 
-## 3. Netlify Frontend
+## 3. Frontend
+
+### Option A: Vercel
+
+Use the root `vercel.json` when importing this repository into Vercel.
+
+Set this environment variable in Vercel:
+
+- `VITE_API_URL=https://student-learning-platform-api.onrender.com/api`
+
+After Vercel gives you a live domain, set Render's `FRONTEND_URL` to that exact
+domain so browser requests are allowed by CORS.
+
+### Option B: Netlify
 
 The root `netlify.toml` deploys the Vite frontend from `student-platform`.
 
@@ -44,16 +62,20 @@ Set this environment variable in Netlify:
 
 - `VITE_API_URL=https://student-learning-platform-api.onrender.com/api`
 
+If you use Netlify again, make sure the account/site is not paused for usage
+limits before testing the live URL.
+
 ## 4. GitHub
 
 Push the repository to GitHub after confirming these files:
 
 - `render.yaml`
 - `netlify.toml`
+- `vercel.json`
 - `DEPLOYMENT.md`
 
 ## 5. Important
 
 - Do not commit real `.env` files
 - Do not commit MongoDB secrets
-- Set `FRONTEND_URL` in Render to your live Netlify domain so CORS works correctly
+- Set `FRONTEND_URL` in Render to your live frontend domain so CORS works correctly

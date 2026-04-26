@@ -18,7 +18,26 @@ npm install
 npm run dev
 ```
 
-## Netlify Deployment
+## Deployment
+
+If the live Netlify URL shows "Site not available" with a usage-limit message,
+Netlify has paused that site before the React app can load. The code can still
+build successfully; unpause/upgrade Netlify or deploy the same frontend to
+Vercel.
+
+### Vercel
+
+The repository root includes `vercel.json`, so you can import the repo into
+Vercel and deploy the `student-platform` build from the root.
+
+Set this environment variable in Vercel:
+
+- `VITE_API_URL=https://student-learning-platform-api.onrender.com/api`
+
+Then set the Render backend `FRONTEND_URL` environment variable to your Vercel
+domain.
+
+### Netlify
 
 This repo includes a root `netlify.toml` configured for the `student-platform` app.
 
@@ -33,4 +52,5 @@ Set this environment variable in Netlify:
 ## Notes
 
 - SPA redirects are already configured in `netlify.toml`
+- SPA rewrites are also configured in `vercel.json`
 - Production API fallback in the code also points to the Render backend
