@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create } from 'zustand/react'
 import type { AdminSubmission, AssignmentItem, AssignmentSubmission, StudentAssignmentItem } from '@/types'
 import { adminAssignmentAPI, studentAssignmentAPI, submissionAPI } from '@/lib/services'
 

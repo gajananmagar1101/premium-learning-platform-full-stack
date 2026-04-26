@@ -1,4 +1,5 @@
-import { create } from 'zustand'
+import { create } from 'zustand/react'
+import type { StateCreator } from 'zustand/vanilla'
 import { persist } from 'zustand/middleware'
 import axios from 'axios'
 import type { Role, User } from '@/types'
@@ -24,8 +25,7 @@ const normalizeUser = (user: User & { _id?: string; role?: string }): User => ({
   role: (user.role?.toLowerCase() === 'admin' ? 'admin' : 'student'),
 })
 
-export const useAuthStore = create<AuthState>()(
-  persist(
+const authStoreCreator = persist<AuthState>(
     (set) => ({
       user: null,
       token: null,
@@ -90,11 +90,12 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-store',
-      partialize: (s) => ({ user: s.user, token: s.token }),
+      partialize: ((s: AuthState) => ({ user: s.user, token: s.token })) as never,
       onRehydrateStorage: () => (state) => {
         state?.clearError()
         state?.markHydrated()
       },
     }
-  )
-)
+  ) as unknown as StateCreator<AuthState, [], []>
+
+export const useAuthStore = create<AuthState>()(authStoreCreator)

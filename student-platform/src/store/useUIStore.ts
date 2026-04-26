@@ -1,4 +1,5 @@
-import { create } from 'zustand'
+import { create } from 'zustand/react'
+import type { StateCreator } from 'zustand/vanilla'
 import { persist } from 'zustand/middleware'
 import type { Notification, Toast } from '@/types'
 import { notificationAPI } from '@/lib/services'
@@ -44,8 +45,7 @@ const normalizeNotification = (raw: unknown): Notification | null => {
   }
 }
 
-export const useUIStore = create<UIState>()(
-  persist(
+const uiStoreCreator = persist<UIState>(
     (set, get) => ({
       darkMode: false,
       notifications: [],
@@ -121,7 +121,8 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'ui-store',
-      partialize: (state) => ({ darkMode: state.darkMode }),
+      partialize: ((state: UIState) => ({ darkMode: state.darkMode })) as never,
     }
-  )
-)
+  ) as unknown as StateCreator<UIState, [], []>
+
+export const useUIStore = create<UIState>()(uiStoreCreator)

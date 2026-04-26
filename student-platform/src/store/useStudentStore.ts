@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create } from 'zustand/react'
 import type { DBStudent } from '@/types'
 import { studentAPI } from '@/lib/services'
 

@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create } from 'zustand/react'
 import type { Quiz, QuizAttempt, QuizQuestion } from '@/types'
 import { quizAPI } from '@/lib/services'
 

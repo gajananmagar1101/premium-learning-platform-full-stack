@@ -15,7 +15,6 @@ export function StudentProfilePage() {
   const {
     student,
     studentResolved,
-    performance,
     loadingPerformance,
     performanceError,
     assignmentRows,

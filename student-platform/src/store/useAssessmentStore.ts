@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create } from 'zustand/react'
 import type { Assessment } from '@/types'
 import { assessmentAPI } from '@/lib/services'
 
