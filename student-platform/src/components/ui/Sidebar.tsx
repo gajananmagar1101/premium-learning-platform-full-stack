@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ClipboardList, Users, BarChart3, User, GraduationCap, X, LogOut, BrainCircuit } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Users, BarChart3, User, X, LogOut, BrainCircuit } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import kluHeaderLogo from '@/assets/klu-header-logo.png'
 
 const adminLinks = [
   { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard' },
@@ -35,11 +36,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     <div className="flex h-full flex-col overflow-hidden">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-light-border dark:border-dark-border">
-        <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center shadow-glow-sm">
-          <GraduationCap size={18} className="text-white" />
+        <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-white/60 bg-white/75 p-1 shadow-sm">
+          <img src={kluHeaderLogo} alt="KL University" className="h-full w-full object-contain" />
         </div>
         <div>
-          <p className="text-sm font-bold text-light-ink-primary dark:text-dark-ink-primary">B.Tech Hub</p>
+          <p className="text-sm font-bold text-light-ink-primary dark:text-dark-ink-primary">KL U</p>
           <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Academic Command Center</p>
         </div>
         <button onClick={onClose} className="ml-auto lg:hidden p-1.5 rounded-lg hover:bg-light-hover dark:hover:bg-dark-hover text-light-ink-muted dark:text-dark-ink-muted">

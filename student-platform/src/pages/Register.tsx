@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { GraduationCap, Mail, Lock, Eye, EyeOff, User, AlertCircle, BookOpen } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, User, AlertCircle, BookOpen } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { getEmailValidationMessage, isRealisticEmail } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 import { btechYearOptions } from '@/lib/btech'
+import kluHeaderLogo from '@/assets/klu-header-logo.png'
 
 interface FormData {
   name: string
@@ -55,18 +56,18 @@ export function Register() {
         {/* Header */}
         <div className="text-center mb-7">
           <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} transition={{ type: 'spring', damping: 12 }}
-            className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl mb-3 shadow-xl shadow-indigo-500/30">
-            <GraduationCap size={26} className="text-white" />
+            className="mx-auto mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-white/60 bg-white/75 p-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.12)] backdrop-blur-xl">
+            <img src={kluHeaderLogo} alt="KL University" className="h-full w-full object-contain" />
           </motion.div>
-          <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
-          <p className="text-sm text-gray-500 mt-1">Create your B.Tech learner account</p>
+          <h1 className="text-2xl font-bold text-gray-900">Create KL U Account</h1>
+          <p className="text-sm text-gray-500 mt-1">Create your KL U learner account</p>
         </div>
 
         <div className="bg-white/60 backdrop-blur-xl border border-white/30 shadow-2xl rounded-2xl p-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="flex justify-center">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold">
-                <BookOpen size={15} /> B.Tech Learner Registration
+                <BookOpen size={15} /> KL U Learner Registration
               </span>
             </div>
 
