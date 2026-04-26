@@ -45,9 +45,12 @@ Backend URL example:
 
 ### Option A: Vercel
 
-When importing this repository into Vercel, set the root directory to:
+When importing this repository into Vercel, keep the root directory as:
 
-- `student-platform`
+- `./`
+
+The root `vercel.json` runs the frontend build from `student-platform` and
+publishes `student-platform/dist`.
 
 Set this environment variable in Vercel:
 
@@ -73,6 +76,7 @@ Push the repository to GitHub after confirming these files:
 
 - `render.yaml`
 - `netlify.toml`
+- `vercel.json`
 - `student-platform/vercel.json`
 - `DEPLOYMENT.md`
 
