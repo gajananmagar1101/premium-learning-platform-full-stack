@@ -5,7 +5,6 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import kluHeaderLogo from '@/assets/klu-header-logo.png'
-import { submitActiveQuizOnLogout } from '@/lib/quizSession'
 
 const adminLinks = [
   { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard' },
@@ -26,16 +25,12 @@ const studentLinks = [
 interface SidebarProps { open: boolean; onClose: () => void }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const { user, token, logout } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const links = user?.role === 'admin' ? adminLinks : studentLinks
   const roleLabel = user?.role === 'admin' ? 'Program Admin' : 'B.Tech Learner'
 
-  const handleLogout = async () => {
-    await submitActiveQuizOnLogout(user, token)
-    logout()
-    navigate('/login')
-  }
+  const handleLogout = () => { logout(); navigate('/login') }
 
   const content = (
     <div className="flex h-full flex-col overflow-hidden">

@@ -15,6 +15,7 @@ import com.studentplatform.backend.exception.ApiException;
 import com.studentplatform.backend.repository.QuizAttemptRepository;
 import com.studentplatform.backend.repository.QuizRepository;
 import com.studentplatform.backend.repository.QuizSessionRepository;
+import com.studentplatform.backend.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -33,17 +34,20 @@ public class QuizService {
     private final QuizRepository quizRepository;
     private final QuizAttemptRepository quizAttemptRepository;
     private final QuizSessionRepository quizSessionRepository;
+    private final UserRepository userRepository;
     private final NotificationService notificationService;
 
     public QuizService(
             QuizRepository quizRepository,
             QuizAttemptRepository quizAttemptRepository,
             QuizSessionRepository quizSessionRepository,
+            UserRepository userRepository,
             NotificationService notificationService
     ) {
         this.quizRepository = quizRepository;
         this.quizAttemptRepository = quizAttemptRepository;
         this.quizSessionRepository = quizSessionRepository;
+        this.userRepository = userRepository;
         this.notificationService = notificationService;
     }
 
@@ -119,6 +123,12 @@ public class QuizService {
         List<QuizAttemptEntity> attempts = currentUser.getRole() == Role.ADMIN
                 ? quizAttemptRepository.findAllByOrderBySubmittedAtDesc()
                 : quizAttemptRepository.findByStudentIdOrderBySubmittedAtDesc(currentUser.getId());
+
+        if (currentUser.getRole() == Role.ADMIN) {
+            attempts = attempts.stream()
+                    .filter(this::retainAttemptForExistingStudent)
+                    .toList();
+        }
 
         return attempts.stream()
                 .map(QuizAttemptResponse::from)
@@ -266,6 +276,14 @@ public class QuizService {
                 "info",
                 session.getStudentId()
         );
+    }
+
+    private boolean retainAttemptForExistingStudent(QuizAttemptEntity attempt) {
+        boolean exists = userRepository.existsById(attempt.getStudentId());
+        if (!exists) {
+            quizAttemptRepository.delete(attempt);
+        }
+        return exists;
     }
 
     private void apply(QuizEntity entity, QuizRequest request) {

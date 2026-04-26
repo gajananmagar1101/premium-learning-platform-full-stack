@@ -20,7 +20,6 @@ import { useUIStore } from '@/store/useUIStore'
 import { NotificationPanel } from './NotificationPanel'
 import { SearchBar } from './SearchBar'
 import { cn } from '@/lib/utils'
-import { submitActiveQuizOnLogout } from '@/lib/quizSession'
 
 interface NavbarProps { title: string }
 
@@ -35,7 +34,7 @@ const isLinkActive = (pathname: string, to: string) => {
 }
 
 export function Navbar({ title }: NavbarProps) {
-  const { user, token, logout } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const { darkMode, toggleDarkMode } = useUIStore()
   const navigate = useNavigate()
   const location = useLocation()
@@ -77,8 +76,7 @@ export function Navbar({ title }: NavbarProps) {
     ]
   }, [user?.role])
 
-  const handleLogout = async () => {
-    await submitActiveQuizOnLogout(user, token)
+  const handleLogout = () => {
     logout()
     navigate('/login')
   }

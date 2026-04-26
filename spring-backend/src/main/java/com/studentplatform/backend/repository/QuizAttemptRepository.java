@@ -11,4 +11,5 @@ public interface QuizAttemptRepository extends MongoRepository<QuizAttemptEntity
     List<QuizAttemptEntity> findByStudentIdOrderBySubmittedAtDesc(String studentId);
     Optional<QuizAttemptEntity> findByQuizIdAndStudentId(String quizId, String studentId);
     void deleteByQuizId(String quizId);
+    void deleteByStudentId(String studentId);
 }

@@ -11,4 +11,5 @@ public interface QuizSessionRepository extends MongoRepository<QuizSessionEntity
     Optional<QuizSessionEntity> findByQuizIdAndStudentId(String quizId, String studentId);
     List<QuizSessionEntity> findByEndsAtLessThanEqual(Instant now);
     void deleteByQuizId(String quizId);
+    void deleteByStudentId(String studentId);
 }

@@ -6,6 +6,8 @@ import com.studentplatform.backend.dto.UserResponse;
 import com.studentplatform.backend.entity.Role;
 import com.studentplatform.backend.entity.UserEntity;
 import com.studentplatform.backend.exception.ApiException;
+import com.studentplatform.backend.repository.QuizAttemptRepository;
+import com.studentplatform.backend.repository.QuizSessionRepository;
 import com.studentplatform.backend.repository.ScoreRepository;
 import com.studentplatform.backend.repository.SubmissionRepository;
 import com.studentplatform.backend.repository.UserRepository;
@@ -23,17 +25,23 @@ public class UserService {
     private final UserRepository userRepository;
     private final ScoreRepository scoreRepository;
     private final SubmissionRepository submissionRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
+    private final QuizSessionRepository quizSessionRepository;
     private final NotificationService notificationService;
 
     public UserService(
             UserRepository userRepository,
             ScoreRepository scoreRepository,
             SubmissionRepository submissionRepository,
+            QuizAttemptRepository quizAttemptRepository,
+            QuizSessionRepository quizSessionRepository,
             NotificationService notificationService
     ) {
         this.userRepository = userRepository;
         this.scoreRepository = scoreRepository;
         this.submissionRepository = submissionRepository;
+        this.quizAttemptRepository = quizAttemptRepository;
+        this.quizSessionRepository = quizSessionRepository;
         this.notificationService = notificationService;
     }
 
@@ -105,6 +113,8 @@ public class UserService {
         UserEntity user = getStudentEntity(id);
         scoreRepository.deleteByStudent_Id(user.getId());
         submissionRepository.deleteByStudent_Id(user.getId());
+        quizAttemptRepository.deleteByStudentId(user.getId());
+        quizSessionRepository.deleteByStudentId(user.getId());
         userRepository.delete(user);
     }
 
