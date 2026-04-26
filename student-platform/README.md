@@ -27,8 +27,8 @@ Vercel.
 
 ### Vercel
 
-The repository root includes `vercel.json`, so you can import the repo into
-Vercel and deploy the `student-platform` build from the root.
+Import the repo into Vercel and set the root directory to `student-platform`.
+Vercel will detect the Vite app from there.
 
 Set this environment variable in Vercel:
 
@@ -52,5 +52,5 @@ Set this environment variable in Netlify:
 ## Notes
 
 - SPA redirects are already configured in `netlify.toml`
-- SPA rewrites are also configured in `vercel.json`
+- SPA rewrites are also configured in `student-platform/vercel.json`
 - Production API fallback in the code also points to the Render backend
