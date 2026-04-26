@@ -44,9 +44,9 @@ export function NotificationPanel() {
         {open && (
           <motion.div initial={{ opacity: 0, y: 6, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.97 }} transition={{ duration: 0.15 }}
-            className="fixed left-3 right-3 top-16 z-50 overflow-hidden rounded-xl shadow-2xl sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-80">
-            <div className="card max-h-[min(70vh,32rem)] overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-light-border dark:border-dark-border">
+            className="fixed left-3 right-3 top-20 z-[140] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.32)] dark:border-slate-700 dark:bg-slate-950 sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-80">
+            <div className="max-h-[min(72vh,32rem)] overflow-hidden bg-white dark:bg-slate-950">
+            <div className="flex items-center justify-between gap-3 border-b border-light-border bg-white px-4 py-3 dark:border-dark-border dark:bg-slate-950">
               <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Notifications</p>
               {unread > 0 && (
                 <button onClick={markAllRead}
@@ -55,7 +55,7 @@ export function NotificationPanel() {
                 </button>
               )}
             </div>
-            <div className="max-h-72 overflow-y-auto">
+            <div className="max-h-[calc(min(72vh,32rem)-3rem)] overflow-y-auto bg-white dark:bg-slate-950">
               {!notificationsLoading && notifications.length === 0 && (
                 <div className="px-4 py-8 text-center">
                   <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">No notifications yet</p>
@@ -72,8 +72,8 @@ export function NotificationPanel() {
               {notifications.map((n) => (
                 <div key={n.id}
                   className={cn(
-                    'w-full flex items-start gap-3 px-4 py-3 hover:bg-light-hover dark:hover:bg-dark-hover transition-colors text-left border-b border-light-border dark:border-dark-border last:border-0',
-                    !n.read && 'bg-indigo-500/5'
+                    'flex w-full items-start gap-3 border-b border-light-border bg-white px-4 py-3 text-left transition-colors last:border-0 hover:bg-light-hover dark:border-dark-border dark:bg-slate-950 dark:hover:bg-dark-hover',
+                    !n.read && 'bg-indigo-50 dark:bg-indigo-950/35'
                   )}>
                   <button
                     onClick={() => markRead(n.id)}

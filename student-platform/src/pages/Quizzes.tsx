@@ -721,6 +721,8 @@ function StudentQuizzesView() {
   const { addToast } = useUIStore()
   const [activeSession, setActiveSession] = useState<ActiveQuizSession | null>(null)
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(0)
+  const [quizzesLoaded, setQuizzesLoaded] = useState(false)
+  const [sessionRestored, setSessionRestored] = useState(false)
   const [quizSearch, setQuizSearch] = useState('')
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null)
   const userId = user?._id ?? user?.id
@@ -732,9 +734,23 @@ function StudentQuizzesView() {
   )
 
   useEffect(() => {
+    let cancelled = false
+    setQuizzesLoaded(false)
     fetchQuizzes()
-    fetchAttempts()
-  }, [fetchAttempts, fetchQuizzes])
+      .catch((error) => {
+        console.error('[Quizzes] Failed to load quizzes:', error)
+        addToast('Failed to load quizzes. Please refresh and try again.', 'error')
+      })
+      .finally(() => {
+        if (!cancelled) setQuizzesLoaded(true)
+      })
+    fetchAttempts().catch((error) => {
+      console.error('[Quizzes] Failed to load quiz attempts:', error)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [addToast, fetchAttempts, fetchQuizzes])
 
   const availableQuizzes = useMemo(
     () => quizzes.filter((quiz) => {
@@ -750,7 +766,10 @@ function StudentQuizzesView() {
     [attempts, userId]
   )
 
-  const attemptedQuizIds = new Set(studentAttempts.map((attempt) => attempt.quizId))
+  const attemptedQuizIds = useMemo(
+    () => new Set(studentAttempts.map((attempt) => attempt.quizId)),
+    [studentAttempts]
+  )
   const searchableQuery = quizSearch.trim().toLowerCase()
 
   const orderedAvailableQuizzes = useMemo(
@@ -803,22 +822,31 @@ function StudentQuizzesView() {
     if (!userId) return
     try {
       const raw = window.localStorage.getItem(ACTIVE_QUIZ_SESSION_KEY)
-      if (!raw) return
+      if (!raw) {
+        setSessionRestored(true)
+        return
+      }
       const parsed = JSON.parse(raw) as ActiveQuizSession
-      if (parsed.studentId !== userId) return
+      if (parsed.studentId !== userId) {
+        setSessionRestored(true)
+        return
+      }
       setActiveSession(parsed)
     } catch (error) {
       console.error('[Quizzes] Failed to restore active quiz session:', error)
+    } finally {
+      setSessionRestored(true)
     }
   }, [userId])
 
   useEffect(() => {
+    if (!sessionRestored) return
     if (!activeSession) {
       window.localStorage.removeItem(ACTIVE_QUIZ_SESSION_KEY)
       return
     }
     window.localStorage.setItem(ACTIVE_QUIZ_SESSION_KEY, JSON.stringify(activeSession))
-  }, [activeSession])
+  }, [activeSession, sessionRestored])
 
   const openQuiz = (quiz: Quiz) => {
     if (!userId) return
@@ -907,7 +935,7 @@ function StudentQuizzesView() {
   }, [activeQuiz, activeSession, timeLeftSeconds])
 
   useEffect(() => {
-    if (!activeSession) return
+    if (!activeSession || !quizzesLoaded) return
     if (!activeQuiz) {
       clearActiveSession()
       return
@@ -915,7 +943,7 @@ function StudentQuizzesView() {
     if (attemptedQuizIds.has(activeSession.quizId)) {
       clearActiveSession()
     }
-  }, [activeQuiz, activeSession, attemptedQuizIds])
+  }, [activeQuiz, activeSession, attemptedQuizIds, quizzesLoaded])
 
   useEffect(() => {
     if (!isAttemptRoute || !routeQuizId) return
@@ -937,6 +965,14 @@ function StudentQuizzesView() {
   const isLastQuestion = totalQuestions > 0 && currentQuestionIndex === totalQuestions - 1
   const isFirstQuestion = currentQuestionIndex === 0
   const currentQuestion = activeQuiz?.questions[currentQuestionIndex] ?? null
+
+  if (isAttemptRoute && !activeQuiz && !quizzesLoaded) {
+    return (
+      <GlassCard className="p-6">
+        <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Restoring quiz session...</p>
+      </GlassCard>
+    )
+  }
 
   if (isAttemptRoute && !activeQuiz) {
     return (
