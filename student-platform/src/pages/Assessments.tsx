@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft, Calendar, CheckCheck, ChevronDown, ClipboardList, Clock3, Copy, Edit3, FileText, FolderKanban, NotebookPen, Plus, Save, Search, Send, Trash2, Upload } from 'lucide-react'
 import { useForm } from 'react-hook-form'
@@ -96,6 +96,7 @@ function AdminAssignmentsView() {
   const [questionFileContent, setQuestionFileContent] = useState<string | null>(null)
   const [selectedQueueCohort, setSelectedQueueCohort] = useState<string | null>(null)
   const [selectedQueueStudentId, setSelectedQueueStudentId] = useState<string | null>(null)
+  const queueScrollRef = useRef<HTMLDivElement | null>(null)
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<AssignmentFormData>()
 
   useEffect(() => {
@@ -394,6 +395,10 @@ function AdminAssignmentsView() {
     setSelectedQueueStudentId(null)
   }, [pendingSubmissionQueue, selectedQueueCohort])
 
+  useEffect(() => {
+    queueScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [selectedQueueCohort, selectedQueueStudentId, pendingSubmissionQueue.length, search])
+
   const openCreate = () => {
     setEditing(null)
     setQuestionFileName(null)
@@ -625,8 +630,8 @@ function AdminAssignmentsView() {
         </GlassCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <GlassCard className="flex min-h-[34rem] flex-col p-5">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.16fr_0.84fr]">
+        <GlassCard className="flex h-[33rem] min-h-0 flex-col p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Admin Planner</h3>
@@ -636,7 +641,7 @@ function AdminAssignmentsView() {
             </div>
             <Badge label={`${plannerAssignments.length} planned`} variant="info" />
           </div>
-          <div className="mt-5 flex-1 overflow-y-auto pr-1">
+          <div className="slim-scrollbar mt-4 flex-1 overflow-y-auto pr-1 min-h-0">
             <div className="grid gap-3">
               {plannerAssignments.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
@@ -689,20 +694,20 @@ function AdminAssignmentsView() {
           </div>
         </GlassCard>
 
-        <GlassCard className="flex min-h-[34rem] flex-col p-5">
+        <GlassCard className="flex h-[33rem] min-h-0 flex-col p-4 sm:p-5">
           <div>
             <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Pending Submission Queue</h3>
             <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
               Open a year first, then a learner, and inspect all active pending submissions in the same area.
             </p>
           </div>
-          <div className="mt-5 flex-1 overflow-y-auto pr-1">
+          <div ref={queueScrollRef} className="slim-scrollbar mt-4 flex-1 overflow-y-auto pr-1 min-h-0">
             {pendingSubmissionQueue.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
                 Pending learner lists will appear once active assignments and cohorts are available.
               </div>
             ) : (
-              <div className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
+              <div className="flex min-h-full flex-col rounded-[1.75rem] border border-light-border/80 bg-white/45 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-dark-border dark:bg-dark-card2/40 sm:p-4">
                 {!selectedCohortQueue && (
                   <div className="space-y-2">
                     {pendingSubmissionQueue.map((group) => (
@@ -713,13 +718,13 @@ function AdminAssignmentsView() {
                           setSelectedQueueCohort(group.cohort)
                           setSelectedQueueStudentId(null)
                         }}
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-light-border/70 bg-white/60 px-4 py-4 text-left transition hover:border-indigo-400/40 hover:bg-indigo-500/5 dark:border-dark-border dark:bg-dark-card2/60"
+                        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-light-border/70 bg-white/70 px-3.5 py-3 text-left transition hover:border-indigo-400/40 hover:bg-indigo-500/5 dark:border-dark-border dark:bg-dark-card2/60"
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                          <p className="truncate text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">
                             {group.cohort === 'UNASSIGNED' ? 'Unassigned' : formatAcademicYearLabel(group.cohort)}
                           </p>
-                          <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                          <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
                             {group.studentCount} learner{group.studentCount === 1 ? '' : 's'} · {group.totalPendingStudents} pending submissions
                           </p>
                         </div>
@@ -733,10 +738,10 @@ function AdminAssignmentsView() {
                   <div>
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                        <p className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">
                           {selectedCohortQueue.cohort === 'UNASSIGNED' ? 'Unassigned' : formatAcademicYearLabel(selectedCohortQueue.cohort)}
                         </p>
-                        <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                        <p className="mt-1 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
                           {selectedCohortQueue.studentCount} learner{selectedCohortQueue.studentCount === 1 ? '' : 's'} with pending submissions
                         </p>
                       </div>
@@ -744,13 +749,13 @@ function AdminAssignmentsView() {
                         <ArrowLeft size={13} /> Back
                       </button>
                     </div>
-                    <div className="mt-3 space-y-2">
+                    <div className="slim-scrollbar mt-3 max-h-[21rem] space-y-2 overflow-y-auto pr-1">
                       {selectedCohortQueue.students.map((student) => (
                         <button
                           key={student.studentId}
                           type="button"
                           onClick={() => setSelectedQueueStudentId(student.studentId)}
-                          className="flex w-full items-center justify-between gap-3 rounded-xl border border-light-border/70 bg-white/60 px-3.5 py-3 text-left transition hover:border-indigo-400/40 hover:bg-indigo-500/5 dark:border-dark-border dark:bg-dark-card2/60"
+                          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-light-border/70 bg-white/70 px-3.5 py-3 text-left transition hover:border-indigo-400/40 hover:bg-indigo-500/5 dark:border-dark-border dark:bg-dark-card2/60"
                         >
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{student.studentName}</p>
@@ -769,7 +774,7 @@ function AdminAssignmentsView() {
                   <div>
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{selectedStudentQueue.studentName}</p>
+                        <p className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{selectedStudentQueue.studentName}</p>
                         <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
                           {formatClassLabel(selectedCohortQueue.cohort)} · {selectedStudentQueue.pendingCount} active pending assignment{selectedStudentQueue.pendingCount === 1 ? '' : 's'}
                         </p>
@@ -778,9 +783,9 @@ function AdminAssignmentsView() {
                         <ArrowLeft size={13} /> Back
                       </button>
                     </div>
-                    <div className="mt-3 space-y-2">
+                    <div className="slim-scrollbar mt-3 max-h-[21rem] space-y-2 overflow-y-auto pr-1">
                       {selectedStudentQueue.assignments.map((item) => (
-                        <div key={item.assignmentId} className="rounded-xl border border-light-border/70 bg-white/60 px-3.5 py-3 dark:border-dark-border dark:bg-dark-card2/60">
+                        <div key={item.assignmentId} className="rounded-2xl border border-light-border/70 bg-white/70 px-3.5 py-3 dark:border-dark-border dark:bg-dark-card2/60">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{item.assignmentTitle}</p>
@@ -856,7 +861,7 @@ function AdminAssignmentsView() {
         </div>
       </GlassCard>
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         {groupedAssignments.map((group) => {
           const groupedBySubject = [...group.assignments]
             .reduce<Map<string, AssignmentItem[]>>((collection, assignment) => {
@@ -877,16 +882,16 @@ function AdminAssignmentsView() {
           return (
             <GlassCard key={group.className} className="overflow-hidden p-0">
               <details open={Boolean(search) || groupedAssignments[0]?.className === group.className} className="group">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="rounded-2xl bg-indigo-500/10 p-3 text-indigo-400">
-                      <FolderKanban size={18} />
+                    <div className="rounded-2xl bg-indigo-500/10 p-2.5 text-indigo-400">
+                      <FolderKanban size={16} />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="truncate text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                      <h3 className="truncate text-[1.05rem] font-semibold text-light-ink-primary dark:text-dark-ink-primary">
                         {formatClassLabel(group.className)}
                       </h3>
-                      <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                      <p className="mt-0.5 text-xs text-light-ink-muted dark:text-dark-ink-muted">
                         {group.assignments.length} assignment{group.assignments.length === 1 ? '' : 's'}
                       </p>
                     </div>
@@ -906,9 +911,9 @@ function AdminAssignmentsView() {
                   </div>
                 </summary>
 
-                <div className="space-y-3 border-t border-light-border px-4 py-3 dark:border-dark-border">
+                <div className="slim-scrollbar max-h-[24rem] space-y-2.5 overflow-y-auto border-t border-light-border px-3 py-3 dark:border-dark-border">
                   {subjectGroups.map((subjectGroup) => (
-                    <div key={`${group.className}-${subjectGroup.subject}`} className="overflow-hidden rounded-2xl border border-light-border dark:border-dark-border">
+                    <div key={`${group.className}-${subjectGroup.subject}`} className="overflow-hidden rounded-[1.5rem] border border-light-border dark:border-dark-border">
                       <button
                         type="button"
                         onClick={(event) => {
@@ -918,17 +923,17 @@ function AdminAssignmentsView() {
                             `/assessments/subject?class=${encodeURIComponent(group.className)}&subject=${encodeURIComponent(subjectGroup.subject)}`
                           )
                         }}
-                        className="flex w-full cursor-pointer items-center justify-between gap-4 bg-white/35 px-4 py-3 text-left transition-colors hover:bg-indigo-500/5 dark:bg-dark-card2/35 dark:hover:bg-indigo-500/10"
+                        className="flex w-full cursor-pointer items-center justify-between gap-4 bg-white/35 px-3.5 py-2.5 text-left transition-colors hover:bg-indigo-500/5 dark:bg-dark-card2/35 dark:hover:bg-indigo-500/10"
                       >
                           <div className="flex min-w-0 items-center gap-3">
                             <div className="rounded-xl bg-indigo-500/10 p-2 text-indigo-400">
-                              <NotebookPen size={16} />
+                              <NotebookPen size={14} />
                             </div>
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">
                                 {subjectGroup.subject}
                               </p>
-                              <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                              <p className="mt-0.5 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
                                 {subjectGroup.assignments.length} assignment{subjectGroup.assignments.length === 1 ? '' : 's'}
                               </p>
                             </div>
@@ -1353,20 +1358,20 @@ function StudentAssignmentsView() {
         />
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-4">
         {assignmentsBySubject.map((subjectGroup) => (
           <GlassCard key={subjectGroup.subject} className="overflow-hidden p-0">
             <details open={Boolean(search)} className="group/subject">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="rounded-2xl bg-indigo-500/10 p-3 text-indigo-400">
-                    <NotebookPen size={18} />
+                  <div className="rounded-2xl bg-indigo-500/10 p-2.5 text-indigo-400">
+                    <NotebookPen size={16} />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="truncate text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                    <h3 className="truncate text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">
                       {subjectGroup.subject}
                     </h3>
-                    <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                    <p className="mt-0.5 text-xs text-light-ink-muted dark:text-dark-ink-muted">
                       {subjectGroup.assignments.length} assignment{subjectGroup.assignments.length === 1 ? '' : 's'}
                     </p>
                   </div>
@@ -1374,23 +1379,23 @@ function StudentAssignmentsView() {
                 <ChevronDown size={18} className="text-light-ink-muted transition-transform group-open/subject:rotate-180 dark:text-dark-ink-muted" />
               </summary>
 
-              <div className="grid grid-cols-1 gap-4 border-t border-light-border px-4 py-4 dark:border-dark-border xl:grid-cols-2">
+              <div className="slim-scrollbar grid max-h-[29rem] grid-cols-1 gap-3 overflow-y-auto border-t border-light-border px-3 py-3 dark:border-dark-border xl:grid-cols-2">
                 {subjectGroup.assignments.map((assignment) => (
-                  <GlassCard key={assignment.id} className="p-5">
+                  <GlassCard key={assignment.id} className="p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-300">
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold text-indigo-300">
                           <NotebookPen size={12} /> {assignment.subject}
                         </div>
-                        <div className="ml-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+                        <div className="ml-1.5 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
                           {formatClassLabel(assignment.className)}
                         </div>
-                        <h3 className="mt-4 text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.title}</h3>
+                        <h3 className="mt-3 text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.title}</h3>
                       </div>
                       <Badge label={assignment.status} variant={statusVariant(assignment.status)} />
                     </div>
 
-                    <p className="mt-4 text-sm leading-6 text-light-ink-secondary dark:text-dark-ink-secondary">
+                    <p className="mt-3 line-clamp-2 text-sm leading-5 text-light-ink-secondary dark:text-dark-ink-secondary">
                       {assignment.description}
                     </p>
 
@@ -1404,23 +1409,23 @@ function StudentAssignmentsView() {
                       </a>
                     )}
 
-                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="rounded-xl bg-light-card2/70 p-3 dark:bg-dark-card2/80">
-                        <p className="flex items-center gap-1.5 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                    <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      <div className="rounded-xl bg-light-card2/70 p-2.5 dark:bg-dark-card2/80">
+                        <p className="flex items-center gap-1.5 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
                           <ClipboardList size={12} /> Total Marks
                         </p>
-                        <p className="mt-2 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.totalMarks}</p>
+                        <p className="mt-1.5 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{assignment.totalMarks}</p>
                       </div>
-                      <div className="rounded-xl bg-light-card2/70 p-3 dark:bg-dark-card2/80">
-                        <p className="flex items-center gap-1.5 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                      <div className="rounded-xl bg-light-card2/70 p-2.5 dark:bg-dark-card2/80">
+                        <p className="flex items-center gap-1.5 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
                           <Calendar size={12} /> Deadline
                         </p>
-                        <p className="mt-2 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{formatDateTime(assignment.deadline)}</p>
+                        <p className="mt-1.5 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{formatDateTime(assignment.deadline)}</p>
                       </div>
                     </div>
 
                     {assignment.submission && (
-                      <div className="mt-4 rounded-2xl border border-light-border bg-white/30 p-4 dark:border-dark-border dark:bg-dark-card2/50">
+                      <div className="mt-3 rounded-2xl border border-light-border bg-white/30 p-3 dark:border-dark-border dark:bg-dark-card2/50">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Your Submission</p>
                           {typeof assignment.submission.marks === 'number' && (
@@ -1443,13 +1448,13 @@ function StudentAssignmentsView() {
                             <FileText size={13} /> {assignment.submission.fileName}
                           </a>
                         )}
-                        <p className="mt-3 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                        <p className="mt-2.5 text-xs text-light-ink-muted dark:text-dark-ink-muted">
                           Last updated {formatDateTime(assignment.submission.updatedAt)}
                         </p>
                       </div>
                     )}
 
-                    <div className="mt-5 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         onClick={() => openSubmissionModal(assignment)}
                         disabled={assignment.submissionClosed}

@@ -178,7 +178,7 @@ export function Dashboard() {
   }), [attempts, quizzes])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Total Learners" value={displayAnalytics?.totalStudents ?? students.length} change="registered learners" positive icon={Users} iconColor="text-indigo-600" iconBg="bg-indigo-500/20" />
         <StatCard title="Average Score" value={loading ? '...' : `${displayAnalytics?.avgScore ?? 0}%`} change="based on graded work" positive icon={TrendingUp} iconColor="text-emerald-600" iconBg="bg-emerald-500/20" />
@@ -192,7 +192,7 @@ export function Dashboard() {
           {trendData.length === 0 ? (
             <p className="py-12 text-center text-sm text-gray-400">No graded scores available yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={trendData}>
                 <defs>
                   <linearGradient id="dashboardGrad" x1="0" y1="0" x2="0" y2="1">
@@ -217,7 +217,7 @@ export function Dashboard() {
           {!displayAnalytics?.subjectAverages?.length ? (
             <p className="py-12 text-center text-sm text-gray-400">No subject analytics available yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart data={displayAnalytics.subjectAverages} barSize={22}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
@@ -233,7 +233,7 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <GlassCard className="p-4 sm:p-5">
+        <GlassCard className="flex min-h-0 flex-col p-4 sm:p-5">
           <div className="mb-3 flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-amber-500/15"><Trophy size={16} className="text-amber-500" /></div>
             <h2 className="text-sm font-semibold text-gray-900">Leaderboard</h2>
@@ -241,7 +241,7 @@ export function Dashboard() {
           {!displayAnalytics?.leaderboard?.length ? (
             <p className="py-12 text-center text-sm text-gray-400">Leaderboard appears after learners receive scores.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="slim-scrollbar max-h-[18rem] space-y-2 overflow-y-auto pr-1">
               {displayAnalytics.leaderboard.map((student, index) => (
                 <div key={student.id} className="flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-white/40">
                   <span className="text-sm font-bold text-gray-500 w-6">{index + 1}</span>
@@ -259,7 +259,7 @@ export function Dashboard() {
           )}
         </GlassCard>
 
-        <GlassCard className="p-4 sm:p-5">
+        <GlassCard className="flex min-h-0 flex-col p-4 sm:p-5">
           <div className="mb-3 flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-indigo-500/15"><Activity size={16} className="text-indigo-500" /></div>
             <h2 className="text-sm font-semibold text-gray-900">Recent Grading Activity</h2>
@@ -267,7 +267,7 @@ export function Dashboard() {
           {!recentActivity.length ? (
             <p className="py-12 text-center text-sm text-gray-400">No recent score activity yet.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="slim-scrollbar max-h-[18rem] space-y-2 overflow-y-auto pr-1">
               {recentActivity.map((score) => {
                 const isSubmission = 'assignmentTitle' in score
                 const percent = isSubmission
@@ -301,7 +301,7 @@ export function Dashboard() {
           {!quizOverview.total ? (
             <p className="py-12 text-center text-sm text-gray-400">Create quizzes to track objective-test performance here.</p>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               {[
                 { label: 'Total Quizzes', value: quizOverview.total },
                 { label: 'Published', value: quizOverview.published },
@@ -310,14 +310,14 @@ export function Dashboard() {
               ].map((item) => (
                 <div key={item.label} className="rounded-2xl bg-white/40 p-3">
                   <p className="text-xs text-gray-500">{item.label}</p>
-                  <p className="mt-1.5 text-xl font-bold text-gray-900">{item.value}</p>
+                  <p className="mt-1 text-lg font-bold text-gray-900">{item.value}</p>
                 </div>
               ))}
             </div>
           )}
         </GlassCard>
 
-        <GlassCard className="p-4 sm:p-5">
+        <GlassCard className="flex min-h-0 flex-col p-4 sm:p-5">
           <div className="mb-3 flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-sky-500/15"><Activity size={16} className="text-sky-500" /></div>
             <h2 className="text-sm font-semibold text-gray-900">Recent Quiz Attempts</h2>
@@ -325,7 +325,7 @@ export function Dashboard() {
           {!recentQuizAttempts.length ? (
             <p className="py-12 text-center text-sm text-gray-400">Learner quiz attempts will appear here after submissions.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="slim-scrollbar max-h-[18rem] space-y-2 overflow-y-auto pr-1">
               {recentQuizAttempts.map((attempt) => {
                 const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
                 const quiz = quizzes.find((item) => item.id === attempt.quizId)

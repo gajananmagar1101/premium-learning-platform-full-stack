@@ -184,9 +184,9 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
       <motion.div
         initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-        className="fixed right-0 top-0 h-full w-full max-w-sm bg-white/90 backdrop-blur-xl border-l border-white/20 shadow-2xl z-50 overflow-y-auto"
+        className="portal-scroll-region slim-scrollbar fixed right-0 top-0 h-full w-full max-w-sm bg-white/90 backdrop-blur-xl border-l border-white/20 shadow-2xl z-50 overflow-y-auto"
       >
-        <div className="p-6 space-y-5">
+        <div className="p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-gray-900">Learner Profile</h2>
             <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
@@ -249,10 +249,12 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
           {subjects.length > 0 && (
             <div className="space-y-3">
               <p className="text-sm font-semibold text-gray-900">Subject Progress</p>
+              <div className="slim-scrollbar max-h-[18rem] space-y-3 overflow-y-auto pr-1">
               {subjects.map((sub) => (
                 <ProgressBar key={sub.subject} label={sub.subject} value={sub.progress}
                   color={sub.progress >= 85 ? 'bg-emerald-500' : sub.progress >= 70 ? 'bg-indigo-500' : 'bg-amber-500'} />
               ))}
+              </div>
             </div>
           )}
 
@@ -266,7 +268,7 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
                 ))}
               </div>
             ) : hasPerformanceHistory ? (
-              <div className="space-y-2">
+              <div className="slim-scrollbar max-h-[20rem] space-y-2 overflow-y-auto pr-1">
                 {performanceHistory.map((item) => (
                   <div key={item.submissionId} className="flex items-center justify-between p-2.5 rounded-xl bg-white/50 border border-gray-100">
                     <div>
@@ -287,7 +289,7 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
                 <p className="text-sm">No scores yet</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="slim-scrollbar max-h-[20rem] space-y-2 overflow-y-auto pr-1">
                 {scores.map((sc) => {
                   const pct = Math.round((sc.score / (sc.assessment?.maxScore ?? 100)) * 100)
                   return (

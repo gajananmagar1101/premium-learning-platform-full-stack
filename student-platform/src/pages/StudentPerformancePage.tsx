@@ -245,7 +245,7 @@ export function StudentPerformancePage() {
       </GlassCard>
 
       <GlassCard className="p-4 sm:p-5">
-        <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <GraduationCap size={16} className="text-indigo-500" />
             <h2 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Subject-wise Progress</h2>
@@ -257,13 +257,13 @@ export function StudentPerformancePage() {
         {subjectProgress.length === 0 ? (
           <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">No graded records yet.</p>
         ) : (
-          <div className="space-y-2.5">
+          <div className="slim-scrollbar max-h-[18rem] space-y-2 overflow-y-auto pr-1">
             {subjectProgress.map((item) => (
-              <div key={item.subject} className="rounded-2xl border border-light-border bg-light-card2/60 p-3 dark:border-dark-border dark:bg-dark-card2/70">
-                <div className="mb-2.5 flex flex-wrap items-start justify-between gap-3">
+              <div key={item.subject} className="rounded-[1.45rem] border border-light-border bg-light-card2/55 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] dark:border-dark-border dark:bg-dark-card2/70">
+                <div className="mb-1.5 flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{item.subject}</p>
-                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                    <p className="mt-0.5 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
                       {item.gradedItems} graded item{item.gradedItems === 1 ? '' : 's'} · {item.pendingAssignments} pending assignment{item.pendingAssignments === 1 ? '' : 's'}
                     </p>
                   </div>

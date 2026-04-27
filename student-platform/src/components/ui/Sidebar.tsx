@@ -50,7 +50,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5 py-3">
+      <nav className="portal-scroll-region slim-scrollbar flex-1 space-y-0.5 overflow-y-auto px-2.5 py-3">
         {links.map(({ to, icon: Icon, label }) => (
           <NavLink key={to} to={to} onClick={onClose}
             className={({ isActive }) => cn('nav-link', isActive && 'active')}>

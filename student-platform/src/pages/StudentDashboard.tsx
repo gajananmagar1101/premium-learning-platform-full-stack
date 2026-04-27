@@ -191,7 +191,7 @@ export function StudentDashboard() {
     : 0
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       <GlassCard className="border-indigo-200/30 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-pink-500/10 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -227,7 +227,7 @@ export function StudentDashboard() {
           {!subjectProgress.length ? (
             <p className="py-8 text-center text-sm text-gray-400">No subject data yet.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="slim-scrollbar max-h-[16rem] space-y-3 overflow-y-auto pr-1">
               {subjectProgress.map((item) => (
                 <ProgressBar
                   key={item.subject}
@@ -245,7 +245,7 @@ export function StudentDashboard() {
           {!trendData.length ? (
             <p className="py-10 text-center text-sm text-gray-400">No completed assessments yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={200}>
               <LineChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
@@ -264,7 +264,7 @@ export function StudentDashboard() {
           {!subjectProgress.length ? (
             <p className="py-10 text-center text-sm text-gray-400">Complete assessments to unlock the radar chart.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={200}>
               <RadarChart data={subjectProgress.map((item) => ({ subject: item.subject.slice(0, 6), score: item.progress }))}>
                 <PolarGrid stroke="#e5e7eb" />
                 <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
@@ -274,14 +274,14 @@ export function StudentDashboard() {
           )}
         </GlassCard>
 
-        <GlassCard className="p-4">
+        <GlassCard className="flex min-h-0 flex-col p-4">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
             <Calendar size={16} className="text-indigo-500" /> Upcoming Assessments
           </h2>
           {!upcomingAssessments.length ? (
             <p className="py-10 text-center text-sm text-gray-400">No upcoming assessments right now.</p>
           ) : (
-            <div className="space-y-2.5">
+            <div className="slim-scrollbar max-h-[16rem] space-y-2.5 overflow-y-auto pr-1">
               {upcomingAssessments.map((assessment) => (
                 <div key={assessment.id ?? assessment._id} className="flex items-center justify-between rounded-xl bg-white/30 p-2.5 transition-colors hover:bg-white/50">
                   <div>
@@ -297,12 +297,12 @@ export function StudentDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <GlassCard className="p-4">
+        <GlassCard className="flex min-h-0 flex-col p-4">
           <h2 className="mb-3 text-sm font-semibold text-gray-900">Available Quizzes</h2>
           {!availableQuizzes.length ? (
             <p className="py-10 text-center text-sm text-gray-400">No published quizzes for your cohort right now.</p>
           ) : (
-            <div className="space-y-2.5">
+            <div className="slim-scrollbar max-h-[16rem] space-y-2.5 overflow-y-auto pr-1">
               {availableQuizzes.slice(0, 4).map((quiz) => (
                 <div key={quiz.id} className="flex items-center justify-between rounded-xl bg-white/30 p-2.5 transition-colors hover:bg-white/50">
                   <div>
@@ -316,12 +316,12 @@ export function StudentDashboard() {
           )}
         </GlassCard>
 
-        <GlassCard className="p-4">
+        <GlassCard className="flex min-h-0 flex-col p-4">
           <h2 className="mb-3 text-sm font-semibold text-gray-900">Recent Quiz Results</h2>
           {!myQuizAttempts.length ? (
             <p className="py-10 text-center text-sm text-gray-400">Attempt quizzes to see your scores here.</p>
           ) : (
-            <div className="space-y-2.5">
+            <div className="slim-scrollbar max-h-[16rem] space-y-2.5 overflow-y-auto pr-1">
               {myQuizAttempts.slice(0, 4).map((attempt) => {
                 const quiz = quizzes.find((item) => item.id === attempt.quizId)
                 const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
@@ -347,7 +347,7 @@ export function StudentDashboard() {
         {!displayPerformance?.scoreHistory?.length ? (
           <p className="py-10 text-center text-sm text-gray-400">No grades published yet.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="slim-scrollbar max-h-[20rem] overflow-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100">

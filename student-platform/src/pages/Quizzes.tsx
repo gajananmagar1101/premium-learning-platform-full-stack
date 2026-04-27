@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle2, ClipboardCheck, Edit3, Eye, Plus, Trash2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, ClipboardCheck, Edit3, Eye, Filter, Plus, Sparkles, TimerReset, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { GlassCard } from '@/components/ui/GlassCard'
@@ -50,6 +50,13 @@ const formatSecondsClock = (totalSeconds: number) => {
 
 const formatDurationClock = (durationMinutes: number) => formatSecondsClock(Math.round(durationMinutes * 60))
 
+const formatDurationLabel = (durationMinutes: number) => {
+  if (durationMinutes < 60) return `${durationMinutes} min`
+  const hours = Math.floor(durationMinutes / 60)
+  const minutes = durationMinutes % 60
+  return minutes === 0 ? `${hours} hr` : `${hours} hr ${minutes} min`
+}
+
 const toDateTimeInputValue = (value?: string) => {
   if (!value) return ''
   const date = new Date(value)
@@ -66,6 +73,8 @@ type ActiveQuizSession = {
   currentQuestionIndex: number
   endsAt: string
 }
+
+type StudentQuizFilter = 'all' | 'pending' | 'attempted' | 'dueSoon'
 
 function AdminQuizzesView() {
   const navigate = useNavigate()
@@ -753,6 +762,7 @@ function StudentQuizzesView() {
   const [sessionRestored, setSessionRestored] = useState(false)
   const [quizSearch, setQuizSearch] = useState('')
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null)
+  const [studentQuizFilter, setStudentQuizFilter] = useState<StudentQuizFilter>('all')
   const userId = user?._id ?? user?.id
   const cohort = normalizeAcademicYear(user?.grade)
   const isAttemptRoute = pathname.startsWith('/quizzes/attempt/')
@@ -811,12 +821,24 @@ function StudentQuizzesView() {
   )
 
   const filteredAvailableQuizzes = useMemo(
-    () => orderedAvailableQuizzes.filter((quiz) => (
-      searchableQuery.length === 0
-      || quiz.title.toLowerCase().includes(searchableQuery)
-      || quiz.subject.toLowerCase().includes(searchableQuery)
-    )),
-    [orderedAvailableQuizzes, searchableQuery]
+    () => orderedAvailableQuizzes.filter((quiz) => {
+      const matchesQuery = searchableQuery.length === 0
+        || quiz.title.toLowerCase().includes(searchableQuery)
+        || quiz.subject.toLowerCase().includes(searchableQuery)
+      const attempted = attemptedQuizIds.has(quiz.id)
+      const dueSoon = quiz.deadlineAt
+        ? new Date(quiz.deadlineAt).getTime() - Date.now() <= 1000 * 60 * 60 * 24 * 2
+        : false
+
+      const matchesFilter =
+        studentQuizFilter === 'all'
+        || (studentQuizFilter === 'pending' && !attempted)
+        || (studentQuizFilter === 'attempted' && attempted)
+        || (studentQuizFilter === 'dueSoon' && dueSoon)
+
+      return matchesQuery && matchesFilter
+    }),
+    [attemptedQuizIds, orderedAvailableQuizzes, searchableQuery, studentQuizFilter]
   )
 
   const sortedStudentAttempts = useMemo(
@@ -1007,11 +1029,25 @@ function StudentQuizzesView() {
     ? Math.max(...studentAttempts.map((attempt) => Math.round((attempt.score / attempt.totalPoints) * 100)))
     : 0
   const notAttemptedCount = Math.max(availableQuizzes.length - attemptedQuizIds.size, 0)
+  const dueSoonCount = availableQuizzes.filter((quiz) => (
+    quiz.deadlineAt
+      ? new Date(quiz.deadlineAt).getTime() - Date.now() <= 1000 * 60 * 60 * 24 * 2
+      : false
+  )).length
+  const nextPendingQuiz = [...availableQuizzes]
+    .filter((quiz) => !attemptedQuizIds.has(quiz.id))
+    .sort((left, right) => {
+      const leftTime = left.deadlineAt ? new Date(left.deadlineAt).getTime() : Number.MAX_SAFE_INTEGER
+      const rightTime = right.deadlineAt ? new Date(right.deadlineAt).getTime() : Number.MAX_SAFE_INTEGER
+      return leftTime - rightTime
+    })[0] ?? null
   const totalQuestions = activeQuiz?.questions.length ?? 0
   const currentQuestionIndex = activeSession?.currentQuestionIndex ?? 0
   const isLastQuestion = totalQuestions > 0 && currentQuestionIndex === totalQuestions - 1
   const isFirstQuestion = currentQuestionIndex === 0
   const currentQuestion = activeQuiz?.questions[currentQuestionIndex] ?? null
+  const answeredCount = activeSession?.answers.filter((answer) => answer >= 0).length ?? 0
+  const unansweredCount = Math.max(totalQuestions - answeredCount, 0)
 
   if (isAttemptRoute && !activeQuiz && !quizzesLoaded) {
     return (
@@ -1035,90 +1071,139 @@ function StudentQuizzesView() {
   if (isAttemptRoute && activeQuiz) {
     return (
       <div className="min-h-[calc(100vh-8rem)] rounded-2xl border border-light-border bg-light-card p-4 dark:border-dark-border dark:bg-dark-card sm:p-6">
-        <div className="mx-auto w-full max-w-4xl">
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-light-border bg-light-card2/70 p-4 dark:border-dark-border dark:bg-dark-card2/80">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{activeQuiz.subject}</p>
-                  <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
-                    {activeQuiz.questions.length} questions · {formatDurationClock(activeQuiz.durationMinutes)} · {activeQuiz.totalPoints} points
-                  </p>
-                  <p className={`mt-1 text-xs font-semibold ${timeLeftSeconds <= 60 ? 'text-red-500' : 'text-indigo-600'}`}>
-                    Time Left: {formatSecondsClock(timeLeftSeconds)}
-                  </p>
-                  <p className="mt-1 text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">
-                    Question {currentQuestionIndex + 1} of {activeQuiz.questions.length}
-                  </p>
-                </div>
-                <button type="button" onClick={closeQuizView} className="btn-ghost px-3 py-2 text-xs">
-                  Back to Quizzes
-                </button>
-              </div>
-            </div>
-
-            {currentQuestion && (
-              <div className="rounded-2xl border border-light-border bg-light-card p-4 dark:border-dark-border dark:bg-dark-card">
-                <p className="font-medium text-light-ink-primary dark:text-dark-ink-primary">
-                  Q{currentQuestionIndex + 1}. {currentQuestion.prompt}
-                </p>
-                <div className="mt-3 space-y-2">
-                  {currentQuestion.options.map((option, optionIndex) => (
-                    <label key={`${currentQuestion.id}-${optionIndex}`} className="flex items-start gap-3 rounded-xl border border-light-border px-3 py-2 text-sm text-light-ink-secondary dark:border-dark-border dark:text-dark-ink-secondary">
-                      <input
-                        type="radio"
-                        name={currentQuestion.id}
-                        checked={activeSession?.answers[currentQuestionIndex] === optionIndex}
-                        onChange={() => setActiveSession((current) => {
-                          if (!current) return current
-                          return {
-                            ...current,
-                            answers: current.answers.map((answer, answerIndex) => (
-                              answerIndex === currentQuestionIndex ? optionIndex : answer
-                            )),
-                          }
-                        })}
-                      />
-                      <span>{option}</span>
-                    </label>
-                  ))}
+        <div className="mx-auto w-full max-w-6xl">
+          <div className="grid gap-4 xl:grid-cols-[1.45fr_0.55fr]">
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-light-border bg-light-card2/70 p-4 dark:border-dark-border dark:bg-dark-card2/80">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{activeQuiz.subject}</p>
+                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                      {activeQuiz.questions.length} questions · {formatDurationClock(activeQuiz.durationMinutes)} · {activeQuiz.totalPoints} points
+                    </p>
+                    <p className={`mt-1 text-xs font-semibold ${timeLeftSeconds <= 60 ? 'text-red-500' : 'text-indigo-600'}`}>
+                      Time Left: {formatSecondsClock(timeLeftSeconds)}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">
+                      Question {currentQuestionIndex + 1} of {activeQuiz.questions.length}
+                    </p>
+                  </div>
+                  <button type="button" onClick={closeQuizView} className="btn-ghost px-3 py-2 text-xs">
+                    Back to Quizzes
+                  </button>
                 </div>
               </div>
-            )}
 
-            <div className="flex gap-3">
-              <button type="button" onClick={closeQuizView} className="btn-ghost flex-1 justify-center">Save & Exit</button>
-              <button
-                type="button"
-                disabled={isFirstQuestion}
-                onClick={() => setActiveSession((current) => {
-                  if (!current) return current
-                  return { ...current, currentQuestionIndex: Math.max(0, current.currentQuestionIndex - 1) }
-                })}
-                className="btn-ghost flex-1 justify-center disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Previous
-              </button>
-              {!isLastQuestion ? (
+              {currentQuestion && (
+                <div className="rounded-2xl border border-light-border bg-light-card p-4 dark:border-dark-border dark:bg-dark-card">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-medium text-light-ink-primary dark:text-dark-ink-primary">
+                      Q{currentQuestionIndex + 1}. {currentQuestion.prompt}
+                    </p>
+                    <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-600">
+                      {currentQuestion.points} point{currentQuestion.points === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div className="slim-scrollbar max-h-[24rem] space-y-2 overflow-y-auto pr-1">
+                    {currentQuestion.options.map((option, optionIndex) => (
+                      <label key={`${currentQuestion.id}-${optionIndex}`} className="flex items-start gap-3 rounded-xl border border-light-border px-3 py-2 text-sm text-light-ink-secondary transition-colors hover:bg-light-hover dark:border-dark-border dark:text-dark-ink-secondary dark:hover:bg-dark-hover">
+                        <input
+                          type="radio"
+                          name={currentQuestion.id}
+                          checked={activeSession?.answers[currentQuestionIndex] === optionIndex}
+                          onChange={() => setActiveSession((current) => {
+                            if (!current) return current
+                            return {
+                              ...current,
+                              answers: current.answers.map((answer, answerIndex) => (
+                                answerIndex === currentQuestionIndex ? optionIndex : answer
+                              )),
+                            }
+                          })}
+                        />
+                        <span>{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button type="button" onClick={closeQuizView} className="btn-ghost flex-1 justify-center">Save & Exit</button>
                 <button
                   type="button"
+                  disabled={isFirstQuestion}
                   onClick={() => setActiveSession((current) => {
-                    if (!current || !activeQuiz) return current
-                    return {
-                      ...current,
-                      currentQuestionIndex: Math.min(activeQuiz.questions.length - 1, current.currentQuestionIndex + 1),
-                    }
+                    if (!current) return current
+                    return { ...current, currentQuestionIndex: Math.max(0, current.currentQuestionIndex - 1) }
                   })}
-                  className="btn-primary flex-1 justify-center"
+                  className="btn-ghost flex-1 justify-center disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Next
+                  Previous
                 </button>
-              ) : (
-                <button type="button" onClick={() => handleSubmitQuiz()} className="btn-primary flex-1 justify-center">
-                  <CheckCircle2 size={14} /> Submit Quiz
-                </button>
-              )}
+                {!isLastQuestion ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveSession((current) => {
+                      if (!current || !activeQuiz) return current
+                      return {
+                        ...current,
+                        currentQuestionIndex: Math.min(activeQuiz.questions.length - 1, current.currentQuestionIndex + 1),
+                      }
+                    })}
+                    className="btn-primary flex-1 justify-center"
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => handleSubmitQuiz()} className="btn-primary flex-1 justify-center">
+                    <CheckCircle2 size={14} /> Submit Quiz
+                  </button>
+                )}
+              </div>
             </div>
+
+            <GlassCard className="flex h-fit min-h-0 flex-col p-4">
+              <div className="flex items-center gap-2">
+                <Sparkles size={15} className="text-indigo-500" />
+                <h3 className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Attempt Overview</h3>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="rounded-2xl bg-light-card2/70 p-3 dark:bg-dark-card2/80">
+                  <p className="text-[11px] text-light-ink-muted dark:text-dark-ink-muted">Answered</p>
+                  <p className="mt-1 text-lg font-semibold text-emerald-600">{answeredCount}</p>
+                </div>
+                <div className="rounded-2xl bg-light-card2/70 p-3 dark:bg-dark-card2/80">
+                  <p className="text-[11px] text-light-ink-muted dark:text-dark-ink-muted">Remaining</p>
+                  <p className="mt-1 text-lg font-semibold text-amber-600">{unansweredCount}</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">Question Navigator</p>
+                <div className="slim-scrollbar mt-3 grid max-h-[22rem] grid-cols-4 gap-2 overflow-y-auto pr-1">
+                  {activeQuiz.questions.map((question, index) => {
+                    const answered = (activeSession?.answers[index] ?? -1) >= 0
+                    const active = index === currentQuestionIndex
+                    return (
+                      <button
+                        key={question.id}
+                        type="button"
+                        onClick={() => setActiveSession((current) => current ? { ...current, currentQuestionIndex: index } : current)}
+                        className={`rounded-2xl px-3 py-2 text-xs font-semibold transition-colors ${
+                          active
+                            ? 'bg-indigo-600 text-white'
+                            : answered
+                              ? 'bg-emerald-500/15 text-emerald-700'
+                              : 'bg-light-card2 text-light-ink-muted dark:bg-dark-card2 dark:text-dark-ink-muted'
+                        }`}
+                      >
+                        Q{index + 1}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </GlassCard>
           </div>
         </div>
       </div>
@@ -1127,8 +1212,8 @@ function StudentQuizzesView() {
 
   return (
     <div className="space-y-6">
-      <GlassCard className="p-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <GlassCard className="p-5 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">Online Quizzes</h2>
             <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
@@ -1143,13 +1228,35 @@ function StudentQuizzesView() {
             <Badge label={`${bestScore}% best`} variant={bestScore >= 70 ? 'success' : 'info'} />
           </div>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
           <input
             value={quizSearch}
             onChange={(event) => setQuizSearch(event.target.value)}
             className="form-input"
             placeholder="Search by quiz title or subject"
           />
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'pending', label: 'Pending' },
+              { key: 'attempted', label: 'Attempted' },
+              { key: 'dueSoon', label: 'Due Soon' },
+            ].map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setStudentQuizFilter(option.key as StudentQuizFilter)}
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition-colors ${
+                  studentQuizFilter === option.key
+                    ? 'bg-indigo-600 text-white'
+                    : 'border border-light-border text-light-ink-muted hover:bg-light-hover dark:border-dark-border dark:text-dark-ink-muted dark:hover:bg-dark-hover'
+                }`}
+              >
+                <Filter size={12} />
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
         {activeSession && activeQuiz && !isAttemptRoute && (
           <div className="mt-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
@@ -1163,29 +1270,70 @@ function StudentQuizzesView() {
         )}
       </GlassCard>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <GlassCard className="p-3.5">
+          <p className="text-[11px] font-medium text-light-ink-muted dark:text-dark-ink-muted">Pending Quizzes</p>
+          <p className="mt-2 text-2xl font-bold text-indigo-600">{notAttemptedCount}</p>
+        </GlassCard>
+        <GlassCard className="p-3.5">
+          <p className="text-[11px] font-medium text-light-ink-muted dark:text-dark-ink-muted">Due Soon</p>
+          <p className="mt-2 text-2xl font-bold text-amber-600">{dueSoonCount}</p>
+        </GlassCard>
+        <GlassCard className="p-3.5">
+          <p className="text-[11px] font-medium text-light-ink-muted dark:text-dark-ink-muted">Average Score</p>
+          <p className="mt-2 text-2xl font-bold text-emerald-600">{averageScore}%</p>
+        </GlassCard>
+        <GlassCard className="p-3.5">
+          <p className="text-[11px] font-medium text-light-ink-muted dark:text-dark-ink-muted">Best Score</p>
+          <p className="mt-2 text-2xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{bestScore}%</p>
+        </GlassCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <GlassCard className="p-5">
-          <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Available Quizzes</h3>
-          <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
-            Unattempted quizzes are listed first so you can complete pending ones quickly.
-          </p>
-          <div className="mt-4 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Available Quizzes</h3>
+              <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                Unattempted quizzes are listed first so you can complete pending ones quickly.
+              </p>
+            </div>
+            {nextPendingQuiz ? (
+              <div className="rounded-2xl border border-indigo-200/70 bg-indigo-50/70 px-3 py-2 text-right dark:border-indigo-400/20 dark:bg-indigo-500/10">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">Next Priority</p>
+                <p className="mt-1 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{nextPendingQuiz.title}</p>
+                <p className="text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
+                  {nextPendingQuiz.deadlineAt ? `Due ${formatDateTime(nextPendingQuiz.deadlineAt)}` : 'No deadline set'}
+                </p>
+              </div>
+            ) : null}
+          </div>
+          <div className="slim-scrollbar mt-4 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
             {filteredAvailableQuizzes.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-light-border p-8 text-center text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
                 No published quizzes match this search.
               </div>
             ) : filteredAvailableQuizzes.map((quiz) => {
               const attempted = attemptedQuizIds.has(quiz.id)
+              const deadlineMs = quiz.deadlineAt ? new Date(quiz.deadlineAt).getTime() : null
+              const dueSoon = deadlineMs != null && deadlineMs - Date.now() <= 1000 * 60 * 60 * 24 * 2
               return (
-                <div key={quiz.id} className="rounded-2xl border border-light-border bg-white/35 p-4 dark:border-dark-border dark:bg-dark-card2/40">
+                <div key={quiz.id} className="rounded-[1.6rem] border border-light-border bg-white/35 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.52)] dark:border-dark-border dark:bg-dark-card2/40">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                      <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{quiz.title}</p>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap gap-2">
+                        <Badge label={quiz.subject} variant="info" />
+                        <Badge label={formatDurationLabel(quiz.durationMinutes)} variant="info" />
+                        <Badge label={`${quiz.totalPoints} pts`} variant="info" />
+                        {dueSoon ? <Badge label="Due soon" variant="warning" /> : null}
+                        {attempted ? <Badge label="Attempted" variant="success" /> : <Badge label="Pending" variant="warning" />}
+                      </div>
+                      <p className="mt-3 text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">{quiz.title}</p>
                       <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
-                        {quiz.subject} · {formatDurationClock(quiz.durationMinutes)} · {quiz.totalPoints} points
+                        {quiz.questions.length} questions · {formatAcademicYearLabel(quiz.className)}
                       </p>
                       {quiz.deadlineAt && (
-                        <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                        <p className={`mt-1 text-xs ${dueSoon ? 'text-amber-600' : 'text-light-ink-muted dark:text-dark-ink-muted'}`}>
                           Deadline: {formatDateTime(quiz.deadlineAt)}
                         </p>
                       )}
@@ -1195,10 +1343,15 @@ function StudentQuizzesView() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {attempted ? (
-                        <Badge label="Attempted" variant="success" />
+                        <button type="button" onClick={() => {
+                          const latestAttempt = sortedStudentAttempts.find((attempt) => attempt.quizId === quiz.id)
+                          if (latestAttempt) setSelectedAttemptId(latestAttempt.id)
+                        }} className="btn-ghost px-3 py-2 text-xs">
+                          <Eye size={13} /> Review Result
+                        </button>
                       ) : activeSession?.quizId === quiz.id ? (
                         <button type="button" onClick={() => navigate(`/quizzes/attempt/${quiz.id}`)} className="btn-primary px-3 py-2 text-xs">
-                          <ClipboardCheck size={13} /> Resume Quiz
+                          <TimerReset size={13} /> Resume Quiz
                         </button>
                       ) : (
                         <button type="button" onClick={() => openQuiz(quiz)} className="btn-primary px-3 py-2 text-xs">
@@ -1213,12 +1366,12 @@ function StudentQuizzesView() {
           </div>
         </GlassCard>
 
-        <GlassCard className="overflow-hidden">
+        <GlassCard className="flex min-h-0 flex-col overflow-hidden">
           <div className="border-b border-light-border px-5 py-4 dark:border-dark-border">
             <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">My Quiz Results</h3>
             <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">Latest submitted quiz performance with detailed answer review.</p>
           </div>
-          <div className="overflow-x-auto">
+          <div className="slim-scrollbar max-h-[34rem] overflow-auto">
             <table className="data-table">
               <thead>
                 <tr>
@@ -1258,6 +1411,24 @@ function StudentQuizzesView() {
           </div>
         </GlassCard>
       </div>
+
+      <GlassCard className="p-4 sm:p-5">
+        <div className="flex items-center gap-2">
+          <AlertCircle size={15} className="text-amber-500" />
+          <h3 className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Quiz Tips</h3>
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-light-border bg-white/50 p-4 text-sm text-light-ink-secondary dark:border-dark-border dark:bg-dark-card2/60 dark:text-dark-ink-secondary">
+            Attempt pending quizzes first so your dashboard stays clean and deadlines stay manageable.
+          </div>
+          <div className="rounded-2xl border border-light-border bg-white/50 p-4 text-sm text-light-ink-secondary dark:border-dark-border dark:bg-dark-card2/60 dark:text-dark-ink-secondary">
+            Use the search and filter chips to quickly find due-soon or already-attempted quizzes.
+          </div>
+          <div className="rounded-2xl border border-light-border bg-white/50 p-4 text-sm text-light-ink-secondary dark:border-dark-border dark:bg-dark-card2/60 dark:text-dark-ink-secondary">
+            During an active attempt, the question navigator helps you jump to unanswered questions before submit.
+          </div>
+        </div>
+      </GlassCard>
 
       <Modal open={Boolean(selectedAttemptId)} onClose={() => setSelectedAttemptId(null)} title="Quiz Result Breakdown">
         {!selectedAttempt || !selectedQuiz ? (

@@ -8,12 +8,19 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    height: 100%;
+    scroll-behavior: smooth;
   }
 
   body {
     @apply bg-light-base text-light-ink-primary dark:bg-dark-base dark:text-dark-ink-primary transition-colors duration-300;
     font-weight: 400;
     line-height: 1.47059;
+    min-height: 100%;
+  }
+
+  #root {
+    min-height: 100%;
   }
 
   h1,
@@ -63,6 +70,31 @@
   }
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  .slim-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.75) transparent;
+  }
+  .slim-scrollbar::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  .slim-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .slim-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.72);
+    border-radius: 9999px;
+  }
+  .slim-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.9);
+  }
+
+  .portal-scroll-region {
+    min-height: 0;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Card */

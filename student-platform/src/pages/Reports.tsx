@@ -193,7 +193,7 @@ export function Reports() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-gray-500">Live analytics generated from assignment submissions and published marks.</p>
         <motion.button
@@ -206,25 +206,25 @@ export function Reports() {
         </motion.button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {summaryStats.map((item) => (
-          <GlassCard key={item.label} className="p-4">
+          <GlassCard key={item.label} className="p-3.5">
             <div className={`inline-flex p-2 rounded-xl ${item.bg} mb-2`}>
               <item.icon size={16} className={item.color} />
             </div>
-            <p className={`text-2xl font-bold ${item.color}`}>{item.value}</p>
+            <p className={`text-xl font-bold ${item.color}`}>{item.value}</p>
             <p className="text-xs text-gray-500 mt-0.5">{item.label}</p>
           </GlassCard>
         ))}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <GlassCard className="p-6">
+        <GlassCard className="p-4 sm:p-5">
           <h2 className="text-base font-semibold text-gray-900 mb-4">Score Trend</h2>
           {!trendData.length ? (
             <p className="text-sm text-gray-400 text-center py-16">No score trend available yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={trendData}>
                 <defs>
                   <linearGradient id="reportsGrad" x1="0" y1="0" x2="0" y2="1">
@@ -242,12 +242,12 @@ export function Reports() {
           )}
         </GlassCard>
 
-        <GlassCard className="p-6">
+        <GlassCard className="p-4 sm:p-5">
           <h2 className="text-base font-semibold text-gray-900 mb-4">Grade Distribution</h2>
           {!gradedSubmissions.length ? (
             <p className="text-sm text-gray-400 text-center py-16">No graded submissions available yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie data={gradeDistribution} cx="50%" cy="50%" outerRadius={80} dataKey="value">
                   {gradeDistribution.map((entry, index) => <Cell key={entry.name} fill={gradeColor[index]} />)}
@@ -260,12 +260,12 @@ export function Reports() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <GlassCard className="p-6">
+        <GlassCard className="p-4 sm:p-5">
           <h2 className="text-base font-semibold text-gray-900 mb-4">Learner Comparison</h2>
           {!studentComparisonData.length ? (
             <p className="text-sm text-gray-400 text-center py-16">No learner comparison available yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart data={studentComparisonData} barSize={28}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
@@ -279,12 +279,12 @@ export function Reports() {
           )}
         </GlassCard>
 
-        <GlassCard className="p-6">
+        <GlassCard className="p-4 sm:p-5">
           <h2 className="text-base font-semibold text-gray-900 mb-4">Subject Radar</h2>
           {!radarData.length ? (
             <p className="text-sm text-gray-400 text-center py-16">No subject radar available yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={200}>
               <RadarChart data={radarData}>
                 <PolarGrid stroke="#e5e7eb" />
                 <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
@@ -295,12 +295,12 @@ export function Reports() {
         </GlassCard>
       </div>
 
-      <GlassCard className="p-6">
+      <GlassCard className="p-4 sm:p-5">
         <h2 className="text-base font-semibold text-gray-900 mb-4">Subject Performance Breakdown</h2>
         {!subjectAverages.length ? (
           <p className="text-sm text-gray-400 text-center py-16">No subject breakdown available yet.</p>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={200}>
             <BarChart data={subjectAverages} barSize={28}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
