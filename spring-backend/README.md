@@ -49,6 +49,11 @@ The app reads these values from environment variables and falls back to local de
 - `ADMIN_PASSWORD`
 - `ADMIN_NAME`
 - `SEED_DEMO_DATA` default `false`
+- `AI_QUIZ_ENABLED` default `false`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL` default `gpt-4o-mini`
+- `OPENAI_BASE_URL` default `https://api.openai.com/v1`
+- `AI_MAX_QUESTION_COUNT` default `15`
 
 Local CORS is already configured for `localhost` and `127.0.0.1` on any Vite dev
 port, so `5173`, `5174`, `5183`, and similar ports work without extra changes.
@@ -56,14 +61,32 @@ port, so `5173`, `5174`, `5183`, and similar ports work without extra changes.
 ## Run Locally
 
 1. Start MongoDB locally or provide a hosted Mongo URI.
-2. Export the environment variables you want to override.
-3. Run the backend:
+2. Create `spring-backend/.env` from `spring-backend/.env.example`, or export the environment variables you want to override.
+3. If you want AI quiz generation, enable it explicitly:
+
+```bash
+cp spring-backend/.env.example spring-backend/.env
+export AI_QUIZ_ENABLED=true
+export OPENAI_API_KEY=your_openai_api_key
+```
+
+The backend now auto-loads `.env` files from the current working directory and from `spring-backend/.env` during local development, so adding these values to `spring-backend/.env` is enough:
+
+```env
+AI_QUIZ_ENABLED=true
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+You can also copy those same values into your shell or deployment platform.
+4. Run the backend:
 
 ```bash
 mvn spring-boot:run
 ```
 
-4. In the frontend, point `VITE_API_URL` to `http://localhost:5003/api`.
+5. In the frontend, point `VITE_API_URL` to `http://localhost:5003/api`.
 
 ## Production Notes
 
@@ -88,6 +111,11 @@ Optional:
 - `ADMIN_NAME`
 - `JWT_EXPIRATION_DAYS`
 - `SEED_DEMO_DATA=false`
+- `AI_QUIZ_ENABLED=true`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL=gpt-4o-mini`
+- `OPENAI_BASE_URL=https://api.openai.com/v1`
+- `AI_MAX_QUESTION_COUNT=15`
 
 The health check endpoint is:
 

@@ -1,17 +1,26 @@
 import axios from 'axios'
 
 const RENDER_URL = 'https://student-learning-platform-api.onrender.com/api'
-const LOCAL_API_CANDIDATES = ['http://127.0.0.1:5003/api', 'http://127.0.0.1:5002/api']
+const LOCAL_API_CANDIDATES = [
+  'http://127.0.0.1:5003/api',
+  'http://localhost:5003/api',
+  'http://127.0.0.1:5002/api',
+  'http://localhost:5002/api',
+]
 
 const normalizeApiUrl = (url: string) => (url.endsWith('/api') ? url : `${url.replace(/\/$/, '')}/api`)
+const unique = (urls: string[]) => [...new Set(urls)]
 
 const getBaseURLs = () => {
   const envURL = import.meta.env.VITE_API_URL
   if (envURL) {
-    return [normalizeApiUrl(envURL)]
+    const normalizedEnvUrl = normalizeApiUrl(envURL)
+    return import.meta.env.DEV
+      ? unique([normalizedEnvUrl, ...LOCAL_API_CANDIDATES, RENDER_URL])
+      : [normalizedEnvUrl]
   }
 
-  return import.meta.env.DEV ? [...LOCAL_API_CANDIDATES, RENDER_URL] : [RENDER_URL]
+  return import.meta.env.DEV ? unique([...LOCAL_API_CANDIDATES, RENDER_URL]) : [RENDER_URL]
 }
 
 const BASE_URLS = getBaseURLs()

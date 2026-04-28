@@ -64,6 +64,9 @@ export const quizAPI = {
   create: (data: object) => api.post('/quizzes', data),
   update: (id: string, data: object) => api.put(`/quizzes/${id}`, data),
   delete: (id: string) => api.delete(`/quizzes/${id}`),
+  getAiQuizStatus: () => api.get('/ai/status'),
+  generateAiQuiz: (data: { subject: string; topic: string; difficulty: string; questionCount: number }) =>
+    api.post('/ai/generate-quiz', data),
   getAttempts: () => api.get('/quizzes/attempts'),
   startSession: (quizId: string) => api.post(`/quizzes/${quizId}/session`),
   updateSession: (quizId: string, data: { answers: number[]; currentQuestionIndex: number }) =>

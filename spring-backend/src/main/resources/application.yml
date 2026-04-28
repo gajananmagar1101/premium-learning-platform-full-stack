@@ -1,10 +1,14 @@
-server:
-  port: ${PORT:5003}
-
 spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:./spring-backend/.env[.properties]
+      - optional:file:../.env[.properties]
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/student_platform}
+server:
+  port: ${PORT:5003}
 
 app:
   jwt:
@@ -25,3 +29,9 @@ app:
     admin-email: ${ADMIN_EMAIL:gajananmagar.11.01@gmail.com}
     admin-password: ${ADMIN_PASSWORD:321123}
     admin-name: ${ADMIN_NAME:Gajanan Admin}
+  ai:
+    enabled: ${AI_QUIZ_ENABLED:false}
+    openai-api-key: ${OPENAI_API_KEY:}
+    openai-model: ${OPENAI_MODEL:gpt-4o-mini}
+    openai-base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    max-question-count: ${AI_MAX_QUESTION_COUNT:15}

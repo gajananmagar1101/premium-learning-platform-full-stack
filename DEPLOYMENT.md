@@ -36,6 +36,11 @@ Recommended values:
 
 - `SEED_DEMO_DATA=false`
 - `JWT_EXPIRATION_DAYS=7`
+- `AI_QUIZ_ENABLED=true` if you want the "Generate AI Quiz" feature enabled
+- `OPENAI_API_KEY=...` required when AI quiz generation is enabled
+- `OPENAI_MODEL=gpt-4o-mini`
+- `OPENAI_BASE_URL=https://api.openai.com/v1`
+- `AI_MAX_QUESTION_COUNT=15`
 
 Backend URL example:
 
@@ -89,3 +94,4 @@ Push the repository to GitHub after confirming these files:
 - Do not commit real `.env` files
 - Do not commit MongoDB secrets
 - Set `FRONTEND_URL` in Render to your live frontend domain so CORS works correctly
+- For local Spring backend setup, copy [spring-backend/.env.example](/Users/gajananmagar004gmail.com/Desktop/student%20learning%20project%202/spring-backend/.env.example) to `spring-backend/.env` and add `AI_QUIZ_ENABLED=true` plus a real `OPENAI_API_KEY` if you want AI quiz generation

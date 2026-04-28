@@ -11,7 +11,7 @@ import { useQuizStore } from '@/store/useQuizStore'
 import { useUIStore } from '@/store/useUIStore'
 import { quizAPI, studentAPI } from '@/lib/services'
 import { btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
-import type { Quiz, QuizQuestion } from '@/types'
+import type { AiGeneratedQuizQuestion, AiQuizStatus, Quiz, QuizQuestion } from '@/types'
 
 type QuizFormData = {
   title: string
@@ -23,6 +23,21 @@ type QuizFormData = {
   status: Quiz['status']
 }
 
+type AiQuizFormData = {
+  subject: string
+  topic: string
+  difficulty: 'easy' | 'medium' | 'hard'
+  questionCount: number
+}
+
+type EditableAiQuizQuestion = {
+  id: string
+  question: string
+  options: string[]
+  correctAnswer: string
+  selected: boolean
+}
+
 const questionTemplate = (): QuizQuestion => ({
   id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   prompt: '',
@@ -30,6 +45,8 @@ const questionTemplate = (): QuizQuestion => ({
   correctOption: 0,
   points: 1,
 })
+
+const createLocalId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
 const formatDateTime = (value: string) =>
   new Date(value).toLocaleString([], {
@@ -57,6 +74,26 @@ const formatDurationLabel = (durationMinutes: number) => {
   return minutes === 0 ? `${hours} hr` : `${hours} hr ${minutes} min`
 }
 
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  if (
+    error
+    && typeof error === 'object'
+    && 'response' in error
+    && error.response
+    && typeof error.response === 'object'
+    && 'data' in error.response
+    && error.response.data
+    && typeof error.response.data === 'object'
+    && 'message' in error.response.data
+    && typeof error.response.data.message === 'string'
+    && error.response.data.message.trim()
+  ) {
+    return error.response.data.message.trim()
+  }
+
+  return fallback
+}
+
 const toDateTimeInputValue = (value?: string) => {
   if (!value) return ''
   const date = new Date(value)
@@ -76,6 +113,36 @@ type ActiveQuizSession = {
 
 type StudentQuizFilter = 'all' | 'pending' | 'attempted' | 'dueSoon'
 
+const mapAiQuestionToEditable = (question: AiGeneratedQuizQuestion): EditableAiQuizQuestion => ({
+  id: `ai-${question.id}-${createLocalId()}`,
+  question: question.question,
+  options: [...question.options],
+  correctAnswer: question.correctAnswer,
+  selected: false,
+})
+
+const mapAiQuestionToQuizQuestion = (question: EditableAiQuizQuestion): QuizQuestion => {
+  const correctOption = question.options.findIndex((option) => option === question.correctAnswer)
+  return {
+    id: createLocalId(),
+    prompt: question.question,
+    options: [...question.options],
+    correctOption: correctOption >= 0 ? correctOption : 0,
+    points: 1,
+  }
+}
+
+const shuffleQuestions = (questions: QuizQuestion[]) => {
+  const next = [...questions]
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    const temp = next[index]
+    next[index] = next[swapIndex]
+    next[swapIndex] = temp
+  }
+  return next
+}
+
 function AdminQuizzesView() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -88,9 +155,19 @@ function AdminQuizzesView() {
   const [activeStudentIds, setActiveStudentIds] = useState<string[]>([])
   const isCreateRoute = pathname === '/quizzes/create'
   const [questions, setQuestions] = useState<QuizQuestion[]>([questionTemplate()])
+  const [aiForm, setAiForm] = useState<AiQuizFormData>({
+    subject: '',
+    topic: '',
+    difficulty: 'medium',
+    questionCount: 5,
+  })
+  const [aiQuestions, setAiQuestions] = useState<EditableAiQuizQuestion[]>([])
+  const [aiStatus, setAiStatus] = useState<AiQuizStatus | null>(null)
+  const [generatingAi, setGeneratingAi] = useState(false)
+  const [shuffleBeforeSave, setShuffleBeforeSave] = useState(false)
   const [applySamePoints, setApplySamePoints] = useState(false)
   const [bulkPoints, setBulkPoints] = useState(1)
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<QuizFormData>({
+  const { register, handleSubmit, reset, getValues, formState: { errors } } = useForm<QuizFormData>({
     defaultValues: {
       status: 'draft',
       durationMinutes: 20,
@@ -104,6 +181,8 @@ function AdminQuizzesView() {
   )
 
   const questionCount = questions.length
+  const selectedAiCount = aiQuestions.filter((question) => question.selected).length
+  const isAiAvailable = aiStatus?.available ?? false
 
   useEffect(() => {
     fetchQuizzes()
@@ -128,6 +207,36 @@ function AdminQuizzesView() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!isCreateRoute) return
+
+    let cancelled = false
+    quizAPI.getAiQuizStatus()
+      .then((response) => {
+        if (cancelled) return
+        setAiStatus(response.data as AiQuizStatus)
+        setAiForm((current) => ({
+          ...current,
+          questionCount: Math.min(current.questionCount, Math.max(1, (response.data as AiQuizStatus).maxQuestionCount)),
+        }))
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error('[Quizzes] Failed to load AI quiz status:', error)
+        setAiStatus({
+          enabled: false,
+          configured: false,
+          available: false,
+          maxQuestionCount: 15,
+          message: 'Unable to verify AI quiz configuration. Make sure the Spring backend is running on port 5003.',
+        })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [isCreateRoute])
 
   const visibleAttempts = useMemo(
     () => (activeStudentIds.length === 0
@@ -189,6 +298,14 @@ function AdminQuizzesView() {
     setModalOpen(false)
     setEditing(null)
     setQuestions([questionTemplate()])
+    setAiForm({
+      subject: '',
+      topic: '',
+      difficulty: 'medium',
+      questionCount: 5,
+    })
+    setAiQuestions([])
+    setShuffleBeforeSave(false)
     setApplySamePoints(false)
     setBulkPoints(1)
     reset({
@@ -209,6 +326,14 @@ function AdminQuizzesView() {
     if (!isCreateRoute) return
     setEditing(null)
     setQuestions([questionTemplate()])
+    setAiForm({
+      subject: '',
+      topic: '',
+      difficulty: 'medium',
+      questionCount: 5,
+    })
+    setAiQuestions([])
+    setShuffleBeforeSave(false)
     setApplySamePoints(false)
     setBulkPoints(1)
     reset({
@@ -239,11 +364,75 @@ function AdminQuizzesView() {
     setQuestions((current) => current.map((question) => question.id === questionId ? updater(question) : question))
   }
 
+  const updateAiQuestion = (questionId: string, updater: (question: EditableAiQuizQuestion) => EditableAiQuizQuestion) => {
+    setAiQuestions((current) => current.map((question) => question.id === questionId ? updater(question) : question))
+  }
+
+  const handleGenerateAiQuiz = async () => {
+    if (aiStatus && !aiStatus.available) {
+      addToast(aiStatus.message, 'error')
+      return
+    }
+
+    const subject = (aiForm.subject.trim() || getValues('subject')?.trim() || '')
+    const topic = aiForm.topic.trim()
+    if (!subject || !topic) {
+      addToast('Fill subject and topic before generating AI questions', 'error')
+      return
+    }
+
+    try {
+      setGeneratingAi(true)
+      const response = await quizAPI.generateAiQuiz({
+        subject,
+        topic,
+        difficulty: aiForm.difficulty,
+        questionCount: aiForm.questionCount,
+      })
+      const nextQuestions = (response.data as AiGeneratedQuizQuestion[]).map(mapAiQuestionToEditable)
+      setAiForm((current) => ({ ...current, subject }))
+      setAiQuestions(nextQuestions)
+      addToast(`${nextQuestions.length} AI question${nextQuestions.length === 1 ? '' : 's'} generated`, 'success')
+    } catch (error) {
+      console.error('[Quizzes] Failed to generate AI quiz questions:', error)
+      addToast(getApiErrorMessage(error, 'Failed to generate AI questions. Check backend AI config and try again.'), 'error')
+    } finally {
+      setGeneratingAi(false)
+    }
+  }
+
+  const addSelectedAiQuestionsToFinalQuiz = () => {
+    const selectedQuestions = aiQuestions.filter((question) => question.selected)
+    if (selectedQuestions.length === 0) {
+      addToast('Select at least one AI question first', 'info')
+      return
+    }
+
+    setQuestions((current) => {
+      const existingKeys = new Set(current.map((question) => `${question.prompt.toLowerCase()}::${question.options.join('|').toLowerCase()}`))
+      const additions = selectedQuestions
+        .filter((question) => !existingKeys.has(`${question.question.toLowerCase()}::${question.options.join('|').toLowerCase()}`))
+        .map(mapAiQuestionToQuizQuestion)
+
+      if (additions.length === 0) {
+        addToast('Selected AI questions are already in the final quiz list', 'info')
+        return current
+      }
+
+      addToast(`${additions.length} AI question${additions.length === 1 ? '' : 's'} added to final quiz`, 'success')
+      return [...current, ...additions]
+    })
+
+    setAiQuestions((current) => current.map((question) => ({ ...question, selected: false })))
+  }
+
   const onSubmit = async (data: QuizFormData) => {
     if (questions.some((question) => !question.prompt.trim() || question.options.some((option) => !option.trim()))) {
       addToast('Fill all question prompts and options', 'error')
       return
     }
+
+    const finalQuestions = shuffleBeforeSave ? shuffleQuestions(questions) : questions
 
     try {
       if (editing) {
@@ -251,7 +440,7 @@ function AdminQuizzesView() {
           ...data,
           description: data.description?.trim() ?? '',
           deadlineAt: data.deadlineAt ? new Date(data.deadlineAt).toISOString() : undefined,
-          questions,
+          questions: finalQuestions,
           durationMinutes: Number(data.durationMinutes),
         })
         addToast('Quiz updated', 'success')
@@ -261,7 +450,7 @@ function AdminQuizzesView() {
           ...data,
           description: data.description?.trim() ?? '',
           deadlineAt: data.deadlineAt ? new Date(data.deadlineAt).toISOString() : undefined,
-          questions,
+          questions: finalQuestions,
           durationMinutes: Number(data.durationMinutes),
         })
         addToast('Quiz created', 'success')
@@ -350,9 +539,182 @@ function AdminQuizzesView() {
               <textarea {...register('description')} rows={3} className="form-input resize-none" placeholder="Optional quiz description..." />
             </div>
 
+            <div className="rounded-3xl border border-indigo-200/50 bg-indigo-500/5 p-4 dark:border-indigo-400/20 dark:bg-indigo-500/10">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">Generate AI Quiz</p>
+                  <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                    Generate draft questions, review them, then mix selected AI questions with your manual questions.
+                  </p>
+                  {aiStatus && (
+                    <p className={`mt-2 text-xs ${aiStatus.available ? 'text-emerald-600 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                      {aiStatus.message}
+                    </p>
+                  )}
+                  {!aiStatus && (
+                    <p className="mt-2 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                      Checking Spring backend AI configuration...
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGenerateAiQuiz}
+                  disabled={generatingAi || !isAiAvailable}
+                  className="btn-primary px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Sparkles size={13} /> {generatingAi ? 'Generating...' : isAiAvailable ? 'Generate AI Quiz' : 'AI Not Configured'}
+                </button>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Subject</label>
+                  <input
+                    value={aiForm.subject}
+                    onChange={(event) => setAiForm((current) => ({ ...current, subject: event.target.value }))}
+                    className="form-input"
+                    placeholder="e.g. Data Structures"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Topic</label>
+                  <input
+                    value={aiForm.topic}
+                    onChange={(event) => setAiForm((current) => ({ ...current, topic: event.target.value }))}
+                    className="form-input"
+                    placeholder="e.g. Linked Lists"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Difficulty</label>
+                  <select
+                    value={aiForm.difficulty}
+                    onChange={(event) => setAiForm((current) => ({ ...current, difficulty: event.target.value as AiQuizFormData['difficulty'] }))}
+                    className="form-input"
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Questions</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={aiStatus?.maxQuestionCount ?? 15}
+                    value={aiForm.questionCount}
+                    onChange={(event) => setAiForm((current) => ({
+                      ...current,
+                      questionCount: Math.max(1, Math.min(aiStatus?.maxQuestionCount ?? 15, Number(event.target.value) || 1)),
+                    }))}
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-light-border bg-white/55 p-3 dark:border-dark-border dark:bg-dark-card2/60">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">AI Question Drafts</p>
+                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                      {aiQuestions.length} generated · {selectedAiCount} selected for final quiz
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setAiQuestions((current) => current.map((question) => ({ ...question, selected: true })))} className="btn-ghost px-3 py-2 text-xs">
+                      Select All
+                    </button>
+                    <button type="button" onClick={addSelectedAiQuestionsToFinalQuiz} className="btn-ghost px-3 py-2 text-xs">
+                      Add Selected to Final Quiz
+                    </button>
+                  </div>
+                </div>
+
+                {!aiQuestions.length ? (
+                  <p className="mt-4 rounded-2xl border border-dashed border-light-border p-4 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+                    Generate AI questions to review them here.
+                  </p>
+                ) : (
+                  <div className="slim-scrollbar mt-4 max-h-[26rem] space-y-3 overflow-y-auto pr-1">
+                    {aiQuestions.map((question, index) => (
+                      <div key={question.id} className="rounded-2xl border border-light-border bg-white/60 p-4 dark:border-dark-border dark:bg-dark-card2/70">
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="inline-flex items-center gap-2 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                            <input
+                              type="checkbox"
+                              checked={question.selected}
+                              onChange={() => updateAiQuestion(question.id, (current) => ({ ...current, selected: !current.selected }))}
+                            />
+                            AI Question {index + 1}
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setAiQuestions((current) => current.filter((item) => item.id !== question.id))}
+                            className="text-xs font-medium text-red-400"
+                          >
+                            Delete
+                          </button>
+                        </div>
+
+                        <input
+                          value={question.question}
+                          onChange={(event) => updateAiQuestion(question.id, (current) => ({ ...current, question: event.target.value }))}
+                          className="form-input mt-3"
+                          placeholder="Edit AI question"
+                        />
+
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          {question.options.map((option, optionIndex) => (
+                            <input
+                              key={`${question.id}-${optionIndex}`}
+                              value={option}
+                              onChange={(event) => updateAiQuestion(question.id, (current) => {
+                                const nextOptions = current.options.map((item, index2) => index2 === optionIndex ? event.target.value : item)
+                                const currentCorrectOption = current.options.findIndex((item) => item === current.correctAnswer)
+                                const nextCorrectAnswer = currentCorrectOption === optionIndex ? event.target.value : current.correctAnswer
+                                return {
+                                  ...current,
+                                  options: nextOptions,
+                                  correctAnswer: nextCorrectAnswer,
+                                }
+                              })}
+                              className="form-input"
+                              placeholder={`Option ${optionIndex + 1}`}
+                            />
+                          ))}
+                        </div>
+
+                        <div className="mt-3 w-full sm:w-56">
+                          <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Correct Answer</label>
+                          <select
+                            value={question.correctAnswer}
+                            onChange={(event) => updateAiQuestion(question.id, (current) => ({ ...current, correctAnswer: event.target.value }))}
+                            className="form-input"
+                          >
+                            {question.options.map((option, optionIndex) => (
+                              <option key={`${question.id}-correct-${optionIndex}`} value={option}>
+                                {option || `Option ${optionIndex + 1}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Questions</p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Final Quiz Questions</p>
+                  <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                    Manual questions plus any AI questions you add to the final quiz.
+                  </p>
+                </div>
                 <div className="flex items-center gap-2">
                   <label className="inline-flex items-center gap-2 rounded-xl border border-light-border px-3 py-2 text-xs font-medium text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
                     <input
@@ -375,6 +737,9 @@ function AdminQuizzesView() {
                     <Plus size={13} /> Add Question
                   </button>
                 </div>
+              </div>
+              <div className="rounded-2xl border border-dashed border-light-border px-3 py-2 text-xs text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+                {questionCount} final question{questionCount === 1 ? '' : 's'} ready
               </div>
               {questions.map((question, index) => (
                 <div key={question.id} className="rounded-2xl border border-light-border p-4 dark:border-dark-border">
@@ -433,9 +798,18 @@ function AdminQuizzesView() {
               ))}
             </div>
 
+            <label className="inline-flex items-center gap-2 rounded-xl border border-light-border px-3 py-2 text-xs font-medium text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+              <input
+                type="checkbox"
+                checked={shuffleBeforeSave}
+                onChange={(event) => setShuffleBeforeSave(event.target.checked)}
+              />
+              Shuffle questions before saving
+            </label>
+
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={() => navigate('/quizzes')} className="btn-ghost flex-1 justify-center">Cancel</button>
-              <button type="submit" className="btn-primary flex-1 justify-center">Create Quiz</button>
+              <button type="submit" className="btn-primary flex-1 justify-center">Create Final Quiz</button>
             </div>
           </form>
         </GlassCard>
@@ -453,9 +827,14 @@ function AdminQuizzesView() {
               Build online quizzes, publish them to B.Tech cohorts, and review attempt performance.
             </p>
           </div>
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={openCreate} className="btn-primary justify-center">
-            <Plus size={16} /> Create Quiz
-          </motion.button>
+          <div className="flex flex-wrap gap-2">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={openCreate} className="btn-ghost justify-center">
+              <Sparkles size={16} /> Generate AI Quiz
+            </motion.button>
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={openCreate} className="btn-primary justify-center">
+              <Plus size={16} /> Create Quiz
+            </motion.button>
+          </div>
         </div>
       </GlassCard>
 

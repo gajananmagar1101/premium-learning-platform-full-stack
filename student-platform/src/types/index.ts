@@ -151,6 +151,21 @@ export interface QuizQuestion {
   points: number
 }
 
+export interface AiGeneratedQuizQuestion {
+  id: number
+  question: string
+  options: string[]
+  correctAnswer: string
+}
+
+export interface AiQuizStatus {
+  enabled: boolean
+  configured: boolean
+  available: boolean
+  maxQuestionCount: number
+  message: string
+}
+
 export type QuizStatus = 'draft' | 'published' | 'closed'
 
 export interface Quiz {
