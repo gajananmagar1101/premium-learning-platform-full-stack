@@ -7,5 +7,6 @@ import java.util.List;
 
 public interface AssignmentRepository extends MongoRepository<AssignmentEntity, String> {
     List<AssignmentEntity> findAllByOrderByDeadlineAscCreatedAtDesc();
+    List<AssignmentEntity> findBySubjectIdOrLegacySubjectIgnoreCase(String subjectId, String legacySubject);
     boolean existsBySubjectId(String subjectId);
 }

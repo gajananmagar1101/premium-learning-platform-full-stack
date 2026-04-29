@@ -21,6 +21,21 @@ const parseSubjectNames = (value: string) =>
       .filter(Boolean)
   )]
 
+const yearSortOrder = (code?: string | null) => {
+  switch (code?.trim().toUpperCase()) {
+    case 'FE':
+      return 1
+    case 'SE':
+      return 2
+    case 'TE':
+      return 3
+    case 'BE':
+      return 4
+    default:
+      return Number.MAX_SAFE_INTEGER
+  }
+}
+
 export function Subjects() {
   const addToast = useUIStore((state) => state.addToast)
   const [years, setYears] = useState<YearOption[]>([])
@@ -50,7 +65,10 @@ export function Subjects() {
           yearAPI.getAll(),
           subjectAPI.getAll(),
         ])
-        setYears(yearsRes.data.years ?? [])
+        const nextYears = [...(yearsRes.data.years ?? [])].sort(
+          (left, right) => yearSortOrder(left.code) - yearSortOrder(right.code) || left.name.localeCompare(right.name)
+        )
+        setYears(nextYears)
         setSubjects(subjectsRes.data.subjects ?? [])
       } catch (error) {
         console.error('[Subjects] Failed to load subject data:', error)
@@ -122,6 +140,10 @@ export function Subjects() {
       .sort((left, right) => left.name.localeCompare(right.name)),
   }))
 
+  const sortedYears = [...years].sort(
+    (left, right) => yearSortOrder(left.code) - yearSortOrder(right.code) || left.name.localeCompare(right.name)
+  )
+
   const handleDeleteSubject = async () => {
     if (!subjectToDelete) return
 
@@ -185,7 +207,7 @@ export function Subjects() {
                 disabled={loading}
               >
                 <option value="">{loading ? 'Loading years...' : 'Select year'}</option>
-                {years.map((year) => (
+                {sortedYears.map((year) => (
                   <option key={year.id} value={year.id}>
                     {year.name}
                   </option>
@@ -279,7 +301,7 @@ export function Subjects() {
             <span className="font-semibold">{years.find((year) => year.id === subjectToDelete?.yearId)?.name ?? 'this year'}</span>?
           </p>
           <div className="rounded-2xl border border-red-200 bg-red-50/70 px-4 py-3 text-sm text-red-600">
-            This action cannot be undone. If this subject is already used in quizzes or assignments, it will not be removed.
+            This action cannot be undone. This will also remove related assignments, submissions, quizzes, attempts, and assessments linked to this subject.
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button

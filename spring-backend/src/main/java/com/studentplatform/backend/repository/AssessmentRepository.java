@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface AssessmentRepository extends MongoRepository<AssessmentEntity, String> {
     List<AssessmentEntity> findAllByOrderByDateDesc();
+    List<AssessmentEntity> findBySubjectIgnoreCase(String subject);
 }

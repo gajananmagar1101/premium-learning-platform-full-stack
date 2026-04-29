@@ -3,19 +3,28 @@ package com.studentplatform.backend.service;
 import com.studentplatform.backend.dto.CreateSubjectRequest;
 import com.studentplatform.backend.dto.SubjectResponse;
 import com.studentplatform.backend.dto.YearResponse;
+import com.studentplatform.backend.entity.AssessmentEntity;
+import com.studentplatform.backend.entity.AssignmentEntity;
+import com.studentplatform.backend.entity.QuizEntity;
 import com.studentplatform.backend.entity.SubjectEntity;
 import com.studentplatform.backend.entity.YearEntity;
 import com.studentplatform.backend.exception.ApiException;
-import com.studentplatform.backend.repository.SubjectRepository;
+import com.studentplatform.backend.repository.AssessmentRepository;
 import com.studentplatform.backend.repository.AssignmentRepository;
+import com.studentplatform.backend.repository.QuizAttemptRepository;
 import com.studentplatform.backend.repository.QuizRepository;
+import com.studentplatform.backend.repository.QuizSessionRepository;
+import com.studentplatform.backend.repository.ScoreRepository;
+import com.studentplatform.backend.repository.SubjectRepository;
+import com.studentplatform.backend.repository.SubmissionRepository;
 import com.studentplatform.backend.repository.YearRepository;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -29,22 +38,38 @@ public class SubjectService {
     private final YearRepository yearRepository;
     private final AssignmentRepository assignmentRepository;
     private final QuizRepository quizRepository;
+    private final SubmissionRepository submissionRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
+    private final QuizSessionRepository quizSessionRepository;
+    private final AssessmentRepository assessmentRepository;
+    private final ScoreRepository scoreRepository;
 
     public SubjectService(
             SubjectRepository subjectRepository,
             YearRepository yearRepository,
             AssignmentRepository assignmentRepository,
-            QuizRepository quizRepository
+            QuizRepository quizRepository,
+            SubmissionRepository submissionRepository,
+            QuizAttemptRepository quizAttemptRepository,
+            QuizSessionRepository quizSessionRepository,
+            AssessmentRepository assessmentRepository,
+            ScoreRepository scoreRepository
     ) {
         this.subjectRepository = subjectRepository;
         this.yearRepository = yearRepository;
         this.assignmentRepository = assignmentRepository;
         this.quizRepository = quizRepository;
+        this.submissionRepository = submissionRepository;
+        this.quizAttemptRepository = quizAttemptRepository;
+        this.quizSessionRepository = quizSessionRepository;
+        this.assessmentRepository = assessmentRepository;
+        this.scoreRepository = scoreRepository;
     }
 
     public List<YearResponse> getYears() {
         return yearRepository.findAll(Sort.by(Sort.Direction.ASC, "code")).stream()
                 .map(YearResponse::from)
+                .sorted(Comparator.comparingInt((YearResponse year) -> yearSortOrder(year.code())).thenComparing(YearResponse::name))
                 .toList();
     }
 
@@ -90,11 +115,26 @@ public class SubjectService {
         SubjectEntity subject = subjectRepository.findById(normalizedSubjectId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Subject not found."));
 
-        if (assignmentRepository.existsBySubjectId(normalizedSubjectId) || quizRepository.existsBySubjectId(normalizedSubjectId)) {
-            throw new ApiException(HttpStatus.CONFLICT, "This subject is already used in assignments or quizzes, so it cannot be removed.");
+        List<AssignmentEntity> assignments = assignmentRepository.findBySubjectIdOrLegacySubjectIgnoreCase(normalizedSubjectId, subject.getName());
+        for (AssignmentEntity assignment : assignments) {
+            submissionRepository.deleteByAssignment_Id(assignment.getId());
         }
+        assignmentRepository.deleteAll(assignments);
 
-        subjectRepository.deleteById(subject.getId());
+        List<QuizEntity> quizzes = quizRepository.findBySubjectIdOrLegacySubjectIgnoreCase(normalizedSubjectId, subject.getName());
+        for (QuizEntity quiz : quizzes) {
+            quizSessionRepository.deleteByQuizId(quiz.getId());
+            quizAttemptRepository.deleteByQuizId(quiz.getId());
+        }
+        quizRepository.deleteAll(quizzes);
+
+        List<AssessmentEntity> assessments = assessmentRepository.findBySubjectIgnoreCase(subject.getName());
+        for (AssessmentEntity assessment : assessments) {
+            scoreRepository.deleteByAssessment_Id(assessment.getId());
+        }
+        assessmentRepository.deleteAll(assessments);
+
+        subjectRepository.delete(subject);
     }
 
     public SubjectEntity resolveSubject(String subjectId, String fallbackName) {
@@ -159,5 +199,19 @@ public class SubjectService {
             throw new ApiException(HttpStatus.BAD_REQUEST, message);
         }
         return value.trim();
+    }
+
+    private int yearSortOrder(String code) {
+        if (code == null) {
+            return Integer.MAX_VALUE;
+        }
+
+        return switch (code.trim().toUpperCase(Locale.ROOT)) {
+            case "FE" -> 1;
+            case "SE" -> 2;
+            case "TE" -> 3;
+            case "BE" -> 4;
+            default -> Integer.MAX_VALUE;
+        };
     }
 }
