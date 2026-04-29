@@ -33,9 +33,9 @@ Import the repo into Vercel and keep the root directory as `./`. The root
 
 Set this environment variable in Vercel:
 
-- `VITE_API_URL=https://student-learning-platform-api.onrender.com/api`
+- `VITE_API_URL=https://your-railway-backend.up.railway.app/api`
 
-Then set the Render backend `FRONTEND_URL` environment variable to your Vercel
+Then set the Railway backend `FRONTEND_URL` environment variable to your Vercel
 domain.
 
 ### Netlify
@@ -48,10 +48,10 @@ This repo includes a root `netlify.toml` configured for the `student-platform` a
 
 Set this environment variable in Netlify:
 
-- `VITE_API_URL=https://student-learning-platform-api.onrender.com/api`
+- `VITE_API_URL=https://your-railway-backend.up.railway.app/api`
 
 ## Notes
 
 - SPA redirects are already configured in `netlify.toml`
 - SPA rewrites are configured in both Vercel config files
-- Production API fallback in the code also points to the Render backend
+- Set `VITE_API_URL` explicitly in production so the frontend points to the correct backend

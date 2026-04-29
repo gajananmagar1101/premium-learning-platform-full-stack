@@ -401,6 +401,15 @@ function AdminQuizzesView() {
     }
   }
 
+  const resetAiQuizDrafts = () => {
+    setAiForm((current) => ({
+      ...current,
+      questionCount: 5,
+    }))
+    setAiQuestions([])
+    addToast('AI quiz drafts reset', 'info')
+  }
+
   const addSelectedAiQuestionsToFinalQuiz = () => {
     const selectedQuestions = aiQuestions.filter((question) => question.selected)
     if (selectedQuestions.length === 0) {
@@ -557,14 +566,24 @@ function AdminQuizzesView() {
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleGenerateAiQuiz}
-                  disabled={generatingAi || !isAiAvailable}
-                  className="btn-primary px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Sparkles size={13} /> {generatingAi ? 'Generating...' : isAiAvailable ? 'Generate AI Quiz' : 'AI Not Configured'}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={resetAiQuizDrafts}
+                    disabled={generatingAi}
+                    className="btn-ghost px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <TimerReset size={13} /> Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGenerateAiQuiz}
+                    disabled={generatingAi || !isAiAvailable}
+                    className="btn-primary px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Sparkles size={13} /> {generatingAi ? 'Generating...' : isAiAvailable ? 'Generate AI Quiz' : 'AI Not Configured'}
+                  </button>
+                </div>
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">

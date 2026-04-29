@@ -6,9 +6,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class AiProperties {
 
     private boolean enabled = false;
+    private String provider = "auto";
     private String openaiApiKey;
     private String openaiModel = "gpt-4o-mini";
     private String openaiBaseUrl = "https://api.openai.com/v1";
+    private String geminiApiKey;
+    private String geminiModel = "gemini-2.5-flash-lite";
+    private String geminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
     private Integer maxQuestionCount = 15;
 
     public boolean isEnabled() {
@@ -17,6 +21,14 @@ public class AiProperties {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
     }
 
     public String getOpenaiApiKey() {
@@ -41,6 +53,30 @@ public class AiProperties {
 
     public void setOpenaiBaseUrl(String openaiBaseUrl) {
         this.openaiBaseUrl = openaiBaseUrl;
+    }
+
+    public String getGeminiApiKey() {
+        return geminiApiKey;
+    }
+
+    public void setGeminiApiKey(String geminiApiKey) {
+        this.geminiApiKey = geminiApiKey;
+    }
+
+    public String getGeminiModel() {
+        return geminiModel;
+    }
+
+    public void setGeminiModel(String geminiModel) {
+        this.geminiModel = geminiModel;
+    }
+
+    public String getGeminiBaseUrl() {
+        return geminiBaseUrl;
+    }
+
+    public void setGeminiBaseUrl(String geminiBaseUrl) {
+        this.geminiBaseUrl = geminiBaseUrl;
     }
 
     public Integer getMaxQuestionCount() {

@@ -31,7 +31,11 @@ app:
     admin-name: ${ADMIN_NAME:Gajanan Admin}
   ai:
     enabled: ${AI_QUIZ_ENABLED:false}
+    provider: ${AI_PROVIDER:auto}
     openai-api-key: ${OPENAI_API_KEY:}
     openai-model: ${OPENAI_MODEL:gpt-4o-mini}
     openai-base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    gemini-api-key: ${GEMINI_API_KEY:}
+    gemini-model: ${GEMINI_MODEL:gemini-2.5-flash-lite}
+    gemini-base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
     max-question-count: ${AI_MAX_QUESTION_COUNT:15}
