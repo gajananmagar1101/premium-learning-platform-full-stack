@@ -7,6 +7,8 @@ import com.studentplatform.backend.entity.SubjectEntity;
 import com.studentplatform.backend.entity.YearEntity;
 import com.studentplatform.backend.exception.ApiException;
 import com.studentplatform.backend.repository.SubjectRepository;
+import com.studentplatform.backend.repository.AssignmentRepository;
+import com.studentplatform.backend.repository.QuizRepository;
 import com.studentplatform.backend.repository.YearRepository;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -25,10 +27,19 @@ public class SubjectService {
 
     private final SubjectRepository subjectRepository;
     private final YearRepository yearRepository;
+    private final AssignmentRepository assignmentRepository;
+    private final QuizRepository quizRepository;
 
-    public SubjectService(SubjectRepository subjectRepository, YearRepository yearRepository) {
+    public SubjectService(
+            SubjectRepository subjectRepository,
+            YearRepository yearRepository,
+            AssignmentRepository assignmentRepository,
+            QuizRepository quizRepository
+    ) {
         this.subjectRepository = subjectRepository;
         this.yearRepository = yearRepository;
+        this.assignmentRepository = assignmentRepository;
+        this.quizRepository = quizRepository;
     }
 
     public List<YearResponse> getYears() {
@@ -71,6 +82,19 @@ public class SubjectService {
         } catch (DuplicateKeyException ex) {
             throw new ApiException(HttpStatus.CONFLICT, "Subject name already exists.");
         }
+    }
+
+    @Transactional
+    public void delete(String subjectId) {
+        String normalizedSubjectId = normalizePlainRequired(subjectId, "Subject is required.");
+        SubjectEntity subject = subjectRepository.findById(normalizedSubjectId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Subject not found."));
+
+        if (assignmentRepository.existsBySubjectId(normalizedSubjectId) || quizRepository.existsBySubjectId(normalizedSubjectId)) {
+            throw new ApiException(HttpStatus.CONFLICT, "This subject is already used in assignments or quizzes, so it cannot be removed.");
+        }
+
+        subjectRepository.deleteById(subject.getId());
     }
 
     public SubjectEntity resolveSubject(String subjectId, String fallbackName) {
@@ -128,5 +152,12 @@ public class SubjectService {
             throw new ApiException(HttpStatus.BAD_REQUEST, message);
         }
         return value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizePlainRequired(String value, String message) {
+        if (value == null || value.trim().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, message);
+        }
+        return value.trim();
     }
 }

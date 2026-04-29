@@ -9,4 +9,5 @@ public interface QuizRepository extends MongoRepository<QuizEntity, String> {
     List<QuizEntity> findAllByOrderByCreatedAtDesc();
     List<QuizEntity> findByStatusOrderByCreatedAtDesc(String status);
     List<QuizEntity> findByStatusAndClassNameIgnoreCaseOrderByCreatedAtDesc(String status, String className);
+    boolean existsBySubjectId(String subjectId);
 }

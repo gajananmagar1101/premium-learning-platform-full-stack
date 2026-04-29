@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { BookPlus, ChevronDown, Layers3, LoaderCircle } from 'lucide-react'
+import { BookPlus, ChevronDown, Layers3, LoaderCircle, Trash2 } from 'lucide-react'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
+import { Modal } from '@/components/ui/Modal'
 import { subjectAPI, yearAPI } from '@/lib/services'
 import { useUIStore } from '@/store/useUIStore'
 import type { SubjectOption, YearOption } from '@/types'
@@ -26,6 +27,8 @@ export function Subjects() {
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [subjectToDelete, setSubjectToDelete] = useState<SubjectOption | null>(null)
+  const [deletingSubjectId, setDeletingSubjectId] = useState<string | null>(null)
 
   const {
     register,
@@ -118,6 +121,25 @@ export function Subjects() {
       .filter((subject) => subject.yearId === year.id)
       .sort((left, right) => left.name.localeCompare(right.name)),
   }))
+
+  const handleDeleteSubject = async () => {
+    if (!subjectToDelete) return
+
+    setDeletingSubjectId(subjectToDelete.id)
+    try {
+      await subjectAPI.delete(subjectToDelete.id)
+      setSubjects((current) => current.filter((subject) => subject.id !== subjectToDelete.id))
+      addToast('Subject removed successfully', 'success')
+      setSubjectToDelete(null)
+    } catch (error) {
+      console.error('[Subjects] Failed to delete subject:', error)
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? 'Failed to remove subject'
+      addToast(message, 'error')
+    } finally {
+      setDeletingSubjectId(null)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -225,6 +247,15 @@ export function Subjects() {
                           >
                             <Layers3 size={14} />
                             <span>{subject.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => setSubjectToDelete(subject)}
+                              className="rounded-full p-1 text-sky-700/70 transition hover:bg-red-500/10 hover:text-red-500 dark:text-sky-200/80"
+                              title={`Remove ${subject.name}`}
+                              aria-label={`Remove ${subject.name}`}
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -236,6 +267,40 @@ export function Subjects() {
           )}
         </GlassCard>
       </div>
+
+      <Modal
+        open={Boolean(subjectToDelete)}
+        onClose={() => deletingSubjectId ? null : setSubjectToDelete(null)}
+        title="Remove Subject"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+            Are you sure you want to remove <span className="font-semibold">{subjectToDelete?.name}</span> from{' '}
+            <span className="font-semibold">{years.find((year) => year.id === subjectToDelete?.yearId)?.name ?? 'this year'}</span>?
+          </p>
+          <div className="rounded-2xl border border-red-200 bg-red-50/70 px-4 py-3 text-sm text-red-600">
+            This action cannot be undone. If this subject is already used in quizzes or assignments, it will not be removed.
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setSubjectToDelete(null)}
+              className="btn-ghost"
+              disabled={Boolean(deletingSubjectId)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteSubject}
+              className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={Boolean(deletingSubjectId)}
+            >
+              {deletingSubjectId ? 'Removing...' : 'Confirm Remove'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

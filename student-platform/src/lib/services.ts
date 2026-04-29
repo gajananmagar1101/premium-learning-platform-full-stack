@@ -32,6 +32,7 @@ export const subjectAPI = {
   getAll: () => api.get('/subjects'),
   getByYear: (yearId: string) => api.get(`/subjects/${yearId}`),
   create: (data: { name: string; yearId: string }) => api.post('/subjects', data),
+  delete: (id: string) => api.delete(`/subjects/${id}`),
 }
 
 export const yearAPI = {
