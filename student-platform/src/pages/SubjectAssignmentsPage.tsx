@@ -7,13 +7,14 @@ import { Badge } from '@/components/ui/Badge'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Modal } from '@/components/ui/Modal'
 import { formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
+import { subjectAPI } from '@/lib/services'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useUIStore } from '@/store/useUIStore'
-import type { AssignmentItem } from '@/types'
+import type { AssignmentItem, SubjectOption } from '@/types'
 
 type AssignmentFormData = {
   title: string
-  subject: string
+  subjectId: string
   className: string
   description: string
   totalMarks: number
@@ -59,10 +60,15 @@ export function SubjectAssignmentsPage() {
   const [editing, setEditing] = useState<AssignmentItem | null>(null)
   const [questionFileName, setQuestionFileName] = useState<string | null>(null)
   const [questionFileContent, setQuestionFileContent] = useState<string | null>(null)
+  const [availableSubjects, setAvailableSubjects] = useState<SubjectOption[]>([])
+  const [subjectsLoading, setSubjectsLoading] = useState(false)
+  const [subjectPrefillName, setSubjectPrefillName] = useState('')
 
   const { adminAssignments, fetchAdminAssignments, updateAssignment, deleteAssignment } = useAssignmentStore()
   const addToast = useUIStore((state) => state.addToast)
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<AssignmentFormData>()
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<AssignmentFormData>()
+  const selectedFormYear = watch('className')
+  const selectedSubjectId = watch('subjectId')
 
   useEffect(() => {
     if (adminAssignments.length === 0) {
@@ -90,13 +96,14 @@ export function SubjectAssignmentsPage() {
     setQuestionFileContent(assignment.questionFileContent ?? null)
     reset({
       title: assignment.title,
-      subject: assignment.subject,
+      subjectId: assignment.subjectId ?? '',
       className: assignment.className,
       description: assignment.description,
       totalMarks: assignment.totalMarks,
       deadline: toDateTimeInputValue(assignment.deadline),
       status: assignment.publicationStatus,
     })
+    setSubjectPrefillName(assignment.subject)
     setModalOpen(true)
   }
 
@@ -105,15 +112,70 @@ export function SubjectAssignmentsPage() {
     setModalOpen(false)
     setQuestionFileName(null)
     setQuestionFileContent(null)
+    setAvailableSubjects([])
+    setSubjectPrefillName('')
     reset()
   }
 
+  useEffect(() => {
+    if (!modalOpen || !selectedFormYear) {
+      setAvailableSubjects([])
+      return
+    }
+
+    let cancelled = false
+    setSubjectsLoading(true)
+    subjectAPI.getByYear(selectedFormYear)
+      .then((response) => {
+        if (cancelled) return
+        setAvailableSubjects(response.data.subjects ?? [])
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error('[SubjectAssignmentsPage] Failed to load subjects:', error)
+        setAvailableSubjects([])
+        addToast('Failed to load subjects for the selected year', 'error')
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSubjectsLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [addToast, modalOpen, selectedFormYear])
+
+  useEffect(() => {
+    if (!modalOpen) return
+    if (selectedSubjectId && availableSubjects.some((subject) => subject.id === selectedSubjectId)) {
+      return
+    }
+    if (subjectPrefillName) {
+      const matched = availableSubjects.find((subject) => subject.name.toLowerCase() === subjectPrefillName.toLowerCase())
+      if (matched) {
+        setValue('subjectId', matched.id, { shouldDirty: true })
+        return
+      }
+    }
+    if (selectedSubjectId && availableSubjects.length > 0) {
+      setValue('subjectId', '', { shouldDirty: true })
+    }
+  }, [availableSubjects, modalOpen, selectedSubjectId, setValue, subjectPrefillName])
+
   const onSubmit = async (data: AssignmentFormData) => {
     if (!editing) return
+    const selectedSubject = availableSubjects.find((subject) => subject.id === data.subjectId)
+    if (!selectedSubject) {
+      addToast('Select a valid subject for the selected year', 'error')
+      return
+    }
 
     try {
       await updateAssignment(editing.id, {
         ...data,
+        subject: selectedSubject.name,
         totalMarks: Number(data.totalMarks),
         deadline: new Date(data.deadline).toISOString().slice(0, 19),
         status: data.status,
@@ -214,14 +276,38 @@ export function SubjectAssignmentsPage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-light-ink-secondary dark:text-dark-ink-secondary">Subject</label>
-              <input {...register('subject', { required: 'Subject is required' })} className="form-input" />
-              {errors.subject && <p className="mt-1 text-xs text-red-400">{errors.subject.message}</p>}
+              <label className="mb-1 block text-sm font-medium text-light-ink-secondary dark:text-dark-ink-secondary">Academic Year</label>
+              <select {...register('className', { required: 'Academic year is required' })} className="form-input">
+                <option value="">Select year</option>
+                <option value="FE">First Year B.Tech</option>
+                <option value="SE">Second Year B.Tech</option>
+                <option value="TE">Third Year B.Tech</option>
+                <option value="BE">Final Year B.Tech</option>
+              </select>
+              {errors.className && <p className="mt-1 text-xs text-red-400">{errors.className.message}</p>}
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-light-ink-secondary dark:text-dark-ink-secondary">Academic Year</label>
-              <input {...register('className', { required: 'Academic year is required' })} className="form-input" />
-              {errors.className && <p className="mt-1 text-xs text-red-400">{errors.className.message}</p>}
+              <label className="mb-1 block text-sm font-medium text-light-ink-secondary dark:text-dark-ink-secondary">Subject</label>
+              <select
+                {...register('subjectId', { required: 'Subject is required' })}
+                className="form-input"
+                disabled={!selectedFormYear || subjectsLoading}
+              >
+                <option value="">
+                  {!selectedFormYear ? 'Select year first' : subjectsLoading ? 'Loading subjects...' : 'Select subject'}
+                </option>
+                {availableSubjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </option>
+                ))}
+              </select>
+              {errors.subjectId && <p className="mt-1 text-xs text-red-400">{errors.subjectId.message}</p>}
+              {subjectPrefillName && !selectedSubjectId && (
+                <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                  Previous subject: {subjectPrefillName}
+                </p>
+              )}
             </div>
           </div>
 

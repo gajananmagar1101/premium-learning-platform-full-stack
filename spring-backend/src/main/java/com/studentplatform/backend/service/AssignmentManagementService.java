@@ -5,6 +5,7 @@ import com.studentplatform.backend.dto.AssignmentResponse;
 import com.studentplatform.backend.dto.StudentAssignmentResponse;
 import com.studentplatform.backend.entity.AssignmentEntity;
 import com.studentplatform.backend.entity.AssignmentStatus;
+import com.studentplatform.backend.entity.SubjectEntity;
 import com.studentplatform.backend.entity.SubmissionEntity;
 import com.studentplatform.backend.entity.UserEntity;
 import com.studentplatform.backend.exception.ApiException;
@@ -26,21 +27,24 @@ public class AssignmentManagementService {
     private final AssignmentRepository assignmentRepository;
     private final SubmissionRepository submissionRepository;
     private final NotificationService notificationService;
+    private final SubjectService subjectService;
 
     public AssignmentManagementService(
             AssignmentRepository assignmentRepository,
             SubmissionRepository submissionRepository,
-            NotificationService notificationService
+            NotificationService notificationService,
+            SubjectService subjectService
     ) {
         this.assignmentRepository = assignmentRepository;
         this.submissionRepository = submissionRepository;
         this.notificationService = notificationService;
+        this.subjectService = subjectService;
     }
 
     @Transactional(readOnly = true)
     public List<AssignmentResponse> getAllForAdmin() {
         return assignmentRepository.findAllByOrderByDeadlineAscCreatedAtDesc().stream()
-                .map(AssignmentResponse::from)
+                .map(this::toResponse)
                 .toList();
     }
 
@@ -66,7 +70,8 @@ public class AssignmentManagementService {
                 })
                 .map(assignment -> StudentAssignmentResponse.from(
                         assignment,
-                        submissionsByAssignment.get(assignment.getId())
+                        submissionsByAssignment.get(assignment.getId()),
+                        resolveSubjectName(assignment)
                 ))
                 .toList();
     }
@@ -88,7 +93,7 @@ public class AssignmentManagementService {
             );
         }
 
-        return AssignmentResponse.from(saved);
+        return toResponse(saved);
     }
 
     public AssignmentResponse update(String id, AssignmentRequest request) {
@@ -110,7 +115,7 @@ public class AssignmentManagementService {
             );
         }
 
-        return AssignmentResponse.from(saved);
+        return toResponse(saved);
     }
 
     public AssignmentResponse publish(String id) {
@@ -127,7 +132,7 @@ public class AssignmentManagementService {
                 null
         );
 
-        return AssignmentResponse.from(saved);
+        return toResponse(saved);
     }
 
     public void delete(String id) {
@@ -143,15 +148,30 @@ public class AssignmentManagementService {
     }
 
     private void apply(AssignmentEntity assignment, AssignmentRequest request) {
+        SubjectEntity subject = subjectService.resolveSubject(request.subjectId(), request.subject());
+        subjectService.validateSubjectYear(subject, request.className());
         assignment.setTitle(request.title().trim());
-        assignment.setSubject(request.subject().trim());
-        assignment.setClassName(request.className().trim());
+        assignment.setSubjectId(subject.getId());
+        assignment.setLegacySubject(subject.getName());
+        assignment.setClassName(subject.getYearId());
         assignment.setDescription(request.description().trim());
         assignment.setTotalMarks(request.totalMarks());
         assignment.setDeadline(request.deadline());
         assignment.setStatus(request.status() == null ? AssignmentStatus.DRAFT : request.status());
         assignment.setQuestionFileName(request.questionFileName());
         assignment.setQuestionFileContent(request.questionFileContent());
+    }
+
+    public String resolveSubjectName(AssignmentEntity assignment) {
+        if (assignment.getSubjectId() != null && !assignment.getSubjectId().isBlank()) {
+            SubjectEntity subject = subjectService.resolveSubject(assignment.getSubjectId(), null);
+            return subjectService.resolveSubjectName(subject, assignment.getLegacySubject());
+        }
+        return subjectService.resolveSubjectName(null, assignment.getLegacySubject());
+    }
+
+    private AssignmentResponse toResponse(AssignmentEntity assignment) {
+        return AssignmentResponse.from(assignment, resolveSubjectName(assignment));
     }
 
     private String normalizeClassName(String value) {

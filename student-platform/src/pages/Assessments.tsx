@@ -7,16 +7,17 @@ import axios from 'axios'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { subjectAPI } from '@/lib/services'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useUIStore } from '@/store/useUIStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useStudentStore } from '@/store/useStudentStore'
 import { academicYearSortValue, btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
-import type { AdminSubmission, AssignmentItem, AssignmentStatus, StudentAssignmentItem } from '@/types'
+import type { AdminSubmission, AssignmentItem, AssignmentStatus, StudentAssignmentItem, SubjectOption } from '@/types'
 
 type AssignmentFormData = {
   title: string
-  subject: string
+  subjectId: string
   className: string
   description: string
   totalMarks: number
@@ -94,10 +95,15 @@ function AdminAssignmentsView() {
   const [gradeInputs, setGradeInputs] = useState<Record<string, string>>({})
   const [questionFileName, setQuestionFileName] = useState<string | null>(null)
   const [questionFileContent, setQuestionFileContent] = useState<string | null>(null)
+  const [availableSubjects, setAvailableSubjects] = useState<SubjectOption[]>([])
+  const [subjectsLoading, setSubjectsLoading] = useState(false)
+  const [subjectPrefillName, setSubjectPrefillName] = useState('')
   const [selectedQueueCohort, setSelectedQueueCohort] = useState<string | null>(null)
   const [selectedQueueStudentId, setSelectedQueueStudentId] = useState<string | null>(null)
   const queueScrollRef = useRef<HTMLDivElement | null>(null)
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<AssignmentFormData>()
+  const selectedFormYear = watch('className')
+  const selectedSubjectId = watch('subjectId')
 
   useEffect(() => {
     fetchAdminAssignments()
@@ -387,6 +393,53 @@ function AdminAssignmentsView() {
   const selectedPublicationStatus = watch('status')
 
   useEffect(() => {
+    if (!modalOpen || !selectedFormYear) {
+      setAvailableSubjects([])
+      return
+    }
+
+    let cancelled = false
+    setSubjectsLoading(true)
+    subjectAPI.getByYear(selectedFormYear)
+      .then((response) => {
+        if (cancelled) return
+        setAvailableSubjects(response.data.subjects ?? [])
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error('[Assignments] Failed to load subjects:', error)
+        setAvailableSubjects([])
+        addToast('Failed to load subjects for the selected year', 'error')
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSubjectsLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [addToast, modalOpen, selectedFormYear])
+
+  useEffect(() => {
+    if (!modalOpen) return
+    if (selectedSubjectId && availableSubjects.some((subject) => subject.id === selectedSubjectId)) {
+      return
+    }
+    if (subjectPrefillName) {
+      const matched = availableSubjects.find((subject) => subject.name.toLowerCase() === subjectPrefillName.toLowerCase())
+      if (matched) {
+        setValue('subjectId', matched.id, { shouldDirty: true })
+        return
+      }
+    }
+    if (selectedSubjectId && availableSubjects.length > 0) {
+      setValue('subjectId', '', { shouldDirty: true })
+    }
+  }, [availableSubjects, modalOpen, selectedSubjectId, setValue, subjectPrefillName])
+
+  useEffect(() => {
     if (selectedQueueCohort && pendingSubmissionQueue.some((group) => group.cohort === selectedQueueCohort)) {
       return
     }
@@ -405,13 +458,14 @@ function AdminAssignmentsView() {
     setQuestionFileContent(null)
     reset({
       title: '',
-      subject: '',
+      subjectId: '',
       className: '',
       description: '',
       totalMarks: 10,
       deadline: '',
       status: 'draft',
     })
+    setSubjectPrefillName('')
     setModalOpen(true)
   }
 
@@ -420,6 +474,8 @@ function AdminAssignmentsView() {
     setModalOpen(false)
     setQuestionFileName(null)
     setQuestionFileContent(null)
+    setAvailableSubjects([])
+    setSubjectPrefillName('')
     reset()
   }
 
@@ -429,13 +485,14 @@ function AdminAssignmentsView() {
     setQuestionFileContent(assignment.questionFileContent ?? null)
     reset({
       title: assignment.title,
-      subject: assignment.subject,
+      subjectId: assignment.subjectId ?? '',
       className: assignment.className,
       description: assignment.description,
       totalMarks: assignment.totalMarks,
       deadline: assignment.deadline ? new Date(assignment.deadline).toISOString().slice(0, 16) : '',
       status: assignment.publicationStatus,
     })
+    setSubjectPrefillName(assignment.subject)
     setModalOpen(true)
   }
 
@@ -445,13 +502,14 @@ function AdminAssignmentsView() {
     setQuestionFileContent(assignment.questionFileContent ?? null)
     reset({
       title: `${assignment.title} Copy`,
-      subject: assignment.subject,
+      subjectId: assignment.subjectId ?? '',
       className: assignment.className,
       description: assignment.description,
       totalMarks: assignment.totalMarks,
       deadline: '',
       status: 'draft',
     })
+    setSubjectPrefillName(assignment.subject)
     setModalOpen(true)
   }
 
@@ -478,8 +536,10 @@ function AdminAssignmentsView() {
   }
 
   const onSubmit = async (data: AssignmentFormData) => {
+    const selectedSubject = availableSubjects.find((subject) => subject.id === data.subjectId)
     const payload = {
       ...data,
+      subject: selectedSubject?.name ?? subjectPrefillName,
       totalMarks: Number(data.totalMarks),
       deadline: new Date(data.deadline).toISOString().slice(0, 19),
       status: data.status,
@@ -1103,11 +1163,6 @@ function AdminAssignmentsView() {
             {errors.title && <p className="text-xs text-red-400 mt-1">Title is required.</p>}
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Subject</label>
-            <input {...register('subject', { required: true })} className="form-input" />
-            {errors.subject && <p className="text-xs text-red-400 mt-1">Subject is required.</p>}
-          </div>
-          <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Academic Year</label>
             <select {...register('className', { required: true })} className="form-input">
               <option value="">Select B.Tech year</option>
@@ -1118,6 +1173,29 @@ function AdminAssignmentsView() {
               ))}
             </select>
             {errors.className && <p className="text-xs text-red-400 mt-1">Academic year is required.</p>}
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Subject</label>
+            <select
+              {...register('subjectId', { required: true })}
+              className="form-input"
+              disabled={!selectedFormYear || subjectsLoading}
+            >
+              <option value="">
+                {!selectedFormYear ? 'Select year first' : subjectsLoading ? 'Loading subjects...' : 'Select subject'}
+              </option>
+              {availableSubjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
+            {errors.subjectId && <p className="text-xs text-red-400 mt-1">Subject is required.</p>}
+            {subjectPrefillName && !selectedSubjectId && (
+              <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                Previous subject: {subjectPrefillName}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Description</label>

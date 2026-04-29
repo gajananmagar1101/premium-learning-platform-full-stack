@@ -1,0 +1,241 @@
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { BookPlus, ChevronDown, Layers3, LoaderCircle } from 'lucide-react'
+import { GlassCard } from '@/components/ui/GlassCard'
+import { Badge } from '@/components/ui/Badge'
+import { subjectAPI, yearAPI } from '@/lib/services'
+import { useUIStore } from '@/store/useUIStore'
+import type { SubjectOption, YearOption } from '@/types'
+
+interface SubjectFormValues {
+  names: string
+  yearId: string
+}
+
+const parseSubjectNames = (value: string) =>
+  [...new Set(
+    value
+      .split(/\r?\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  )]
+
+export function Subjects() {
+  const addToast = useUIStore((state) => state.addToast)
+  const [years, setYears] = useState<YearOption[]>([])
+  const [subjects, setSubjects] = useState<SubjectOption[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<SubjectFormValues>({
+    defaultValues: {
+      names: '',
+      yearId: '',
+    },
+  })
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      try {
+        const [yearsRes, subjectsRes] = await Promise.all([
+          yearAPI.getAll(),
+          subjectAPI.getAll(),
+        ])
+        setYears(yearsRes.data.years ?? [])
+        setSubjects(subjectsRes.data.subjects ?? [])
+      } catch (error) {
+        console.error('[Subjects] Failed to load subject data:', error)
+        addToast('Failed to load subject data', 'error')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void load()
+  }, [addToast])
+
+  const onSubmit = handleSubmit(async (values) => {
+    const subjectNames = parseSubjectNames(values.names)
+    if (subjectNames.length === 0) {
+      addToast('Enter at least one subject name', 'error')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const results = await Promise.allSettled(
+        subjectNames.map((name) => subjectAPI.create({
+          name,
+          yearId: values.yearId,
+        }))
+      )
+
+      const createdSubjects = results
+        .flatMap((result) => result.status === 'fulfilled' ? [result.value.data.subject as SubjectOption] : [])
+      const createdCount = createdSubjects.length
+
+      const failures = results
+        .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+        .map((result) => (
+          (result.reason as { response?: { data?: { message?: string } } })?.response?.data?.message
+          ?? 'Failed to add subject'
+        ))
+
+      reset()
+      if (createdSubjects.length > 0) {
+        setSubjects((current) => [...current, ...createdSubjects])
+      }
+      if (createdCount > 0) {
+        addToast(
+          createdCount === 1
+            ? 'Subject added successfully'
+            : `${createdCount} subjects added successfully`,
+          'success'
+        )
+      }
+      if (failures.length > 0) {
+        addToast(failures[0], 'error')
+      }
+    } catch (error) {
+      console.error('[Subjects] Failed to create subject:', error)
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? 'Failed to add subject'
+      addToast(message, 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  })
+
+  const subjectsByYear = years.map((year) => ({
+    year,
+    subjects: subjects
+      .filter((subject) => subject.yearId === year.id)
+      .sort((left, right) => left.name.localeCompare(right.name)),
+  }))
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(320px,1.05fr)]">
+        <GlassCard className="p-5">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <div className="mb-3 inline-flex rounded-2xl bg-indigo-500/10 p-2 text-indigo-600">
+                <BookPlus size={18} />
+              </div>
+              <h2 className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">Add Subject</h2>
+              <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                Specific year select kara ani tya year sathi subjects ekdach add kara.
+              </p>
+            </div>
+            <Badge variant="info" label={`${years.length} years`} />
+          </div>
+
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">
+                Subject Names
+              </label>
+              <textarea
+                {...register('names', { required: 'Enter at least one subject name.' })}
+                placeholder={'Operating Systems\nDatabase Management Systems\nSoftware Engineering'}
+                rows={5}
+                className="form-input resize-none"
+              />
+              <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                Add one subject per line, or separate multiple subjects with commas.
+              </p>
+              {errors.names && <p className="mt-1 text-xs text-red-400">{errors.names.message}</p>}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">
+                Academic Year
+              </label>
+              <select
+                {...register('yearId', { required: 'Academic year is required.' })}
+                className="form-input"
+                disabled={loading}
+              >
+                <option value="">{loading ? 'Loading years...' : 'Select year'}</option>
+                {years.map((year) => (
+                  <option key={year.id} value={year.id}>
+                    {year.name}
+                  </option>
+                ))}
+              </select>
+              {errors.yearId && <p className="mt-1 text-xs text-red-400">{errors.yearId.message}</p>}
+            </div>
+
+            <button type="submit" className="btn-primary justify-center" disabled={submitting || loading}>
+              {submitting ? <LoaderCircle size={15} className="animate-spin" /> : <BookPlus size={15} />}
+              {submitting ? 'Saving...' : 'Add Subject'}
+            </button>
+          </form>
+        </GlassCard>
+
+        <GlassCard className="overflow-hidden p-0">
+          <div className="flex items-center justify-between border-b border-light-border px-5 py-4 dark:border-dark-border">
+            <div>
+              <h2 className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">Year-wise Subjects</h2>
+              <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                Year open kela ki tya year che subjects disatil.
+              </p>
+            </div>
+            <Badge variant="success" label={`${subjects.length} subjects`} />
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 px-5 py-14 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+              <LoaderCircle size={16} className="animate-spin" />
+              Loading subjects...
+            </div>
+          ) : (
+            <div className="space-y-3 p-4">
+              {subjectsByYear.map(({ year, subjects: yearSubjects }) => (
+                <details
+                  key={year.id}
+                  open={yearSubjects.length > 0}
+                  className="group overflow-hidden rounded-2xl border border-light-border bg-light-card2/40 dark:border-dark-border dark:bg-dark-card2/40"
+                >
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{year.name}</p>
+                      <p className="mt-0.5 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                        {yearSubjects.length} subject{yearSubjects.length === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    <ChevronDown size={16} className="text-light-ink-muted transition-transform group-open:rotate-180 dark:text-dark-ink-muted" />
+                  </summary>
+
+                  <div className="border-t border-light-border px-4 py-3 dark:border-dark-border">
+                    {yearSubjects.length === 0 ? (
+                      <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">No subjects added for this year yet.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {yearSubjects.map((subject) => (
+                          <div
+                            key={subject.id}
+                            className="inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1.5 text-sm font-medium text-sky-700 dark:bg-sky-500/15 dark:text-sky-200"
+                          >
+                            <Layers3 size={14} />
+                            <span>{subject.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
+        </GlassCard>
+      </div>
+    </div>
+  )
+}

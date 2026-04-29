@@ -10,6 +10,7 @@ import com.studentplatform.backend.entity.QuizAttemptEntity;
 import com.studentplatform.backend.entity.QuizEntity;
 import com.studentplatform.backend.entity.QuizSessionEntity;
 import com.studentplatform.backend.entity.Role;
+import com.studentplatform.backend.entity.SubjectEntity;
 import com.studentplatform.backend.entity.UserEntity;
 import com.studentplatform.backend.exception.ApiException;
 import com.studentplatform.backend.repository.QuizAttemptRepository;
@@ -36,19 +37,22 @@ public class QuizService {
     private final QuizSessionRepository quizSessionRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final SubjectService subjectService;
 
     public QuizService(
             QuizRepository quizRepository,
             QuizAttemptRepository quizAttemptRepository,
             QuizSessionRepository quizSessionRepository,
             UserRepository userRepository,
-            NotificationService notificationService
+            NotificationService notificationService,
+            SubjectService subjectService
     ) {
         this.quizRepository = quizRepository;
         this.quizAttemptRepository = quizAttemptRepository;
         this.quizSessionRepository = quizSessionRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.subjectService = subjectService;
     }
 
     @Transactional(readOnly = true)
@@ -65,7 +69,7 @@ public class QuizService {
         }
 
         return quizzes.stream()
-                .map(QuizResponse::from)
+                .map(this::toResponse)
                 .toList();
     }
 
@@ -85,7 +89,7 @@ public class QuizService {
             );
         }
 
-        return QuizResponse.from(saved);
+        return toResponse(saved);
     }
 
     public QuizResponse update(String id, QuizRequest request) {
@@ -105,7 +109,7 @@ public class QuizService {
             );
         }
 
-        return QuizResponse.from(saved);
+        return toResponse(saved);
     }
 
     public void delete(String id) {
@@ -288,8 +292,9 @@ public class QuizService {
 
     private void apply(QuizEntity entity, QuizRequest request) {
         String title = normalizeRequired(request.title(), "Quiz title is required.");
-        String subject = normalizeRequired(request.subject(), "Subject is required.");
         String className = normalizeRequired(request.className(), "Academic year is required.");
+        SubjectEntity subject = subjectService.resolveSubject(request.subjectId(), request.subject());
+        subjectService.validateSubjectYear(subject, className);
         Integer durationMinutes = request.durationMinutes();
         if (durationMinutes == null || durationMinutes < 1) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Duration must be at least 1 minute.");
@@ -340,13 +345,22 @@ public class QuizService {
         }
 
         entity.setTitle(title);
-        entity.setSubject(subject);
-        entity.setClassName(className);
+        entity.setSubjectId(subject.getId());
+        entity.setLegacySubject(subject.getName());
+        entity.setClassName(subject.getYearId());
         entity.setDescription(request.description() == null ? "" : request.description().trim());
         entity.setDeadlineAt(request.deadlineAt());
         entity.setDurationMinutes(durationMinutes);
         entity.setStatus(status);
         entity.setQuestions(questions);
+    }
+
+    private QuizResponse toResponse(QuizEntity quiz) {
+        if (quiz.getSubjectId() != null && !quiz.getSubjectId().isBlank()) {
+            SubjectEntity subject = subjectService.resolveSubject(quiz.getSubjectId(), null);
+            return QuizResponse.from(quiz, subjectService.resolveSubjectName(subject, quiz.getLegacySubject()));
+        }
+        return QuizResponse.from(quiz, subjectService.resolveSubjectName(null, quiz.getLegacySubject()));
     }
 
     private QuizEntity validateOpenQuiz(String quizId) {

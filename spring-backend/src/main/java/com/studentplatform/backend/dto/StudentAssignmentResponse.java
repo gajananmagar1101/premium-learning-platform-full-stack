@@ -10,6 +10,7 @@ public record StudentAssignmentResponse(
         @JsonProperty("_id") String internalId,
         String id,
         String title,
+        String subjectId,
         String subject,
         @JsonProperty("className") String className,
         String description,
@@ -23,7 +24,7 @@ public record StudentAssignmentResponse(
         String status,
         SubmissionSummaryResponse submission
 ) {
-    public static StudentAssignmentResponse from(AssignmentEntity assignment, SubmissionEntity submission) {
+    public static StudentAssignmentResponse from(AssignmentEntity assignment, SubmissionEntity submission, String subjectName) {
         String id = assignment.getId().toString();
         boolean closed = assignment.getDeadline().isBefore(LocalDateTime.now());
         String status = submission == null ? "pending" : submission.getStatus().name().toLowerCase();
@@ -31,7 +32,8 @@ public record StudentAssignmentResponse(
                 id,
                 id,
                 assignment.getTitle(),
-                assignment.getSubject(),
+                assignment.getSubjectId(),
+                subjectName,
                 assignment.getClassName(),
                 assignment.getDescription(),
                 assignment.getTotalMarks(),

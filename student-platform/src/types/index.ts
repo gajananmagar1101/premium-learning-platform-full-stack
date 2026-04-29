@@ -38,6 +38,7 @@ export interface AssignmentSubmission {
 export interface AssignmentItem {
   _id?: string
   id: string
+  subjectId?: string
   title: string
   subject: string
   className: string
@@ -170,6 +171,7 @@ export type QuizStatus = 'draft' | 'published' | 'closed'
 
 export interface Quiz {
   id: string
+  subjectId?: string
   title: string
   subject: string
   className: string
@@ -209,4 +211,18 @@ export interface Toast {
   id: string
   message: string
   type: 'success' | 'error' | 'info'
+}
+
+export interface SubjectOption {
+  id: string
+  name: string
+  yearId: string
+  yearCode?: string | null
+  yearName?: string | null
+}
+
+export interface YearOption {
+  id: string
+  code: string
+  name: string
 }

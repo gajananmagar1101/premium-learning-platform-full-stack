@@ -7,6 +7,7 @@ import java.util.List;
 
 public record QuizResponse(
         String id,
+        String subjectId,
         String title,
         String subject,
         String className,
@@ -19,11 +20,12 @@ public record QuizResponse(
         Instant createdAt,
         Instant updatedAt
 ) {
-    public static QuizResponse from(QuizEntity quiz) {
+    public static QuizResponse from(QuizEntity quiz, String subjectName) {
         return new QuizResponse(
                 quiz.getId(),
+                quiz.getSubjectId(),
                 quiz.getTitle(),
-                quiz.getSubject(),
+                subjectName,
                 quiz.getClassName(),
                 quiz.getDescription() == null ? "" : quiz.getDescription(),
                 quiz.getDeadlineAt(),

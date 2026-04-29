@@ -97,7 +97,7 @@ public class SubmissionService {
     @Transactional(readOnly = true)
     public List<SubmissionResponse> getAllForAdmin() {
         return submissionRepository.findAllByOrderByUpdatedAtDesc().stream()
-                .map(SubmissionResponse::from)
+                .map(this::toResponse)
                 .toList();
     }
 
@@ -122,7 +122,7 @@ public class SubmissionService {
                 null
         );
 
-        return SubmissionResponse.from(saved);
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -169,7 +169,7 @@ public class SubmissionService {
                         submission.getId(),
                         submission.getAssignment().getId(),
                         submission.getAssignment().getTitle(),
-                        submission.getAssignment().getSubject(),
+                        assignmentManagementService.resolveSubjectName(submission.getAssignment()),
                         submission.getMarks(),
                         submission.getAssignment().getTotalMarks(),
                         (int) Math.round((submission.getMarks() * 100.0) / submission.getAssignment().getTotalMarks()),
@@ -225,5 +225,12 @@ public class SubmissionService {
         if (assignment.getDeadline().isBefore(LocalDateTime.now())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Submission deadline has passed.");
         }
+    }
+
+    private SubmissionResponse toResponse(SubmissionEntity submission) {
+        return SubmissionResponse.from(
+                submission,
+                assignmentManagementService.resolveSubjectName(submission.getAssignment())
+        );
     }
 }

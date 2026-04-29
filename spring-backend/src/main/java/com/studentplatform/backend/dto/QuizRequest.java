@@ -5,6 +5,7 @@ import java.util.List;
 
 public record QuizRequest(
         String title,
+        String subjectId,
         String subject,
         String className,
         String description,

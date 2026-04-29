@@ -4,6 +4,7 @@ import { quizAPI } from '@/lib/services'
 
 interface CreateQuizInput {
   title: string
+  subjectId?: string
   subject: string
   className: string
   description?: string
@@ -41,6 +42,7 @@ const ENABLE_LOCAL_FALLBACK = import.meta.env.DEV
 const normalizeQuizPayload = (input: CreateQuizInput) => ({
   ...input,
   title: input.title.trim(),
+  subjectId: input.subjectId?.trim() || undefined,
   subject: input.subject.trim(),
   className: input.className.trim(),
   description: input.description?.trim() ?? '',

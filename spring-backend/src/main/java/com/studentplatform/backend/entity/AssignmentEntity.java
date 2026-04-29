@@ -15,7 +15,11 @@ public class AssignmentEntity {
 
     private String title;
 
-    private String subject;
+    @Field("subjectId")
+    private String subjectId;
+
+    @Field("subject")
+    private String legacySubject;
 
     private String description;
 
@@ -60,12 +64,20 @@ public class AssignmentEntity {
         this.title = title;
     }
 
-    public String getSubject() {
-        return subject;
+    public String getSubjectId() {
+        return subjectId;
     }
 
-    public void setSubject(String subject) {
-        this.subject = subject;
+    public void setSubjectId(String subjectId) {
+        this.subjectId = subjectId;
+    }
+
+    public String getLegacySubject() {
+        return legacySubject;
+    }
+
+    public void setLegacySubject(String legacySubject) {
+        this.legacySubject = legacySubject;
     }
 
     public String getDescription() {

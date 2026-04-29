@@ -9,13 +9,13 @@ import { Modal } from '@/components/ui/Modal'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useQuizStore } from '@/store/useQuizStore'
 import { useUIStore } from '@/store/useUIStore'
-import { quizAPI, studentAPI } from '@/lib/services'
+import { quizAPI, studentAPI, subjectAPI } from '@/lib/services'
 import { btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
-import type { AiGeneratedQuizQuestion, AiQuizStatus, Quiz, QuizQuestion } from '@/types'
+import type { AiGeneratedQuizQuestion, AiQuizStatus, Quiz, QuizQuestion, SubjectOption } from '@/types'
 
 type QuizFormData = {
   title: string
-  subject: string
+  subjectId: string
   className: string
   description?: string
   deadlineAt: string
@@ -24,7 +24,6 @@ type QuizFormData = {
 }
 
 type AiQuizFormData = {
-  subject: string
   topic: string
   difficulty: 'easy' | 'medium' | 'hard'
   questionCount: number
@@ -153,10 +152,12 @@ function AdminQuizzesView() {
   const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null)
   const [yearFilter, setYearFilter] = useState<'all' | string>('all')
   const [activeStudentIds, setActiveStudentIds] = useState<string[]>([])
+  const [availableSubjects, setAvailableSubjects] = useState<SubjectOption[]>([])
+  const [subjectsLoading, setSubjectsLoading] = useState(false)
+  const [subjectPrefillName, setSubjectPrefillName] = useState('')
   const isCreateRoute = pathname === '/quizzes/create'
   const [questions, setQuestions] = useState<QuizQuestion[]>([questionTemplate()])
   const [aiForm, setAiForm] = useState<AiQuizFormData>({
-    subject: '',
     topic: '',
     difficulty: 'medium',
     questionCount: 5,
@@ -167,13 +168,16 @@ function AdminQuizzesView() {
   const [shuffleBeforeSave, setShuffleBeforeSave] = useState(false)
   const [applySamePoints, setApplySamePoints] = useState(false)
   const [bulkPoints, setBulkPoints] = useState(1)
-  const { register, handleSubmit, reset, getValues, formState: { errors } } = useForm<QuizFormData>({
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<QuizFormData>({
     defaultValues: {
       status: 'draft',
       durationMinutes: 20,
       deadlineAt: '',
     },
   })
+  const selectedFormYear = watch('className')
+  const selectedSubjectId = watch('subjectId')
+  const selectedSubject = availableSubjects.find((subject) => subject.id === selectedSubjectId) ?? null
 
   const filteredQuizzes = useMemo(
     () => quizzes.filter((quiz) => yearFilter === 'all' || normalizeAcademicYear(quiz.className) === yearFilter),
@@ -238,6 +242,53 @@ function AdminQuizzesView() {
     }
   }, [isCreateRoute])
 
+  useEffect(() => {
+    if (!(modalOpen || isCreateRoute) || !selectedFormYear) {
+      setAvailableSubjects([])
+      return
+    }
+
+    let cancelled = false
+    setSubjectsLoading(true)
+    subjectAPI.getByYear(selectedFormYear)
+      .then((response) => {
+        if (cancelled) return
+        setAvailableSubjects(response.data.subjects ?? [])
+      })
+      .catch((error) => {
+        if (cancelled) return
+        console.error('[Quizzes] Failed to load subjects:', error)
+        setAvailableSubjects([])
+        addToast('Failed to load subjects for the selected year', 'error')
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSubjectsLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [addToast, isCreateRoute, modalOpen, selectedFormYear])
+
+  useEffect(() => {
+    if (!(modalOpen || isCreateRoute)) return
+    if (selectedSubjectId && availableSubjects.some((subject) => subject.id === selectedSubjectId)) {
+      return
+    }
+    if (subjectPrefillName) {
+      const matched = availableSubjects.find((subject) => subject.name.toLowerCase() === subjectPrefillName.toLowerCase())
+      if (matched) {
+        setValue('subjectId', matched.id, { shouldDirty: true })
+        return
+      }
+    }
+    if (selectedSubjectId && availableSubjects.length > 0) {
+      setValue('subjectId', '', { shouldDirty: true })
+    }
+  }, [availableSubjects, isCreateRoute, modalOpen, selectedSubjectId, setValue, subjectPrefillName])
+
   const visibleAttempts = useMemo(
     () => (activeStudentIds.length === 0
       ? attempts
@@ -284,13 +335,14 @@ function AdminQuizzesView() {
     setBulkPoints(firstPoints)
     reset({
       title: quiz.title,
-      subject: quiz.subject,
+      subjectId: quiz.subjectId ?? '',
       className: quiz.className,
       description: quiz.description,
       deadlineAt: toDateTimeInputValue(quiz.deadlineAt),
       durationMinutes: quiz.durationMinutes,
       status: quiz.status,
     })
+    setSubjectPrefillName(quiz.subject)
     setModalOpen(true)
   }
 
@@ -299,7 +351,6 @@ function AdminQuizzesView() {
     setEditing(null)
     setQuestions([questionTemplate()])
     setAiForm({
-      subject: '',
       topic: '',
       difficulty: 'medium',
       questionCount: 5,
@@ -308,9 +359,11 @@ function AdminQuizzesView() {
     setShuffleBeforeSave(false)
     setApplySamePoints(false)
     setBulkPoints(1)
+    setAvailableSubjects([])
+    setSubjectPrefillName('')
     reset({
       title: '',
-      subject: '',
+      subjectId: '',
       className: '',
       description: '',
       deadlineAt: '',
@@ -327,7 +380,6 @@ function AdminQuizzesView() {
     setEditing(null)
     setQuestions([questionTemplate()])
     setAiForm({
-      subject: '',
       topic: '',
       difficulty: 'medium',
       questionCount: 5,
@@ -336,9 +388,10 @@ function AdminQuizzesView() {
     setShuffleBeforeSave(false)
     setApplySamePoints(false)
     setBulkPoints(1)
+    setSubjectPrefillName('')
     reset({
       title: '',
-      subject: '',
+      subjectId: '',
       className: '',
       description: '',
       deadlineAt: '',
@@ -374,10 +427,10 @@ function AdminQuizzesView() {
       return
     }
 
-    const subject = (aiForm.subject.trim() || getValues('subject')?.trim() || '')
+    const subject = selectedSubject?.name?.trim() || subjectPrefillName.trim()
     const topic = aiForm.topic.trim()
     if (!subject || !topic) {
-      addToast('Fill subject and topic before generating AI questions', 'error')
+      addToast('Select subject and fill topic before generating AI questions', 'error')
       return
     }
 
@@ -390,7 +443,6 @@ function AdminQuizzesView() {
         questionCount: aiForm.questionCount,
       })
       const nextQuestions = (response.data as AiGeneratedQuizQuestion[]).map(mapAiQuestionToEditable)
-      setAiForm((current) => ({ ...current, subject }))
       setAiQuestions(nextQuestions)
       addToast(`${nextQuestions.length} AI question${nextQuestions.length === 1 ? '' : 's'} generated`, 'success')
     } catch (error) {
@@ -442,11 +494,13 @@ function AdminQuizzesView() {
     }
 
     const finalQuestions = shuffleBeforeSave ? shuffleQuestions(questions) : questions
+    const subjectName = selectedSubject?.name ?? subjectPrefillName
 
     try {
       if (editing) {
         await updateQuiz(editing.id, {
           ...data,
+          subject: subjectName,
           description: data.description?.trim() ?? '',
           deadlineAt: data.deadlineAt ? new Date(data.deadlineAt).toISOString() : undefined,
           questions: finalQuestions,
@@ -457,6 +511,7 @@ function AdminQuizzesView() {
       } else {
         await createQuiz({
           ...data,
+          subject: subjectName,
           description: data.description?.trim() ?? '',
           deadlineAt: data.deadlineAt ? new Date(data.deadlineAt).toISOString() : undefined,
           questions: finalQuestions,
@@ -493,13 +548,50 @@ function AdminQuizzesView() {
 
   if (isCreateRoute) {
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">Create Quiz</h3>
-          <button type="button" onClick={() => navigate('/quizzes')} className="btn-ghost px-3 py-2 text-xs">Back</button>
+      <div className="space-y-6">
+        <GlassCard className="p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="space-y-3">
+              <div>
+                <h2 className="text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">Quiz Builder Workspace</h2>
+                <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                  Choose the B.Tech year first, lock the subject from that year, then build the final quiz in a clean flow.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge label={`${questionCount} final question${questionCount === 1 ? '' : 's'}`} variant="info" />
+                <Badge label={`${aiQuestions.length} AI draft${aiQuestions.length === 1 ? '' : 's'}`} variant="warning" />
+              </div>
+            </div>
+            <button type="button" onClick={() => navigate('/quizzes')} className="btn-ghost px-3 py-2 text-xs xl:self-center">Back</button>
+          </div>
+        </GlassCard>
+
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <GlassCard className="min-h-[104px] p-3.5">
+            <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Selected Year</p>
+            <p className="mt-2 text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+              {selectedFormYear ? formatAcademicYearLabel(selectedFormYear) : 'Not set'}
+            </p>
+          </GlassCard>
+          <GlassCard className="min-h-[104px] p-3.5">
+            <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Selected Subject</p>
+            <p className="mt-2 text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+              {(selectedSubject?.name ?? subjectPrefillName) || 'Not set'}
+            </p>
+          </GlassCard>
+          <GlassCard className="min-h-[104px] p-3.5">
+            <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Questions Ready</p>
+            <p className="mt-2 text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{questionCount}</p>
+          </GlassCard>
+          <GlassCard className="min-h-[104px] p-3.5">
+            <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Selected AI Drafts</p>
+            <p className="mt-2 text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{selectedAiCount}</p>
+          </GlassCard>
         </div>
+
         <GlassCard className="w-full p-5">
-          <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Quiz Title</label>
@@ -508,8 +600,20 @@ function AdminQuizzesView() {
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Subject</label>
-                <input {...register('subject', { required: true })} className="form-input" />
-                {errors.subject && <p className="text-xs text-red-400 mt-1">Subject is required.</p>}
+                <select
+                  {...register('subjectId', { required: true })}
+                  className="form-input"
+                  disabled={!selectedFormYear || subjectsLoading}
+                >
+                  <option value="">
+                    {!selectedFormYear ? 'Select year first' : subjectsLoading ? 'Loading subjects...' : 'Select subject'}
+                  </option>
+                  {availableSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+                </select>
+                {errors.subjectId && <p className="text-xs text-red-400 mt-1">Subject is required.</p>}
+                {subjectPrefillName && !selectedSubjectId && (
+                  <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">Previous subject: {subjectPrefillName}</p>
+                )}
               </div>
             </div>
 
@@ -588,13 +692,10 @@ function AdminQuizzesView() {
 
               <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Subject</label>
-                  <input
-                    value={aiForm.subject}
-                    onChange={(event) => setAiForm((current) => ({ ...current, subject: event.target.value }))}
-                    className="form-input"
-                    placeholder="e.g. Data Structures"
-                  />
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Selected Subject</label>
+                  <div className="form-input flex items-center text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+                    {(selectedSubject?.name ?? subjectPrefillName) || 'Select year and subject first'}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Topic</label>
@@ -995,8 +1096,20 @@ function AdminQuizzesView() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted mb-1.5">Subject</label>
-                    <input {...register('subject', { required: true })} className="form-input" />
-                    {errors.subject && <p className="text-xs text-red-400 mt-1">Subject is required.</p>}
+                    <select
+                      {...register('subjectId', { required: true })}
+                      className="form-input"
+                      disabled={!selectedFormYear || subjectsLoading}
+                    >
+                      <option value="">
+                        {!selectedFormYear ? 'Select year first' : subjectsLoading ? 'Loading subjects...' : 'Select subject'}
+                      </option>
+                      {availableSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+                    </select>
+                    {errors.subjectId && <p className="text-xs text-red-400 mt-1">Subject is required.</p>}
+                    {subjectPrefillName && !selectedSubjectId && (
+                      <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">Previous subject: {subjectPrefillName}</p>
+                    )}
                   </div>
                 </div>
 

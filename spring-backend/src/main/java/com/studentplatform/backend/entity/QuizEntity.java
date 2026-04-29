@@ -15,7 +15,8 @@ public class QuizEntity {
     private String id;
 
     private String title;
-    private String subject;
+    private String subjectId;
+    private String legacySubject;
     private String className;
     private String description = "";
     private Instant deadlineAt;
@@ -61,12 +62,20 @@ public class QuizEntity {
         this.title = title;
     }
 
-    public String getSubject() {
-        return subject;
+    public String getSubjectId() {
+        return subjectId;
     }
 
-    public void setSubject(String subject) {
-        this.subject = subject;
+    public void setSubjectId(String subjectId) {
+        this.subjectId = subjectId;
+    }
+
+    public String getLegacySubject() {
+        return legacySubject;
+    }
+
+    public void setLegacySubject(String legacySubject) {
+        this.legacySubject = legacySubject;
     }
 
     public String getClassName() {

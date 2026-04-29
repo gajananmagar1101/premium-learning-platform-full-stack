@@ -28,6 +28,16 @@ export const studentAPI = {
   getPerformance: (studentId: string) => api.get(`/student/performance/${studentId}`),
 }
 
+export const subjectAPI = {
+  getAll: () => api.get('/subjects'),
+  getByYear: (yearId: string) => api.get(`/subjects/${yearId}`),
+  create: (data: { name: string; yearId: string }) => api.post('/subjects', data),
+}
+
+export const yearAPI = {
+  getAll: () => api.get('/years'),
+}
+
 // ── Scores ────────────────────────────────────────────
 export const scoreAPI = {
   getAll: () => api.get('/scores'),

@@ -8,6 +8,7 @@ public record AssignmentResponse(
         @JsonProperty("_id") String internalId,
         String id,
         String title,
+        String subjectId,
         String subject,
         @JsonProperty("className") String className,
         String description,
@@ -18,13 +19,14 @@ public record AssignmentResponse(
         String questionFileContent,
         String createdAt
 ) {
-    public static AssignmentResponse from(AssignmentEntity assignment) {
+    public static AssignmentResponse from(AssignmentEntity assignment, String subjectName) {
         String id = assignment.getId().toString();
         return new AssignmentResponse(
                 id,
                 id,
                 assignment.getTitle(),
-                assignment.getSubject(),
+                assignment.getSubjectId(),
+                subjectName,
                 assignment.getClassName(),
                 assignment.getDescription(),
                 assignment.getTotalMarks(),

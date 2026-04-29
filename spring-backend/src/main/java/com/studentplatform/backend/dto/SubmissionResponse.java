@@ -25,7 +25,7 @@ public record SubmissionResponse(
         String updatedAt,
         boolean late
 ) {
-    public static SubmissionResponse from(SubmissionEntity submission) {
+    public static SubmissionResponse from(SubmissionEntity submission, String subjectName) {
         String id = submission.getId().toString();
         return new SubmissionResponse(
                 id,
@@ -35,7 +35,7 @@ public record SubmissionResponse(
                 submission.getStudent().getEmail(),
                 submission.getAssignment().getId().toString(),
                 submission.getAssignment().getTitle(),
-                submission.getAssignment().getSubject(),
+                subjectName,
                 submission.getAssignment().getTotalMarks(),
                 submission.getAssignment().getDeadline().toString(),
                 submission.getContent(),

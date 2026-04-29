@@ -5,14 +5,18 @@ import com.studentplatform.backend.entity.AssessmentEntity;
 import com.studentplatform.backend.entity.AssessmentStatus;
 import com.studentplatform.backend.entity.Role;
 import com.studentplatform.backend.entity.ScoreEntity;
+import com.studentplatform.backend.entity.SubjectEntity;
 import com.studentplatform.backend.entity.SubmissionEntity;
 import com.studentplatform.backend.entity.SubmissionStatus;
 import com.studentplatform.backend.entity.UserEntity;
+import com.studentplatform.backend.entity.YearEntity;
 import com.studentplatform.backend.repository.AssignmentRepository;
 import com.studentplatform.backend.repository.AssessmentRepository;
 import com.studentplatform.backend.repository.ScoreRepository;
+import com.studentplatform.backend.repository.SubjectRepository;
 import com.studentplatform.backend.repository.SubmissionRepository;
 import com.studentplatform.backend.repository.UserRepository;
+import com.studentplatform.backend.repository.YearRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,6 +30,8 @@ public class DataSeeder implements CommandLineRunner {
     private final AssessmentRepository assessmentRepository;
     private final SubmissionRepository submissionRepository;
     private final ScoreRepository scoreRepository;
+    private final YearRepository yearRepository;
+    private final SubjectRepository subjectRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.seed.admin-email}")
@@ -46,6 +52,8 @@ public class DataSeeder implements CommandLineRunner {
             AssessmentRepository assessmentRepository,
             SubmissionRepository submissionRepository,
             ScoreRepository scoreRepository,
+            YearRepository yearRepository,
+            SubjectRepository subjectRepository,
             PasswordEncoder passwordEncoder
     ) {
         this.userRepository = userRepository;
@@ -53,11 +61,15 @@ public class DataSeeder implements CommandLineRunner {
         this.assessmentRepository = assessmentRepository;
         this.submissionRepository = submissionRepository;
         this.scoreRepository = scoreRepository;
+        this.yearRepository = yearRepository;
+        this.subjectRepository = subjectRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     public void run(String... args) {
+        seedAcademicCatalog();
+
         UserEntity admin = userRepository.findByEmail(adminEmail.toLowerCase().trim()).orElseGet(() -> {
             UserEntity user = new UserEntity();
             user.setName(adminName);
@@ -88,8 +100,8 @@ public class DataSeeder implements CommandLineRunner {
         AssignmentEntity essay = createAssignment(
                 admin,
                 "Industrial Revolution Essay",
-                "History",
-                "10",
+                "Compiler Design",
+                "BE",
                 "Write a 600-word essay explaining how the Industrial Revolution changed daily life.",
                 25,
                 java.time.LocalDateTime.now().plusDays(5)
@@ -97,8 +109,8 @@ public class DataSeeder implements CommandLineRunner {
         AssignmentEntity worksheet = createAssignment(
                 admin,
                 "Quadratic Equations Worksheet",
-                "Mathematics",
-                "9",
+                "Data Structures",
+                "SE",
                 "Solve all ten quadratic equations and show your working clearly.",
                 20,
                 java.time.LocalDateTime.now().plusDays(3)
@@ -160,7 +172,10 @@ public class DataSeeder implements CommandLineRunner {
         AssignmentEntity assignment = new AssignmentEntity();
         assignment.setCreatedBy(admin);
         assignment.setTitle(title);
-        assignment.setSubject(subject);
+        SubjectEntity subjectEntity = subjectRepository.findByNormalizedName(subject.trim().toLowerCase())
+                .orElseThrow(() -> new IllegalStateException("Seed subject not found: " + subject));
+        assignment.setSubjectId(subjectEntity.getId());
+        assignment.setLegacySubject(subjectEntity.getName());
         assignment.setClassName(className);
         assignment.setDescription(description);
         assignment.setTotalMarks(totalMarks);
@@ -187,5 +202,43 @@ public class DataSeeder implements CommandLineRunner {
         submission.setStatus(marks == null ? SubmissionStatus.SUBMITTED : SubmissionStatus.GRADED);
         submission.prepareForSave();
         submissionRepository.save(submission);
+    }
+
+    private void seedAcademicCatalog() {
+        seedYear("FE", "FE", "First Year B.Tech");
+        seedYear("SE", "SE", "Second Year B.Tech");
+        seedYear("TE", "TE", "Third Year B.Tech");
+        seedYear("BE", "BE", "Final Year B.Tech");
+
+        seedSubject("Engineering Mathematics", "FE");
+        seedSubject("Programming Fundamentals", "FE");
+        seedSubject("Basic Electronics", "FE");
+        seedSubject("Data Structures", "SE");
+        seedSubject("Discrete Mathematics", "SE");
+        seedSubject("Computer Organization", "SE");
+        seedSubject("Database Management Systems", "TE");
+        seedSubject("Operating Systems", "TE");
+        seedSubject("Software Engineering", "TE");
+        seedSubject("Machine Learning", "BE");
+        seedSubject("Cloud Computing", "BE");
+        seedSubject("Compiler Design", "BE");
+    }
+
+    private void seedYear(String id, String code, String name) {
+        if (yearRepository.existsById(id)) {
+            return;
+        }
+        yearRepository.save(new YearEntity(id, code, name));
+    }
+
+    private void seedSubject(String name, String yearId) {
+        if (subjectRepository.findByNormalizedName(name.trim().toLowerCase()).isPresent()) {
+            return;
+        }
+        SubjectEntity subject = new SubjectEntity();
+        subject.setName(name);
+        subject.setYearId(yearId);
+        subject.prepareForSave();
+        subjectRepository.save(subject);
     }
 }

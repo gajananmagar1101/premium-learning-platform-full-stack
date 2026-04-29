@@ -12,7 +12,8 @@ import java.time.LocalDateTime;
 
 public record AssignmentRequest(
         @NotBlank String title,
-        @NotBlank String subject,
+        String subjectId,
+        String subject,
         @JsonProperty("className")
         @JsonAlias({"class", "grade"})
         @NotBlank String className,

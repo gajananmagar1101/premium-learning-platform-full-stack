@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ClipboardList, Users, BarChart3, User, X, LogOut, BrainCircuit, ChartColumnBig } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Users, BarChart3, User, X, LogOut, BrainCircuit, ChartColumnBig, BookCopy } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useNavigate } from 'react-router-dom'
@@ -10,6 +10,7 @@ const adminLinks = [
   { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/assessments', icon: ClipboardList,   label: 'Assignments' },
   { to: '/quizzes',     icon: BrainCircuit,    label: 'Quizzes' },
+  { to: '/subjects',    icon: BookCopy,        label: 'Subjects' },
   { to: '/students',    icon: Users,           label: 'B.Tech Cohorts' },
   { to: '/reports',     icon: BarChart3,       label: 'Reports' },
   { to: '/profile',     icon: User,            label: 'Profile' },

@@ -3,6 +3,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart3,
+  BookCopy,
   BookOpenCheck,
   CalendarDays,
   ChartColumnBig,
@@ -31,6 +32,7 @@ const isLinkActive = (pathname: string, to: string) => {
   if (to === '/dashboard') return pathname === '/dashboard'
   if (to === '/student-dashboard') return pathname === '/student-dashboard'
   if (to === '/quizzes') return pathname === '/quizzes' || pathname.startsWith('/quizzes/')
+  if (to === '/subjects') return pathname === '/subjects' || pathname.startsWith('/subjects/')
   if (to === '/students') return pathname === '/students' || pathname.startsWith('/students/')
   if (to === '/student-performance') return pathname === '/student-performance' || pathname.startsWith('/student-performance/')
   return pathname === to
@@ -51,6 +53,7 @@ export function Navbar({ title }: NavbarProps) {
         { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { to: '/assessments', label: 'Assignments', icon: BookOpenCheck },
         { to: '/quizzes', label: 'Quizzes', icon: SearchCheck },
+        { to: '/subjects', label: 'Subjects', icon: BookCopy },
         { to: '/students', label: 'B.Tech Cohorts', icon: UsersRound },
         { to: '/reports', label: 'Reports', icon: BarChart3 },
       ]
