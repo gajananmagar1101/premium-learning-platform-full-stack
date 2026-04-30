@@ -13,15 +13,15 @@ public record AssessmentResponse(
         String status
 ) {
     public static AssessmentResponse from(AssessmentEntity assessment) {
-        String id = assessment.getId().toString();
+        String id = assessment.getId() == null ? "" : assessment.getId();
         return new AssessmentResponse(
                 id,
                 id,
-                assessment.getTitle(),
-                assessment.getSubject(),
-                assessment.getDate(),
+                assessment.getTitle() == null ? "" : assessment.getTitle(),
+                assessment.getSubject() == null ? "" : assessment.getSubject(),
+                assessment.getDate() == null ? "" : assessment.getDate(),
                 assessment.getMaxScore(),
-                assessment.getStatus().name().toLowerCase()
+                assessment.getStatus() == null ? "upcoming" : assessment.getStatus().name().toLowerCase()
         );
     }
 }

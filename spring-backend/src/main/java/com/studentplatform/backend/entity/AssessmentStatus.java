@@ -14,7 +14,7 @@ public enum AssessmentStatus {
             case "UPCOMING" -> UPCOMING;
             case "COMPLETED" -> COMPLETED;
             case "GRADING" -> GRADING;
-            default -> throw new IllegalArgumentException("Unknown assessment status: " + value);
+            default -> UPCOMING;
         };
     }
 }
