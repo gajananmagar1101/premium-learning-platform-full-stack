@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertCircle, CheckCircle2, ClipboardCheck, Edit3, Eye, Filter, Plus, Sparkles, TimerReset, Trash2 } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Calendar, CheckCircle2, ChevronDown, ClipboardCheck, Clock3, Copy, Edit3, Eye, Filter, Plus, Search, Send, Sparkles, TimerReset, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
@@ -10,8 +10,8 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { useQuizStore } from '@/store/useQuizStore'
 import { useUIStore } from '@/store/useUIStore'
 import { quizAPI, studentAPI, subjectAPI } from '@/lib/services'
-import { btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
-import type { AiGeneratedQuizQuestion, AiQuizStatus, Quiz, QuizQuestion, SubjectOption } from '@/types'
+import { academicYearSortValue, btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
+import type { AiGeneratedQuizQuestion, AiQuizStatus, Quiz, QuizAttempt, QuizQuestion, SubjectOption } from '@/types'
 
 type QuizFormData = {
   title: string
@@ -73,6 +73,19 @@ const formatDurationLabel = (durationMinutes: number) => {
   return minutes === 0 ? `${hours} hr` : `${hours} hr ${minutes} min`
 }
 
+const safeText = (value?: string | null) => value ?? ''
+
+const classSortValue = (value?: string) => {
+  const index = academicYearSortValue(value)
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index
+}
+
+const quizStatusVariant = (status: Quiz['status']) => {
+  if (status === 'published') return 'success'
+  if (status === 'draft') return 'warning'
+  return 'danger'
+}
+
 const getApiErrorMessage = (error: unknown, fallback: string) => {
   if (
     error
@@ -112,6 +125,13 @@ type ActiveQuizSession = {
 
 type StudentQuizFilter = 'all' | 'pending' | 'attempted' | 'dueSoon'
 
+type AdminStudentRecord = {
+  id: string
+  name: string
+  email: string
+  grade?: string
+}
+
 const mapAiQuestionToEditable = (question: AiGeneratedQuizQuestion): EditableAiQuizQuestion => ({
   id: `ai-${question.id}-${createLocalId()}`,
   question: question.question,
@@ -150,12 +170,21 @@ function AdminQuizzesView() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Quiz | null>(null)
   const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null)
+  const [search, setSearch] = useState('')
+  const [recentSubmissionSearch, setRecentSubmissionSearch] = useState('')
   const [yearFilter, setYearFilter] = useState<'all' | string>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | Quiz['status'] | 'dueSoon'>('all')
+  const [subjectFilter, setSubjectFilter] = useState<'all' | string>('all')
   const [activeStudentIds, setActiveStudentIds] = useState<string[]>([])
+  const [students, setStudents] = useState<AdminStudentRecord[]>([])
   const [availableSubjects, setAvailableSubjects] = useState<SubjectOption[]>([])
   const [subjectsLoading, setSubjectsLoading] = useState(false)
   const [subjectPrefillName, setSubjectPrefillName] = useState('')
+  const [selectedQueueCohort, setSelectedQueueCohort] = useState<string | null>(null)
+  const [selectedQueueStudentId, setSelectedQueueStudentId] = useState<string | null>(null)
+  const queueScrollRef = useRef<HTMLDivElement | null>(null)
   const isCreateRoute = pathname === '/quizzes/create'
+  const isSubjectRoute = pathname === '/quizzes/subject'
   const [questions, setQuestions] = useState<QuizQuestion[]>([questionTemplate()])
   const [aiForm, setAiForm] = useState<AiQuizFormData>({
     topic: '',
@@ -179,11 +208,6 @@ function AdminQuizzesView() {
   const selectedSubjectId = watch('subjectId')
   const selectedSubject = availableSubjects.find((subject) => subject.id === selectedSubjectId) ?? null
 
-  const filteredQuizzes = useMemo(
-    () => quizzes.filter((quiz) => yearFilter === 'all' || normalizeAcademicYear(quiz.className) === yearFilter),
-    [quizzes, yearFilter]
-  )
-
   const questionCount = questions.length
   const selectedAiCount = aiQuestions.filter((question) => question.selected).length
   const isAiAvailable = aiStatus?.available ?? false
@@ -198,9 +222,16 @@ function AdminQuizzesView() {
     studentAPI.getAll()
       .then((response) => {
         if (cancelled) return
-        const ids = (response.data.students ?? [])
-          .map((student: { _id?: string; id?: string }) => student._id ?? student.id)
-          .filter((studentId: string | undefined): studentId is string => Boolean(studentId))
+        const nextStudents = (response.data.students ?? [])
+          .map((student: { _id?: string; id?: string; name?: string; email?: string; grade?: string }) => ({
+            id: student._id ?? student.id ?? '',
+            name: student.name ?? 'Student',
+            email: student.email ?? '',
+            grade: student.grade,
+          }))
+          .filter((student: AdminStudentRecord) => Boolean(student.id))
+        const ids = nextStudents.map((student: AdminStudentRecord) => student.id)
+        setStudents(nextStudents)
         setActiveStudentIds(ids)
       })
       .catch((error) => {
@@ -296,12 +327,261 @@ function AdminQuizzesView() {
     [activeStudentIds, attempts]
   )
 
+  const attemptsByQuiz = useMemo(
+    () => visibleAttempts.reduce<Record<string, number>>((collection, attempt) => {
+      collection[attempt.quizId] = (collection[attempt.quizId] ?? 0) + 1
+      return collection
+    }, {}),
+    [visibleAttempts]
+  )
+
+  const averageByQuiz = useMemo(
+    () => visibleAttempts.reduce<Record<string, { totalPercent: number; count: number }>>((collection, attempt) => {
+      const current = collection[attempt.quizId] ?? { totalPercent: 0, count: 0 }
+      current.totalPercent += (attempt.score / attempt.totalPoints) * 100
+      current.count += 1
+      collection[attempt.quizId] = current
+      return collection
+    }, {}),
+    [visibleAttempts]
+  )
+
+  const subjectOptions = useMemo(
+    () =>
+      [...new Set(quizzes.map((quiz) => safeText(quiz.subject).trim()).filter(Boolean))]
+        .sort((first, second) => first.localeCompare(second)),
+    [quizzes]
+  )
+
+  const filteredQuizzes = useMemo(() => {
+    const query = search.toLowerCase().trim()
+    const now = Date.now()
+    const twoDays = 1000 * 60 * 60 * 24 * 2
+
+    return [...quizzes]
+      .sort((first, second) => {
+        const firstTime = first.deadlineAt ? new Date(first.deadlineAt).getTime() : new Date(first.createdAt).getTime()
+        const secondTime = second.deadlineAt ? new Date(second.deadlineAt).getTime() : new Date(second.createdAt).getTime()
+        return firstTime - secondTime
+      })
+      .filter((quiz) => {
+        const deadlineTime = quiz.deadlineAt ? new Date(quiz.deadlineAt).getTime() : null
+        const matchesQuery = !query || (
+          safeText(quiz.title).toLowerCase().includes(query) ||
+          safeText(quiz.subject).toLowerCase().includes(query) ||
+          safeText(quiz.description).toLowerCase().includes(query) ||
+          safeText(quiz.className).toLowerCase().includes(query)
+        )
+        const matchesYear = yearFilter === 'all' || normalizeAcademicYear(quiz.className) === yearFilter
+        const matchesSubject = subjectFilter === 'all' || quiz.subject === subjectFilter
+        const matchesStatus =
+          statusFilter === 'all' ||
+          quiz.status === statusFilter ||
+          (
+            statusFilter === 'dueSoon' &&
+            quiz.status !== 'closed' &&
+            deadlineTime !== null &&
+            deadlineTime >= now &&
+            deadlineTime - now <= twoDays
+          )
+
+        return matchesQuery && matchesYear && matchesSubject && matchesStatus
+      })
+  }, [quizzes, search, statusFilter, subjectFilter, yearFilter])
+
+  const groupedQuizzes = useMemo(() => {
+    const groups = new Map<string, Map<string, Quiz[]>>()
+
+    filteredQuizzes.forEach((quiz) => {
+      const classKey = quiz.className?.trim() || 'Unassigned'
+      const subjectKey = quiz.subject?.trim() || 'General'
+      const yearGroup = groups.get(classKey) ?? new Map<string, Quiz[]>()
+      const subjectGroup = yearGroup.get(subjectKey) ?? []
+      subjectGroup.push(quiz)
+      yearGroup.set(subjectKey, subjectGroup)
+      groups.set(classKey, yearGroup)
+    })
+
+    return [...groups.entries()]
+      .sort((first, second) => {
+        const classCompare = classSortValue(first[0]) - classSortValue(second[0])
+        if (classCompare !== 0) return classCompare
+        return first[0].localeCompare(second[0])
+      })
+      .map(([className, subjects]) => ({
+        className,
+        subjects: [...subjects.entries()]
+          .sort((first, second) => first[0].localeCompare(second[0]))
+          .map(([subject, items]) => ({
+            subject,
+            quizzes: items,
+          })),
+      }))
+  }, [filteredQuizzes])
+
+  const plannerQuizzes = useMemo(() => {
+    return filteredQuizzes
+      .filter((quiz) => quiz.status === 'draft')
+      .sort((first, second) => {
+        const firstDeadline = first.deadlineAt ? new Date(first.deadlineAt).getTime() : Number.MAX_SAFE_INTEGER
+        const secondDeadline = second.deadlineAt ? new Date(second.deadlineAt).getTime() : Number.MAX_SAFE_INTEGER
+        return firstDeadline - secondDeadline
+      })
+      .slice(0, 4)
+  }, [filteredQuizzes])
+
+  const recentAttempts = useMemo(
+    () => [...visibleAttempts].sort((first, second) => new Date(second.submittedAt).getTime() - new Date(first.submittedAt).getTime()),
+    [visibleAttempts]
+  )
+
+  const filteredRecentAttempts = useMemo(() => {
+    const query = recentSubmissionSearch.trim().toLowerCase()
+    return recentAttempts.filter((attempt) => {
+      const quiz = quizzes.find((item) => item.id === attempt.quizId)
+      return !query || (
+        attempt.studentName.toLowerCase().includes(query) ||
+        attempt.studentEmail.toLowerCase().includes(query) ||
+        (quiz?.title.toLowerCase().includes(query) ?? false) ||
+        (quiz?.subject.toLowerCase().includes(query) ?? false)
+      )
+    })
+  }, [quizzes, recentAttempts, recentSubmissionSearch])
+
+  const pendingAttemptQueue = useMemo(() => {
+    const now = Date.now()
+    const queue = new Map<string, {
+      cohort: string
+      students: Array<{
+        studentId: string
+        studentName: string
+        pendingCount: number
+        quizzes: Array<{
+          quizId: string
+          title: string
+          subject: string
+          deadlineAt?: string
+        }>
+      }>
+    }>()
+
+    filteredQuizzes
+      .filter((quiz) => quiz.status === 'published' && (!quiz.deadlineAt || new Date(quiz.deadlineAt).getTime() >= now))
+      .forEach((quiz) => {
+        const normalizedCohort = normalizeAcademicYear(quiz.className)
+        const key = normalizedCohort || 'UNASSIGNED'
+        const cohortStudents = students.filter((student) => normalizeAcademicYear(student.grade) === normalizedCohort)
+        if (cohortStudents.length === 0) return
+
+        const attemptedStudentIds = new Set(
+          visibleAttempts
+            .filter((attempt) => attempt.quizId === quiz.id)
+            .map((attempt) => attempt.studentId)
+        )
+
+        const pendingStudents = cohortStudents.filter((student) => !attemptedStudentIds.has(student.id))
+        if (pendingStudents.length === 0) return
+
+        const current = queue.get(key) ?? { cohort: key, students: [] }
+
+        pendingStudents.forEach((student) => {
+          const existingStudent = current.students.find((item) => item.studentId === student.id)
+          if (existingStudent) {
+            existingStudent.pendingCount += 1
+            existingStudent.quizzes.push({
+              quizId: quiz.id,
+              title: quiz.title,
+              subject: quiz.subject,
+              deadlineAt: quiz.deadlineAt,
+            })
+            return
+          }
+
+          current.students.push({
+            studentId: student.id,
+            studentName: student.name,
+            pendingCount: 1,
+            quizzes: [{
+              quizId: quiz.id,
+              title: quiz.title,
+              subject: quiz.subject,
+              deadlineAt: quiz.deadlineAt,
+            }],
+          })
+        })
+
+        queue.set(key, current)
+      })
+
+    return [...queue.values()]
+      .map((group) => ({
+        ...group,
+        studentCount: group.students.length,
+        totalPendingAttempts: group.students.reduce((sum, student) => sum + student.pendingCount, 0),
+        students: group.students
+          .map((student) => ({
+            ...student,
+            quizzes: student.quizzes.sort((first, second) => {
+              const firstTime = first.deadlineAt ? new Date(first.deadlineAt).getTime() : Number.MAX_SAFE_INTEGER
+              const secondTime = second.deadlineAt ? new Date(second.deadlineAt).getTime() : Number.MAX_SAFE_INTEGER
+              return firstTime - secondTime
+            }),
+          }))
+          .sort((first, second) => second.pendingCount - first.pendingCount || first.studentName.localeCompare(second.studentName)),
+      }))
+      .sort((first, second) => second.totalPendingAttempts - first.totalPendingAttempts || classSortValue(first.cohort) - classSortValue(second.cohort))
+  }, [filteredQuizzes, students, visibleAttempts])
+
+  const selectedCohortQueue = useMemo(
+    () => pendingAttemptQueue.find((group) => group.cohort === selectedQueueCohort) ?? null,
+    [pendingAttemptQueue, selectedQueueCohort]
+  )
+
+  const selectedStudentQueue = useMemo(
+    () => selectedCohortQueue?.students.find((student) => student.studentId === selectedQueueStudentId) ?? null,
+    [selectedCohortQueue, selectedQueueStudentId]
+  )
+
+  const draftCount = useMemo(
+    () => quizzes.filter((quiz) => quiz.status === 'draft').length,
+    [quizzes]
+  )
+
+  const closedCount = useMemo(() => {
+    const now = Date.now()
+    return quizzes.filter((quiz) => (
+      quiz.status === 'closed' ||
+      (quiz.deadlineAt ? new Date(quiz.deadlineAt).getTime() < now : false)
+    )).length
+  }, [quizzes])
+
+  const dueSoonCount = useMemo(() => {
+    const now = Date.now()
+    const twoDays = 1000 * 60 * 60 * 24 * 2
+    return quizzes.filter((quiz) => {
+      const deadline = quiz.deadlineAt ? new Date(quiz.deadlineAt).getTime() : null
+      return quiz.status !== 'closed' && deadline !== null && deadline >= now && deadline - now <= twoDays
+    }).length
+  }, [quizzes])
+
   const quizStats = useMemo(() => ({
     total: quizzes.length,
     published: quizzes.filter((quiz) => quiz.status === 'published').length,
     attempts: visibleAttempts.length,
     average: visibleAttempts.length ? Math.round((visibleAttempts.reduce((sum, attempt) => sum + ((attempt.score / attempt.totalPoints) * 100), 0) / visibleAttempts.length)) : 0,
   }), [quizzes, visibleAttempts])
+
+  useEffect(() => {
+    if (selectedQueueCohort && pendingAttemptQueue.some((group) => group.cohort === selectedQueueCohort)) {
+      return
+    }
+    setSelectedQueueCohort(null)
+    setSelectedQueueStudentId(null)
+  }, [pendingAttemptQueue, selectedQueueCohort])
+
+  useEffect(() => {
+    queueScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [pendingAttemptQueue.length, selectedQueueCohort, selectedQueueStudentId])
 
   const addQuestion = () => {
     setQuestions((current) => {
@@ -326,6 +606,14 @@ function AdminQuizzesView() {
     navigate('/quizzes/create')
   }
 
+  const openSubjectLibrary = (className: string, subject: string) => {
+    const params = new URLSearchParams({
+      class: className,
+      subject,
+    })
+    navigate(`/quizzes/subject?${params.toString()}`)
+  }
+
   const openEdit = (quiz: Quiz) => {
     setEditing(quiz)
     setQuestions(quiz.questions.map((question) => ({ ...question, options: [...question.options] })))
@@ -341,6 +629,26 @@ function AdminQuizzesView() {
       deadlineAt: toDateTimeInputValue(quiz.deadlineAt),
       durationMinutes: quiz.durationMinutes,
       status: quiz.status,
+    })
+    setSubjectPrefillName(quiz.subject)
+    setModalOpen(true)
+  }
+
+  const cloneAsTemplate = (quiz: Quiz) => {
+    setEditing(null)
+    setQuestions(quiz.questions.map((question) => ({ ...question, id: createLocalId(), options: [...question.options] })))
+    const firstPoints = quiz.questions[0]?.points ?? 1
+    const areAllPointsSame = quiz.questions.length > 0 && quiz.questions.every((question) => question.points === firstPoints)
+    setApplySamePoints(areAllPointsSame)
+    setBulkPoints(firstPoints)
+    reset({
+      title: `${quiz.title} Copy`,
+      subjectId: quiz.subjectId ?? '',
+      className: quiz.className,
+      description: quiz.description,
+      deadlineAt: '',
+      durationMinutes: quiz.durationMinutes,
+      status: 'draft',
     })
     setSubjectPrefillName(quiz.subject)
     setModalOpen(true)
@@ -538,13 +846,39 @@ function AdminQuizzesView() {
     }
   }
 
-  const attemptsByQuiz = useMemo(
-    () => visibleAttempts.reduce<Record<string, number>>((collection, attempt) => {
-      collection[attempt.quizId] = (collection[attempt.quizId] ?? 0) + 1
-      return collection
-    }, {}),
-    [visibleAttempts]
-  )
+  const handlePublishQuiz = async (quiz: Quiz) => {
+    try {
+      await updateQuiz(quiz.id, {
+        title: quiz.title,
+        subjectId: quiz.subjectId,
+        subject: quiz.subject,
+        className: quiz.className,
+        description: quiz.description,
+        deadlineAt: quiz.deadlineAt,
+        durationMinutes: quiz.durationMinutes,
+        status: 'published',
+        questions: quiz.questions,
+      })
+      addToast('Quiz published', 'success')
+    } catch (error) {
+      console.error('[Quizzes] Failed to publish quiz:', error)
+      addToast('Failed to publish quiz', 'error')
+    }
+  }
+
+  if (isSubjectRoute) {
+    return (
+      <AdminQuizSubjectPage
+        quizzes={quizzes}
+        attempts={visibleAttempts}
+        students={students}
+        onEdit={openEdit}
+        onDelete={setQuizToDelete}
+        onPublish={handlePublishQuiz}
+        onTemplate={cloneAsTemplate}
+      />
+    )
+  }
 
   if (isCreateRoute) {
     return (
@@ -940,12 +1274,19 @@ function AdminQuizzesView() {
   return (
     <div className="space-y-6">
       <GlassCard className="p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">Quiz Control Center</h2>
-            <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
-              Build online quizzes, publish them to B.Tech cohorts, and review attempt performance.
-            </p>
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">Quiz Control Center</h2>
+              <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                Organize quizzes by subject and academic year, publish them cohort-wise, and review attempt performance from one place.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge label={`${draftCount} drafts`} variant="warning" />
+              <Badge label={`${quizStats.published} published`} variant="success" />
+              <Badge label={`${closedCount} closed`} variant="danger" />
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={openCreate} className="btn-ghost justify-center">
@@ -958,124 +1299,428 @@ function AdminQuizzesView() {
         </div>
       </GlassCard>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <GlassCard className="p-5">
-          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Total Quizzes</p>
-          <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{quizStats.total}</p>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        <GlassCard className="min-h-[104px] p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Quizzes</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{quizStats.total}</p>
+            </div>
+            <div className="rounded-xl bg-indigo-500/10 p-2 text-indigo-400">
+              <ClipboardCheck size={15} />
+            </div>
+          </div>
         </GlassCard>
-        <GlassCard className="p-5">
-          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Published</p>
-          <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{quizStats.published}</p>
+        <GlassCard className="min-h-[104px] p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Published</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{quizStats.published}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-400">
+              <Send size={15} />
+            </div>
+          </div>
         </GlassCard>
-        <GlassCard className="p-5">
-          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Attempts</p>
-          <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{quizStats.attempts}</p>
+        <GlassCard className="min-h-[104px] p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Attempts</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{quizStats.attempts}</p>
+            </div>
+            <div className="rounded-xl bg-sky-500/10 p-2 text-sky-400">
+              <Eye size={15} />
+            </div>
+          </div>
         </GlassCard>
-        <GlassCard className="p-5">
-          <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">Avg Quiz Score</p>
-          <p className="mt-2 text-3xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{quizStats.average}%</p>
+        <GlassCard className="min-h-[104px] p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Average Score</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{quizStats.average}%</p>
+            </div>
+            <div className="rounded-xl bg-violet-500/10 p-2 text-violet-400">
+              <CheckCircle2 size={15} />
+            </div>
+          </div>
+        </GlassCard>
+        <GlassCard className="min-h-[104px] p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Due In 2 Days</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{dueSoonCount}</p>
+            </div>
+            <div className="rounded-xl bg-amber-500/10 p-2 text-amber-400">
+              <Clock3 size={15} />
+            </div>
+          </div>
+        </GlassCard>
+        <GlassCard className="min-h-[104px] p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-light-ink-muted dark:text-dark-ink-muted">Subjects</p>
+              <p className="mt-1 text-[2rem] font-bold leading-none text-light-ink-primary dark:text-dark-ink-primary">{subjectOptions.length}</p>
+            </div>
+            <div className="rounded-xl bg-rose-500/10 p-2 text-rose-400">
+              <Filter size={15} />
+            </div>
+          </div>
+        </GlassCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <GlassCard className="flex h-[31rem] min-h-0 flex-col p-4 sm:p-5">
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Quiz Planner</h3>
+                <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                  Drafts and upcoming quizzes you can publish, reuse, or refine next.
+                </p>
+              </div>
+              <Badge label={`${plannerQuizzes.length} planned`} variant="info" />
+            </div>
+          </div>
+          <div className="slim-scrollbar mt-4 flex-1 overflow-y-auto pr-1">
+            <div className="grid gap-3">
+              {plannerQuizzes.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+                  No quizzes match the current planner filters.
+                </div>
+              ) : plannerQuizzes.map((quiz) => {
+                const average = averageByQuiz[quiz.id]?.count
+                  ? Math.round(averageByQuiz[quiz.id].totalPercent / averageByQuiz[quiz.id].count)
+                  : 0
+
+                return (
+                  <div key={quiz.id} className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
+                    <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{quiz.title}</p>
+                          <Badge label={quiz.status} variant={quizStatusVariant(quiz.status)} />
+                        </div>
+                        <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                          {quiz.subject} · {formatAcademicYearLabel(quiz.className)} · {formatDurationLabel(quiz.durationMinutes)}
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-light-ink-secondary dark:text-dark-ink-secondary">
+                          {quiz.status === 'draft'
+                            ? 'This draft is ready for review or publishing.'
+                            : `${attemptsByQuiz[quiz.id] ?? 0} attempts · ${average}% average score · ${quiz.totalPoints} total points`}
+                        </p>
+                        {quiz.deadlineAt && (
+                          <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                            <Calendar size={12} /> Deadline {formatDateTime(quiz.deadlineAt)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 xl:max-w-[18rem] xl:justify-end">
+                        {quiz.status === 'draft' && (
+                          <button type="button" onClick={() => handlePublishQuiz(quiz)} className="btn-primary px-3 py-2 text-xs">
+                            <Send size={13} /> Publish
+                          </button>
+                        )}
+                        <button type="button" onClick={() => openEdit(quiz)} className="btn-ghost px-3 py-2 text-xs">
+                          <Edit3 size={13} /> Edit
+                        </button>
+                        <button type="button" onClick={() => cloneAsTemplate(quiz)} className="btn-ghost px-3 py-2 text-xs">
+                          <Copy size={13} /> Template
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="flex h-[31rem] min-h-0 flex-col p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Pending Quiz Attempt Queue</h3>
+              <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                Open a cohort first, then a learner, and inspect only pending quiz attempts.
+              </p>
+            </div>
+            <Badge label={`${pendingAttemptQueue.length} cohorts`} variant="info" />
+          </div>
+          <div ref={queueScrollRef} className="slim-scrollbar mt-4 flex-1 overflow-y-auto pr-1 min-h-0">
+            {pendingAttemptQueue.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+                Pending learner lists will appear once published quizzes are assigned to active cohorts.
+              </div>
+            ) : (
+              <div className="flex min-h-full flex-col rounded-[1.75rem] border border-light-border/80 bg-white/45 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] dark:border-dark-border dark:bg-dark-card2/40 sm:p-4">
+                {!selectedCohortQueue && (
+                  <div className="space-y-2">
+                    {pendingAttemptQueue.map((group) => (
+                      <button
+                        key={group.cohort}
+                        type="button"
+                        onClick={() => {
+                          setSelectedQueueCohort(group.cohort)
+                          setSelectedQueueStudentId(null)
+                        }}
+                        className="flex w-full items-center justify-between gap-3 rounded-2xl border border-light-border/70 bg-white/70 px-3.5 py-3 text-left transition hover:border-indigo-400/40 hover:bg-indigo-500/5 dark:border-dark-border dark:bg-dark-card2/60"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                            {group.cohort === 'UNASSIGNED' ? 'Unassigned' : formatAcademicYearLabel(group.cohort)}
+                          </p>
+                          <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                            {group.studentCount} learner{group.studentCount === 1 ? '' : 's'} · {group.totalPendingAttempts} pending attempts
+                          </p>
+                        </div>
+                        <Badge label={`${group.totalPendingAttempts} pending`} variant="warning" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {selectedCohortQueue && !selectedStudentQueue && (
+                  <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                          {selectedCohortQueue.cohort === 'UNASSIGNED' ? 'Unassigned' : formatAcademicYearLabel(selectedCohortQueue.cohort)}
+                        </p>
+                        <p className="mt-1 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
+                          {selectedCohortQueue.studentCount} learner{selectedCohortQueue.studentCount === 1 ? '' : 's'} with pending quiz attempts
+                        </p>
+                      </div>
+                      <button type="button" onClick={() => setSelectedQueueCohort(null)} className="btn-ghost px-3 py-2 text-xs">
+                        <ArrowLeft size={13} /> Back
+                      </button>
+                    </div>
+                    <div className="slim-scrollbar mt-3 max-h-[21rem] space-y-2 overflow-y-auto pr-1">
+                      {selectedCohortQueue.students.map((student) => (
+                        <button
+                          key={student.studentId}
+                          type="button"
+                          onClick={() => setSelectedQueueStudentId(student.studentId)}
+                          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-light-border/70 bg-white/70 px-3.5 py-3 text-left transition hover:border-indigo-400/40 hover:bg-indigo-500/5 dark:border-dark-border dark:bg-dark-card2/60"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{student.studentName}</p>
+                            <p className="mt-1 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
+                              {student.pendingCount} pending quiz attempt{student.pendingCount === 1 ? '' : 's'}
+                            </p>
+                          </div>
+                          <Badge label={`${student.pendingCount} pending`} variant="danger" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedCohortQueue && selectedStudentQueue && (
+                  <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{selectedStudentQueue.studentName}</p>
+                        <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                          {formatAcademicYearLabel(selectedCohortQueue.cohort)} · {selectedStudentQueue.pendingCount} pending quiz attempt{selectedStudentQueue.pendingCount === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                      <button type="button" onClick={() => setSelectedQueueStudentId(null)} className="btn-ghost px-3 py-2 text-xs">
+                        <ArrowLeft size={13} /> Back
+                      </button>
+                    </div>
+                    <div className="slim-scrollbar mt-3 max-h-[21rem] space-y-2 overflow-y-auto pr-1">
+                      {selectedStudentQueue.quizzes.map((item) => (
+                        <div key={item.quizId} className="rounded-2xl border border-light-border/70 bg-white/70 px-3.5 py-3 dark:border-dark-border dark:bg-dark-card2/60">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{item.title}</p>
+                              <p className="mt-1 text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
+                                {item.subject}{item.deadlineAt ? ` · Due ${formatDateTime(item.deadlineAt)}` : ''}
+                              </p>
+                            </div>
+                            <Badge label="pending" variant="danger" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </GlassCard>
       </div>
 
       <GlassCard className="p-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Quiz Library</h3>
-            <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">Publish subject-wise tests for each B.Tech cohort.</p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Subject-wise Quiz Library</h3>
+              <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                Every quiz stays inside its own subject and academic year, just like the assignment workflow.
+              </p>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,22rem)_repeat(3,minmax(0,12rem))]">
+              <label className="relative block min-w-0">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-light-ink-muted dark:text-dark-ink-muted" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="form-input pl-9"
+                  placeholder="Search by quiz title, subject, or cohort"
+                />
+              </label>
+              <select value={yearFilter} onChange={(event) => setYearFilter(event.target.value)} className="form-input min-w-0">
+                <option value="all">All cohorts</option>
+                {btechYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <select value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value)} className="form-input min-w-0">
+                <option value="all">All subjects</option>
+                {subjectOptions.map((subject) => <option key={subject} value={subject}>{subject}</option>)}
+              </select>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="form-input min-w-0">
+                <option value="all">All statuses</option>
+                <option value="draft">Draft</option>
+                <option value="published">Published</option>
+                <option value="closed">Closed</option>
+                <option value="dueSoon">Due in 2 days</option>
+              </select>
+            </div>
           </div>
-          <select value={yearFilter} onChange={(event) => setYearFilter(event.target.value)} className="form-input md:w-56">
-            <option value="all">All cohorts</option>
-            {btechYearOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </div>
 
-        <div className="mt-5 grid gap-4">
-          {filteredQuizzes.length === 0 ? (
+          {groupedQuizzes.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-light-border p-8 text-center text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
-              No quizzes available for this cohort yet.
+              No quizzes match the current filters.
             </div>
-          ) : filteredQuizzes.map((quiz) => (
-            <div key={quiz.id} className="rounded-2xl border border-light-border bg-white/35 p-5 dark:border-dark-border dark:bg-dark-card2/40">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap gap-2">
-                    <Badge label={quiz.status} variant={quiz.status === 'published' ? 'success' : quiz.status === 'closed' ? 'danger' : 'warning'} />
-                    <Badge label={formatAcademicYearLabel(quiz.className)} variant="info" />
-                    <Badge label={`${quiz.questions.length} questions`} variant="info" />
+          ) : (
+            <div className="space-y-4">
+              {groupedQuizzes.map((group, groupIndex) => (
+                <details key={group.className} open={groupIndex === 0 || Boolean(search) || subjectFilter !== 'all'} className="group overflow-hidden rounded-3xl border border-light-border bg-white/35 dark:border-dark-border dark:bg-dark-card2/35">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+                    <div>
+                      <p className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">{formatAcademicYearLabel(group.className)}</p>
+                      <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                        {group.subjects.length} subject{group.subjects.length === 1 ? '' : 's'} · {group.subjects.reduce((sum, subjectGroup) => sum + subjectGroup.quizzes.length, 0)} quiz{group.subjects.reduce((sum, subjectGroup) => sum + subjectGroup.quizzes.length, 0) === 1 ? '' : 'zes'}
+                      </p>
+                    </div>
+                    <ChevronDown size={18} className="text-light-ink-muted transition-transform group-open:rotate-180 dark:text-dark-ink-muted" />
+                  </summary>
+
+                  <div className="border-t border-light-border p-4 dark:border-dark-border">
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      {group.subjects.map((subjectGroup) => {
+                        const gradedQuizzes = subjectGroup.quizzes.filter((quiz) => averageByQuiz[quiz.id]?.count)
+                        const averageScore = gradedQuizzes.length === 0
+                          ? null
+                          : Math.round(
+                            gradedQuizzes.reduce((sum, quiz) => (
+                              sum + (averageByQuiz[quiz.id].totalPercent / averageByQuiz[quiz.id].count)
+                            ), 0) / gradedQuizzes.length
+                          )
+
+                        return (
+                          <button
+                            key={`${group.className}-${subjectGroup.subject}`}
+                            type="button"
+                            onClick={() => openSubjectLibrary(group.className, subjectGroup.subject)}
+                            className="rounded-2xl border border-light-border bg-white/55 p-4 text-left transition hover:border-indigo-300 hover:bg-indigo-500/[0.03] dark:border-dark-border dark:bg-dark-card/35"
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <p className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{subjectGroup.subject}</p>
+                                <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                                  {subjectGroup.quizzes.length} quiz{subjectGroup.quizzes.length === 1 ? '' : 'zes'}
+                                  {averageScore !== null ? ` · ${averageScore}% avg score` : ''}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <Badge label={`${subjectGroup.quizzes.filter((quiz) => quiz.status === 'published').length} published`} variant="success" />
+                                <Badge label={`${subjectGroup.quizzes.filter((quiz) => quiz.status === 'draft').length} drafts`} variant="warning" />
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                  <p className="mt-3 text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{quiz.title}</p>
-                  <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
-                    {quiz.subject} · {formatDurationClock(quiz.durationMinutes)} · {quiz.totalPoints} points · {attemptsByQuiz[quiz.id] ?? 0} attempts
-                  </p>
-                  {quiz.deadlineAt && (
-                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
-                      Deadline: {formatDateTime(quiz.deadlineAt)}
-                    </p>
-                  )}
-                  <p className="mt-3 text-sm leading-6 text-light-ink-secondary dark:text-dark-ink-secondary">
-                    {quiz.description?.trim() ? quiz.description : 'No description added.'}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => openEdit(quiz)} className="btn-ghost px-3 py-2 text-xs">
-                    <Edit3 size={13} /> Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setQuizToDelete(quiz)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
-                  >
-                    <Trash2 size={13} /> Delete
-                  </button>
-                </div>
-              </div>
+                </details>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </GlassCard>
 
       <GlassCard className="overflow-hidden">
         <div className="border-b border-light-border px-5 py-4 dark:border-dark-border">
-          <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Recent Quiz Attempts</h3>
-          <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">Track learner quiz submissions and performance.</p>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Recent Quiz Submissions</h3>
+              <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                Latest submissions are listed at the bottom with answer-by-answer review.
+              </p>
+            </div>
+            <input
+              value={recentSubmissionSearch}
+              onChange={(event) => setRecentSubmissionSearch(event.target.value)}
+              className="form-input lg:w-80"
+              placeholder="Search by student, quiz, or subject"
+            />
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                {['Learner', 'Quiz', 'Cohort', 'Score', 'Submitted'].map((heading) => <th key={heading}>{heading}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {visibleAttempts.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center text-light-ink-muted dark:text-dark-ink-muted">
-                    No quiz attempts yet.
-                  </td>
-                </tr>
-              ) : visibleAttempts.slice(0, 8).map((attempt) => {
-                const quiz = quizzes.find((item) => item.id === attempt.quizId)
-                const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
-                return (
-                  <tr key={attempt.id}>
-                    <td>
-                      <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{attempt.studentName}</p>
-                      <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">{attempt.studentEmail}</p>
-                    </td>
-                    <td>
-                      <p className="font-medium text-light-ink-primary dark:text-dark-ink-primary">{quiz?.title ?? 'Quiz'}</p>
-                      <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">{quiz?.subject ?? 'Subject'}</p>
-                    </td>
-                    <td>{formatAcademicYearLabel(attempt.className)}</td>
-                    <td>
-                      <Badge label={`${attempt.score}/${attempt.totalPoints} (${percent}%)`} variant={percent >= 70 ? 'success' : 'warning'} />
-                    </td>
-                    <td>{formatDateTime(attempt.submittedAt)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div className="space-y-4 p-5">
+          {filteredRecentAttempts.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-light-border p-8 text-center text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+              No quiz submissions yet.
+            </div>
+          ) : filteredRecentAttempts.slice(0, 10).map((attempt) => {
+            const quiz = quizzes.find((item) => item.id === attempt.quizId)
+            if (!quiz) return null
+            const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
+
+            return (
+              <details key={attempt.id} className="group overflow-hidden rounded-2xl border border-light-border bg-white/45 dark:border-dark-border dark:bg-dark-card2/40">
+                <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-4">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{attempt.studentName}</p>
+                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">{attempt.studentEmail}</p>
+                    <p className="mt-2 text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+                      {quiz.title} · {quiz.subject} · {formatAcademicYearLabel(attempt.className)}
+                    </p>
+                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                      Submitted {formatDateTime(attempt.submittedAt)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge label={`${attempt.score}/${attempt.totalPoints} (${percent}%)`} variant={percent >= 70 ? 'success' : 'warning'} />
+                    <ChevronDown size={18} className="text-light-ink-muted transition-transform group-open:rotate-180 dark:text-dark-ink-muted" />
+                  </div>
+                </summary>
+                <div className="border-t border-light-border px-4 py-4 dark:border-dark-border">
+                  <div className="space-y-3">
+                    {quiz.questions.map((question, index) => {
+                      const selectedAnswerIndex = attempt.answers[index] ?? -1
+                      const selectedAnswer = selectedAnswerIndex >= 0 ? question.options[selectedAnswerIndex] : 'Not answered'
+                      const correctAnswer = question.options[question.correctOption] ?? 'Not set'
+                      const isCorrect = selectedAnswerIndex === question.correctOption
+
+                      return (
+                        <div key={`${attempt.id}-${question.id}`} className="rounded-2xl border border-light-border bg-white/70 p-4 dark:border-dark-border dark:bg-dark-card2/55">
+                          <p className="font-medium text-light-ink-primary dark:text-dark-ink-primary">
+                            Q{index + 1}. {question.prompt}
+                          </p>
+                          <p className="mt-3 text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+                            Student answer: <span className={isCorrect ? 'font-medium text-emerald-600' : 'font-medium text-red-500'}>{selectedAnswer}</span>
+                          </p>
+                          <p className="mt-1 text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+                            Correct answer: <span className="font-medium text-emerald-600">{correctAnswer}</span>
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </details>
+            )
+          })}
         </div>
       </GlassCard>
 
@@ -1260,9 +1905,306 @@ function AdminQuizzesView() {
   )
 }
 
+function AdminQuizSubjectPage({
+  quizzes,
+  attempts,
+  students,
+  onEdit,
+  onDelete,
+  onPublish,
+  onTemplate,
+}: {
+  quizzes: Quiz[]
+  attempts: QuizAttempt[]
+  students: AdminStudentRecord[]
+  onEdit: (quiz: Quiz) => void
+  onDelete: (quiz: Quiz) => void
+  onPublish: (quiz: Quiz) => void
+  onTemplate: (quiz: Quiz) => void
+}) {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const decodedClassName = searchParams.get('class') ?? ''
+  const decodedSubject = searchParams.get('subject') ?? ''
+  const [submissionSearch, setSubmissionSearch] = useState('')
+  const [submissionFilter, setSubmissionFilter] = useState<'all' | 'passed' | 'needsWork'>('all')
+
+  const matchingQuizzes = useMemo(
+    () =>
+      quizzes
+        .filter(
+          (quiz) =>
+            normalizeAcademicYear(quiz.className) === normalizeAcademicYear(decodedClassName) &&
+            safeText(quiz.subject).trim().toLowerCase() === decodedSubject.trim().toLowerCase()
+        )
+        .sort((first, second) => {
+          const firstTime = first.deadlineAt ? new Date(first.deadlineAt).getTime() : new Date(first.createdAt).getTime()
+          const secondTime = second.deadlineAt ? new Date(second.deadlineAt).getTime() : new Date(second.createdAt).getTime()
+          return firstTime - secondTime
+        }),
+    [decodedClassName, decodedSubject, quizzes]
+  )
+
+  const matchingQuizIds = useMemo(
+    () => new Set(matchingQuizzes.map((quiz) => quiz.id)),
+    [matchingQuizzes]
+  )
+
+  const matchingAttempts = useMemo(
+    () => attempts.filter((attempt) => matchingQuizIds.has(attempt.quizId)),
+    [attempts, matchingQuizIds]
+  )
+
+  const cohortStudentCount = useMemo(
+    () => students.filter((student) => normalizeAcademicYear(student.grade) === normalizeAcademicYear(decodedClassName)).length,
+    [decodedClassName, students]
+  )
+
+  const attemptsByQuiz = useMemo(
+    () => matchingAttempts.reduce<Record<string, number>>((collection, attempt) => {
+      collection[attempt.quizId] = (collection[attempt.quizId] ?? 0) + 1
+      return collection
+    }, {}),
+    [matchingAttempts]
+  )
+
+  const draftQuizzes = matchingQuizzes.filter((quiz) => quiz.status === 'draft')
+  const publishedQuizzes = matchingQuizzes.filter((quiz) => quiz.status === 'published')
+  const filteredAttempts = useMemo(() => {
+    const query = submissionSearch.trim().toLowerCase()
+    return matchingAttempts.filter((attempt) => {
+      const quiz = matchingQuizzes.find((item) => item.id === attempt.quizId)
+      const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
+      const matchesQuery = !query || (
+        attempt.studentName.toLowerCase().includes(query) ||
+        attempt.studentEmail.toLowerCase().includes(query) ||
+        (quiz?.title.toLowerCase().includes(query) ?? false)
+      )
+      const matchesFilter =
+        submissionFilter === 'all' ||
+        (submissionFilter === 'passed' && percent >= 70) ||
+        (submissionFilter === 'needsWork' && percent < 70)
+      return matchesQuery && matchesFilter
+    })
+  }, [matchingAttempts, matchingQuizzes, submissionFilter, submissionSearch])
+
+  const openQuizLibrary = () => navigate('/quizzes')
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-6">
+      <GlassCard className="p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-indigo-500/10 p-3 text-indigo-400">
+              <ClipboardCheck size={18} />
+            </div>
+            <div>
+              <button
+                type="button"
+                onClick={openQuizLibrary}
+                className="mb-3 inline-flex items-center gap-2 text-sm text-light-ink-muted transition-colors hover:text-light-ink-primary dark:text-dark-ink-muted dark:hover:text-dark-ink-primary"
+              >
+                <ArrowLeft size={14} />
+                Back to Quizzes
+              </button>
+              <h1 className="text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">{decodedSubject}</h1>
+              <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                {formatAcademicYearLabel(decodedClassName)} • {matchingQuizzes.length} quiz{matchingQuizzes.length === 1 ? '' : 'zes'}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-3 lg:min-w-[30rem]">
+            <div className="rounded-2xl border border-light-border bg-white/40 px-4 py-3 dark:border-dark-border dark:bg-dark-card2/40">
+              <p className="text-xs uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">Total</p>
+              <p className="mt-2 text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">{matchingQuizzes.length}</p>
+            </div>
+            <div className="rounded-2xl border border-amber-200 bg-amber-500/5 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-amber-700">Drafts</p>
+              <p className="mt-2 text-2xl font-semibold text-amber-700">{draftQuizzes.length}</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-500/5 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-emerald-700">Published</p>
+              <p className="mt-2 text-2xl font-semibold text-emerald-700">{publishedQuizzes.length}</p>
+            </div>
+            <div className="rounded-2xl border border-sky-200 bg-sky-500/5 px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-sky-700">Students</p>
+              <p className="mt-2 text-2xl font-semibold text-sky-700">{cohortStudentCount}</p>
+            </div>
+          </div>
+        </div>
+      </GlassCard>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <GlassCard className="p-4">
+          <p className="text-xs uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">Total Students</p>
+          <p className="mt-2 text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">{cohortStudentCount}</p>
+        </GlassCard>
+        <GlassCard className="p-4">
+          <p className="text-xs uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">Total Submissions</p>
+          <p className="mt-2 text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">{matchingAttempts.length}</p>
+        </GlassCard>
+        <GlassCard className="p-4">
+          <p className="text-xs uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">Draft Quizzes</p>
+          <p className="mt-2 text-2xl font-semibold text-amber-700">{draftQuizzes.length}</p>
+        </GlassCard>
+        <GlassCard className="p-4">
+          <p className="text-xs uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">Published Quizzes</p>
+          <p className="mt-2 text-2xl font-semibold text-emerald-700">{publishedQuizzes.length}</p>
+        </GlassCard>
+      </div>
+
+      <div className="space-y-4">
+        {matchingQuizzes.length === 0 ? (
+          <GlassCard className="py-16 text-center">
+            <p className="text-base font-medium text-light-ink-primary dark:text-dark-ink-primary">No quizzes found</p>
+            <p className="mt-2 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+              This subject does not have any quizzes for {formatAcademicYearLabel(decodedClassName)} right now.
+            </p>
+          </GlassCard>
+        ) : (
+          matchingQuizzes.map((quiz) => {
+            const quizAttempts = matchingAttempts.filter((attempt) => attempt.quizId === quiz.id)
+            const averageScore = quizAttempts.length === 0
+              ? null
+              : Math.round(quizAttempts.reduce((sum, attempt) => sum + ((attempt.score / attempt.totalPoints) * 100), 0) / quizAttempts.length)
+
+            return (
+              <GlassCard key={quiz.id} className="p-5">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{quiz.title}</p>
+                      <Badge label={quiz.status} variant={quizStatusVariant(quiz.status)} />
+                      <Badge label={`${quiz.questions.length} questions`} variant="info" />
+                    </div>
+                    <p className="mt-2 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                      {formatDurationLabel(quiz.durationMinutes)} · {quiz.totalPoints} points · {cohortStudentCount} students · {attemptsByQuiz[quiz.id] ?? 0} submissions
+                      {averageScore !== null ? ` · ${averageScore}% avg score` : ''}
+                    </p>
+                    {quiz.deadlineAt && (
+                      <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                        <Calendar size={12} /> Deadline {formatDateTime(quiz.deadlineAt)}
+                      </p>
+                    )}
+                    <p className="mt-3 text-sm leading-6 text-light-ink-secondary dark:text-dark-ink-secondary">
+                      {quiz.description?.trim() ? quiz.description : 'No description added.'}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 xl:max-w-[18rem] xl:justify-end">
+                    {quiz.status === 'draft' && (
+                      <button type="button" onClick={() => onPublish(quiz)} className="btn-primary px-3 py-2 text-xs">
+                        <Send size={13} /> Publish
+                      </button>
+                    )}
+                    <button type="button" onClick={() => onEdit(quiz)} className="btn-ghost px-3 py-2 text-xs">
+                      <Edit3 size={13} /> Edit
+                    </button>
+                    <button type="button" onClick={() => onTemplate(quiz)} className="btn-ghost px-3 py-2 text-xs">
+                      <Copy size={13} /> Template
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDelete(quiz)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  </div>
+                </div>
+              </GlassCard>
+            )
+          })
+        )}
+      </div>
+
+      <GlassCard className="overflow-hidden">
+        <div className="border-b border-light-border px-5 py-4 dark:border-dark-border">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Recent Subject Submissions</h3>
+              <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                Student answers are shown below each quiz submission for quick review.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                value={submissionSearch}
+                onChange={(event) => setSubmissionSearch(event.target.value)}
+                className="form-input sm:w-72"
+                placeholder="Search by student or quiz"
+              />
+              <select value={submissionFilter} onChange={(event) => setSubmissionFilter(event.target.value as typeof submissionFilter)} className="form-input sm:w-52">
+                <option value="all">All submissions</option>
+                <option value="passed">Passed only</option>
+                <option value="needsWork">Needs work</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-4 p-5">
+          {filteredAttempts.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-light-border p-8 text-center text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+              No submissions available for this subject yet.
+            </div>
+          ) : (
+            filteredAttempts.map((attempt) => {
+              const quiz = matchingQuizzes.find((item) => item.id === attempt.quizId)
+              if (!quiz) return null
+              const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
+
+              return (
+                <details key={attempt.id} className="group overflow-hidden rounded-2xl border border-light-border bg-white/45 dark:border-dark-border dark:bg-dark-card2/40">
+                  <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-4">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{attempt.studentName}</p>
+                      <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">{attempt.studentEmail}</p>
+                      <p className="mt-2 text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+                        {quiz.title} · Submitted {formatDateTime(attempt.submittedAt)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge label={`${attempt.score}/${attempt.totalPoints} (${percent}%)`} variant={percent >= 70 ? 'success' : 'warning'} />
+                      <ChevronDown size={18} className="text-light-ink-muted transition-transform group-open:rotate-180 dark:text-dark-ink-muted" />
+                    </div>
+                  </summary>
+                  <div className="border-t border-light-border px-4 py-4 dark:border-dark-border">
+                    <div className="space-y-3">
+                      {quiz.questions.map((question, index) => {
+                        const selectedAnswerIndex = attempt.answers[index] ?? -1
+                        const selectedAnswer = selectedAnswerIndex >= 0 ? question.options[selectedAnswerIndex] : 'Not answered'
+                        const correctAnswer = question.options[question.correctOption] ?? 'Not set'
+                        const isCorrect = selectedAnswerIndex === question.correctOption
+
+                        return (
+                          <div key={`${attempt.id}-${question.id}`} className="rounded-2xl border border-light-border bg-white/70 p-4 dark:border-dark-border dark:bg-dark-card2/55">
+                            <p className="font-medium text-light-ink-primary dark:text-dark-ink-primary">
+                              Q{index + 1}. {question.prompt}
+                            </p>
+                            <p className="mt-3 text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+                              Student answer: <span className={isCorrect ? 'font-medium text-emerald-600' : 'font-medium text-red-500'}>{selectedAnswer}</span>
+                            </p>
+                            <p className="mt-1 text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+                              Correct answer: <span className="font-medium text-emerald-600">{correctAnswer}</span>
+                            </p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </details>
+              )
+            })
+          )}
+        </div>
+      </GlassCard>
+    </div>
+  )
+}
+
 function StudentQuizzesView() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const [searchParams] = useSearchParams()
   const { quizId: routeQuizId } = useParams<{ quizId: string }>()
   const user = useAuthStore((state) => state.user)
   const { quizzes, attempts, fetchQuizzes, fetchAttempts, submitQuiz } = useQuizStore()
@@ -1273,10 +2215,14 @@ function StudentQuizzesView() {
   const [sessionRestored, setSessionRestored] = useState(false)
   const [quizSearch, setQuizSearch] = useState('')
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null)
+  const [selectedSubjectLibrary, setSelectedSubjectLibrary] = useState<string | null>(null)
   const [studentQuizFilter, setStudentQuizFilter] = useState<StudentQuizFilter>('all')
+  const [resultFilter, setResultFilter] = useState<'all' | 'passed' | 'needsWork'>('all')
   const userId = user?._id ?? user?.id
   const cohort = normalizeAcademicYear(user?.grade)
   const isAttemptRoute = pathname.startsWith('/quizzes/attempt/')
+  const isSubjectLibraryRoute = pathname === '/quizzes/library/subject'
+  const routeSubject = searchParams.get('subject') ?? ''
   const activeQuiz = useMemo(
     () => (activeSession ? quizzes.find((quiz) => quiz.id === activeSession.quizId) ?? null : null),
     [activeSession, quizzes]
@@ -1334,8 +2280,8 @@ function StudentQuizzesView() {
   const filteredAvailableQuizzes = useMemo(
     () => orderedAvailableQuizzes.filter((quiz) => {
       const matchesQuery = searchableQuery.length === 0
-        || quiz.title.toLowerCase().includes(searchableQuery)
-        || quiz.subject.toLowerCase().includes(searchableQuery)
+        || safeText(quiz.title).toLowerCase().includes(searchableQuery)
+        || safeText(quiz.subject).toLowerCase().includes(searchableQuery)
       const attempted = attemptedQuizIds.has(quiz.id)
       const dueSoon = quiz.deadlineAt
         ? new Date(quiz.deadlineAt).getTime() - Date.now() <= 1000 * 60 * 60 * 24 * 2
@@ -1362,12 +2308,59 @@ function StudentQuizzesView() {
     () => sortedStudentAttempts.filter((attempt) => {
       const quiz = quizzes.find((item) => item.id === attempt.quizId)
       if (!quiz) return searchableQuery.length === 0
-      return searchableQuery.length === 0
-        || quiz.title.toLowerCase().includes(searchableQuery)
-        || quiz.subject.toLowerCase().includes(searchableQuery)
+      const matchesQuery = searchableQuery.length === 0
+        || safeText(quiz.title).toLowerCase().includes(searchableQuery)
+        || safeText(quiz.subject).toLowerCase().includes(searchableQuery)
+      const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
+      const matchesFilter =
+        resultFilter === 'all' ||
+        (resultFilter === 'passed' && percent >= 70) ||
+        (resultFilter === 'needsWork' && percent < 70)
+      return matchesQuery && matchesFilter
     }),
-    [quizzes, searchableQuery, sortedStudentAttempts]
+    [quizzes, resultFilter, searchableQuery, sortedStudentAttempts]
   )
+
+  const recentAvailableQuizzes = useMemo(() => {
+    const now = Date.now()
+    const fiveDays = 1000 * 60 * 60 * 24 * 5
+
+    return availableQuizzes
+      .filter((quiz) => {
+        if (attemptedQuizIds.has(quiz.id)) {
+          return false
+        }
+        const referenceTime = new Date(quiz.updatedAt || quiz.createdAt).getTime()
+        return now - referenceTime <= fiveDays
+      })
+      .sort((first, second) => (
+        new Date(second.updatedAt || second.createdAt).getTime() - new Date(first.updatedAt || first.createdAt).getTime()
+      ))
+  }, [attemptedQuizIds, availableQuizzes])
+
+  const groupedAvailableQuizzes = useMemo(() => {
+    const groups = new Map<string, Quiz[]>()
+    filteredAvailableQuizzes.forEach((quiz) => {
+      const key = safeText(quiz.subject).trim() || 'General'
+      const current = groups.get(key) ?? []
+      current.push(quiz)
+      groups.set(key, current)
+    })
+    return [...groups.entries()]
+      .sort((first, second) => first[0].localeCompare(second[0]))
+      .map(([subject, items]) => ({
+        subject,
+        quizzes: items,
+      }))
+  }, [filteredAvailableQuizzes])
+
+  useEffect(() => {
+    if (isSubjectLibraryRoute) {
+      setSelectedSubjectLibrary(routeSubject || null)
+      return
+    }
+    setSelectedSubjectLibrary(null)
+  }, [groupedAvailableQuizzes, isSubjectLibraryRoute, routeSubject, selectedSubjectLibrary])
 
   const selectedAttempt = useMemo(
     () => sortedStudentAttempts.find((attempt) => attempt.id === selectedAttemptId) ?? null,
@@ -1378,6 +2371,15 @@ function StudentQuizzesView() {
     () => (selectedAttempt ? quizzes.find((quiz) => quiz.id === selectedAttempt.quizId) ?? null : null),
     [quizzes, selectedAttempt]
   )
+
+  const selectedSubjectGroup = useMemo(
+    () => groupedAvailableQuizzes.find((group) => group.subject === selectedSubjectLibrary) ?? null,
+    [groupedAvailableQuizzes, selectedSubjectLibrary]
+  )
+
+  const openSubjectLibraryPage = (subject: string) => {
+    navigate(`/quizzes/library/subject?subject=${encodeURIComponent(subject)}`)
+  }
 
   useEffect(() => {
     if (!userId) return
@@ -1739,35 +2741,35 @@ function StudentQuizzesView() {
             <Badge label={`${bestScore}% best`} variant={bestScore >= 70 ? 'success' : 'info'} />
           </div>
         </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+        <div className="mt-4">
           <input
             value={quizSearch}
             onChange={(event) => setQuizSearch(event.target.value)}
             className="form-input"
             placeholder="Search by quiz title or subject"
           />
-          <div className="flex flex-wrap gap-2">
-            {[
-              { key: 'all', label: 'All' },
-              { key: 'pending', label: 'Pending' },
-              { key: 'attempted', label: 'Attempted' },
-              { key: 'dueSoon', label: 'Due Soon' },
-            ].map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                onClick={() => setStudentQuizFilter(option.key as StudentQuizFilter)}
-                className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition-colors ${
-                  studentQuizFilter === option.key
-                    ? 'bg-indigo-600 text-white'
-                    : 'border border-light-border text-light-ink-muted hover:bg-light-hover dark:border-dark-border dark:text-dark-ink-muted dark:hover:bg-dark-hover'
-                }`}
-              >
-                <Filter size={12} />
-                {option.label}
-              </button>
-            ))}
-          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'pending', label: 'Pending' },
+            { key: 'attempted', label: 'Attempted' },
+            { key: 'dueSoon', label: 'Due Soon' },
+          ].map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setStudentQuizFilter(option.key as StudentQuizFilter)}
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition-colors ${
+                studentQuizFilter === option.key
+                  ? 'bg-indigo-600 text-white'
+                  : 'border border-light-border text-light-ink-muted hover:bg-light-hover dark:border-dark-border dark:text-dark-ink-muted dark:hover:bg-dark-hover'
+              }`}
+            >
+              <Filter size={12} />
+              {option.label}
+            </button>
+          ))}
         </div>
         {activeSession && activeQuiz && !isAttemptRoute && (
           <div className="mt-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
@@ -1800,48 +2802,42 @@ function StudentQuizzesView() {
         </GlassCard>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <GlassCard className="p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Available Quizzes</h3>
-              <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
-                Unattempted quizzes are listed first so you can complete pending ones quickly.
-              </p>
-            </div>
-            {nextPendingQuiz ? (
-              <div className="rounded-2xl border border-indigo-200/70 bg-indigo-50/70 px-3 py-2 text-right dark:border-indigo-400/20 dark:bg-indigo-500/10">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">Next Priority</p>
-                <p className="mt-1 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{nextPendingQuiz.title}</p>
-                <p className="text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
-                  {nextPendingQuiz.deadlineAt ? `Due ${formatDateTime(nextPendingQuiz.deadlineAt)}` : 'No deadline set'}
+      {!isSubjectLibraryRoute && (
+        <GlassCard className="overflow-hidden">
+          <div className="border-b border-light-border px-5 py-4 dark:border-dark-border">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Recent Available Quizzes</h3>
+                <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                  Recently published or updated quizzes stay here for 5 days.
                 </p>
               </div>
-            ) : null}
+              <Badge label={`${recentAvailableQuizzes.length} recent`} variant="info" />
+            </div>
           </div>
-          <div className="slim-scrollbar mt-4 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
-            {filteredAvailableQuizzes.length === 0 ? (
+          <div className="slim-scrollbar max-h-[26rem] space-y-3 overflow-y-auto p-4">
+            {recentAvailableQuizzes.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-light-border p-8 text-center text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
-                No published quizzes match this search.
+                No recent quizzes available right now.
               </div>
-            ) : filteredAvailableQuizzes.map((quiz) => {
-              const attempted = attemptedQuizIds.has(quiz.id)
-              const deadlineMs = quiz.deadlineAt ? new Date(quiz.deadlineAt).getTime() : null
-              const dueSoon = deadlineMs != null && deadlineMs - Date.now() <= 1000 * 60 * 60 * 24 * 2
+            ) : recentAvailableQuizzes.map((quiz) => {
+              const dueSoon = quiz.deadlineAt
+                ? new Date(quiz.deadlineAt).getTime() - Date.now() <= 1000 * 60 * 60 * 24 * 2
+                : false
+
               return (
-                <div key={quiz.id} className="rounded-[1.6rem] border border-light-border bg-white/35 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.52)] dark:border-dark-border dark:bg-dark-card2/40">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div key={`recent-${quiz.id}`} className="rounded-[1.6rem] border border-light-border bg-white/45 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.52)] dark:border-dark-border dark:bg-dark-card2/40">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap gap-2">
-                        <Badge label={quiz.subject} variant="info" />
+                        <Badge label={safeText(quiz.subject) || 'General'} variant="info" />
+                        <Badge label="Recent" variant="success" />
                         <Badge label={formatDurationLabel(quiz.durationMinutes)} variant="info" />
-                        <Badge label={`${quiz.totalPoints} pts`} variant="info" />
                         {dueSoon ? <Badge label="Due soon" variant="warning" /> : null}
-                        {attempted ? <Badge label="Attempted" variant="success" /> : <Badge label="Pending" variant="warning" />}
                       </div>
                       <p className="mt-3 text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">{quiz.title}</p>
                       <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
-                        {quiz.questions.length} questions · {formatAcademicYearLabel(quiz.className)}
+                        {quiz.questions.length} questions · {formatAcademicYearLabel(quiz.className)} · Updated {formatDateTime(quiz.updatedAt || quiz.createdAt)}
                       </p>
                       {quiz.deadlineAt && (
                         <p className={`mt-1 text-xs ${dueSoon ? 'text-amber-600' : 'text-light-ink-muted dark:text-dark-ink-muted'}`}>
@@ -1849,26 +2845,13 @@ function StudentQuizzesView() {
                         </p>
                       )}
                       <p className="mt-2 text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
-                        {quiz.description?.trim() ? quiz.description : 'No description added.'}
+                        {safeText(quiz.description).trim() ? quiz.description : 'No description added.'}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {attempted ? (
-                        <button type="button" onClick={() => {
-                          const latestAttempt = sortedStudentAttempts.find((attempt) => attempt.quizId === quiz.id)
-                          if (latestAttempt) setSelectedAttemptId(latestAttempt.id)
-                        }} className="btn-ghost px-3 py-2 text-xs">
-                          <Eye size={13} /> Review Result
-                        </button>
-                      ) : activeSession?.quizId === quiz.id ? (
-                        <button type="button" onClick={() => navigate(`/quizzes/attempt/${quiz.id}`)} className="btn-primary px-3 py-2 text-xs">
-                          <TimerReset size={13} /> Resume Quiz
-                        </button>
-                      ) : (
-                        <button type="button" onClick={() => openQuiz(quiz)} className="btn-primary px-3 py-2 text-xs">
-                          <ClipboardCheck size={13} /> Start Quiz
-                        </button>
-                      )}
+                      <button type="button" onClick={() => openQuiz(quiz)} className="btn-primary px-3 py-2 text-xs">
+                        <ClipboardCheck size={13} /> Start Quiz
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1876,52 +2859,250 @@ function StudentQuizzesView() {
             })}
           </div>
         </GlassCard>
+      )}
 
-        <GlassCard className="flex min-h-0 flex-col overflow-hidden">
-          <div className="border-b border-light-border px-5 py-4 dark:border-dark-border">
-            <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">My Quiz Results</h3>
-            <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">Latest submitted quiz performance with detailed answer review.</p>
-          </div>
-          <div className="slim-scrollbar max-h-[34rem] overflow-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  {['Quiz', 'Subject', 'Score', 'Status', 'Submitted', 'Action'].map((heading) => <th key={heading}>{heading}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStudentAttempts.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-16 text-center text-light-ink-muted dark:text-dark-ink-muted">
-                      No quiz attempts found for this search.
-                    </td>
-                  </tr>
-                ) : filteredStudentAttempts.map((attempt) => {
-                  const quiz = quizzes.find((item) => item.id === attempt.quizId)
-                  const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
-                  const isPassed = percent >= 70
-                  return (
-                    <tr key={attempt.id}>
-                      <td>{quiz?.title ?? 'Quiz'}</td>
-                      <td>{quiz?.subject ?? 'Subject'}</td>
-                      <td>
-                        <Badge label={`${attempt.score}/${attempt.totalPoints} (${percent}%)`} variant={isPassed ? 'success' : 'warning'} />
-                      </td>
-                      <td><Badge label={isPassed ? 'Passed' : 'Needs Work'} variant={isPassed ? 'success' : 'danger'} /></td>
-                      <td>{formatDateTime(attempt.submittedAt)}</td>
-                      <td>
-                        <button type="button" onClick={() => setSelectedAttemptId(attempt.id)} className="btn-ghost px-3 py-2 text-xs">
-                          <Eye size={13} /> View Details
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+      {!isSubjectLibraryRoute && (
+        <GlassCard className="p-5">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Subject-wise Quiz Library</h3>
+                <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                  Choose a subject to explore your quiz set.
+                </p>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,22rem)_minmax(0,12rem)]">
+                <label className="relative block min-w-0">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-light-ink-muted dark:text-dark-ink-muted" />
+                  <input
+                    value={quizSearch}
+                    onChange={(event) => setQuizSearch(event.target.value)}
+                    className="form-input pl-9"
+                    placeholder="Search by quiz title or subject"
+                  />
+                </label>
+                <select value={studentQuizFilter} onChange={(event) => setStudentQuizFilter(event.target.value as StudentQuizFilter)} className="form-input min-w-0">
+                  <option value="all">All quizzes</option>
+                  <option value="pending">Pending</option>
+                  <option value="attempted">Attempted</option>
+                  <option value="dueSoon">Due soon</option>
+                </select>
+              </div>
+            </div>
+
+            {activeSession && activeQuiz && !isAttemptRoute && (
+              <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-amber-700">Quiz in progress: {activeQuiz.title}</p>
+                  <p className="mt-1 text-xs text-amber-700/80">Time Left {formatSecondsClock(timeLeftSeconds)}</p>
+                </div>
+                <button type="button" onClick={() => navigate(`/quizzes/attempt/${activeQuiz.id}`)} className="btn-ghost px-3 py-2 text-xs">
+                  <TimerReset size={13} /> Resume Quiz
+                </button>
+              </div>
+            )}
+
+            {groupedAvailableQuizzes.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-light-border p-8 text-center text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+                No published quizzes match this search.
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-light-border bg-white/35 dark:border-dark-border dark:bg-dark-card2/35">
+                <div className="flex items-center justify-between gap-3 border-b border-light-border px-5 py-4 dark:border-dark-border">
+                  <div>
+                    <p className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">{formatAcademicYearLabel(cohort)}</p>
+                    <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                      {groupedAvailableQuizzes.length} subject{groupedAvailableQuizzes.length === 1 ? '' : 's'} · {filteredAvailableQuizzes.length} quiz{filteredAvailableQuizzes.length === 1 ? '' : 'zes'}
+                    </p>
+                  </div>
+                  {nextPendingQuiz ? (
+                    <div className="rounded-2xl border border-indigo-200/70 bg-indigo-50/70 px-3 py-2 text-right dark:border-indigo-400/20 dark:bg-indigo-500/10">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">Next Priority</p>
+                      <p className="mt-1 text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">{nextPendingQuiz.title}</p>
+                      <p className="text-[11px] text-light-ink-muted dark:text-dark-ink-muted">
+                        {nextPendingQuiz.deadlineAt ? `Due ${formatDateTime(nextPendingQuiz.deadlineAt)}` : 'No deadline set'}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-4 p-4 xl:grid-cols-2">
+                  {groupedAvailableQuizzes.map((subjectGroup) => {
+                    const attemptedCount = subjectGroup.quizzes.filter((quiz) => attemptedQuizIds.has(quiz.id)).length
+                    const pendingCount = subjectGroup.quizzes.length - attemptedCount
+                    const subjectAverage = subjectGroup.quizzes
+                      .map((quiz) => {
+                        const attempt = sortedStudentAttempts.find((item) => item.quizId === quiz.id)
+                        return attempt ? Math.round((attempt.score / attempt.totalPoints) * 100) : null
+                      })
+                      .filter((value): value is number => value !== null)
+                    const averageLabel = subjectAverage.length > 0
+                      ? ` · ${Math.round(subjectAverage.reduce((sum, value) => sum + value, 0) / subjectAverage.length)}% avg score`
+                      : ''
+                    return (
+                      <button
+                        key={subjectGroup.subject}
+                        type="button"
+                        onClick={() => openSubjectLibraryPage(subjectGroup.subject)}
+                        className="rounded-2xl border border-light-border bg-white/55 p-4 text-left transition hover:border-indigo-300 hover:bg-indigo-500/[0.03] dark:border-dark-border dark:bg-dark-card/35"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{subjectGroup.subject}</p>
+                            <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                              {subjectGroup.quizzes.length} quiz{subjectGroup.quizzes.length === 1 ? '' : 'zes'}{averageLabel}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge label={`${pendingCount} pending`} variant="warning" />
+                            <Badge label={`${attemptedCount} attempted`} variant="success" />
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </GlassCard>
-      </div>
+      )}
+
+      {isSubjectLibraryRoute && (
+        <GlassCard className="overflow-hidden">
+          {!selectedSubjectGroup ? (
+            <div className="p-6">
+              <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">No quizzes found for this subject.</p>
+              <button type="button" onClick={() => navigate('/quizzes')} className="btn-primary mt-4 px-4 py-2 text-sm">
+                Back to Quiz Library
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-3 border-b border-light-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-dark-border">
+                <div>
+                  <p className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">{selectedSubjectGroup.subject}</p>
+                  <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                    {selectedSubjectGroup.quizzes.length} quiz{selectedSubjectGroup.quizzes.length === 1 ? '' : 'zes'} in {formatAcademicYearLabel(cohort)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge label={`${selectedSubjectGroup.quizzes.filter((quiz) => !attemptedQuizIds.has(quiz.id)).length} pending`} variant="warning" />
+                  <button type="button" onClick={() => navigate('/quizzes')} className="btn-ghost px-3 py-2 text-xs">
+                    <ArrowLeft size={13} /> Back to Library
+                  </button>
+                </div>
+              </div>
+              <div className="slim-scrollbar max-h-[70vh] space-y-3 overflow-y-auto p-4">
+                {selectedSubjectGroup.quizzes.map((quiz) => {
+                  const attempted = attemptedQuizIds.has(quiz.id)
+                  const deadlineMs = quiz.deadlineAt ? new Date(quiz.deadlineAt).getTime() : null
+                  const dueSoon = deadlineMs != null && deadlineMs - Date.now() <= 1000 * 60 * 60 * 24 * 2
+                  const latestAttempt = sortedStudentAttempts.find((attempt) => attempt.quizId === quiz.id)
+                  const percent = latestAttempt ? Math.round((latestAttempt.score / latestAttempt.totalPoints) * 100) : null
+
+                  return (
+                    <div key={quiz.id} className="rounded-[1.6rem] border border-light-border bg-white/45 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.52)] dark:border-dark-border dark:bg-dark-card2/40">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap gap-2">
+                            <Badge label={formatDurationLabel(quiz.durationMinutes)} variant="info" />
+                            <Badge label={`${quiz.totalPoints} pts`} variant="info" />
+                            {dueSoon ? <Badge label="Due soon" variant="warning" /> : null}
+                            {attempted ? <Badge label="Attempted" variant="success" /> : <Badge label="Pending" variant="warning" />}
+                            {percent !== null ? <Badge label={`${percent}% score`} variant={percent >= 70 ? 'success' : 'warning'} /> : null}
+                          </div>
+                          <p className="mt-3 text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">{quiz.title}</p>
+                          <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                            {quiz.questions.length} questions · {formatAcademicYearLabel(quiz.className)} · Updated {formatDateTime(quiz.updatedAt || quiz.createdAt)}
+                          </p>
+                          {quiz.deadlineAt && (
+                            <p className={`mt-1 text-xs ${dueSoon ? 'text-amber-600' : 'text-light-ink-muted dark:text-dark-ink-muted'}`}>
+                              Deadline: {formatDateTime(quiz.deadlineAt)}
+                            </p>
+                          )}
+                          <p className="mt-2 text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+                            {safeText(quiz.description).trim() ? quiz.description : 'No description added.'}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {attempted ? (
+                            <button type="button" onClick={() => latestAttempt && setSelectedAttemptId(latestAttempt.id)} className="btn-ghost px-3 py-2 text-xs">
+                              <Eye size={13} /> View Result
+                            </button>
+                          ) : activeSession?.quizId === quiz.id ? (
+                            <button type="button" onClick={() => navigate(`/quizzes/attempt/${quiz.id}`)} className="btn-primary px-3 py-2 text-xs">
+                              <TimerReset size={13} /> Resume Quiz
+                            </button>
+                          ) : (
+                            <button type="button" onClick={() => openQuiz(quiz)} className="btn-primary px-3 py-2 text-xs">
+                              <ClipboardCheck size={13} /> Start Quiz
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </GlassCard>
+      )}
+
+      <GlassCard className="overflow-hidden">
+        <div className="border-b border-light-border px-5 py-4 dark:border-dark-border">
+          <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">My Quiz Results</h3>
+          <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">Latest submitted quiz performance with detailed answer review.</p>
+        </div>
+        <div className="border-b border-light-border px-5 py-4 dark:border-dark-border">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              value={quizSearch}
+              onChange={(event) => setQuizSearch(event.target.value)}
+              className="form-input"
+              placeholder="Search results by quiz or subject"
+            />
+            <select value={resultFilter} onChange={(event) => setResultFilter(event.target.value as typeof resultFilter)} className="form-input">
+              <option value="all">All results</option>
+              <option value="passed">Passed only</option>
+              <option value="needsWork">Needs work</option>
+            </select>
+          </div>
+        </div>
+        <div className="space-y-3 p-4">
+          {filteredStudentAttempts.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-light-border p-8 text-center text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
+              No quiz attempts found for this search.
+            </div>
+          ) : filteredStudentAttempts.map((attempt) => {
+            const quiz = quizzes.find((item) => item.id === attempt.quizId)
+            const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
+            const isPassed = percent >= 70
+
+            return (
+              <div key={attempt.id} className="rounded-[1.6rem] border border-light-border bg-white/45 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.52)] dark:border-dark-border dark:bg-dark-card2/40">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge label={isPassed ? 'Passed' : 'Needs work'} variant={isPassed ? 'success' : 'danger'} />
+                      <Badge label={`${attempt.score}/${attempt.totalPoints} (${percent}%)`} variant={isPassed ? 'success' : 'warning'} />
+                    </div>
+                    <p className="mt-3 text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">{quiz?.title ?? 'Quiz'}</p>
+                    <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">{quiz?.subject ?? 'Subject'}</p>
+                    <p className="mt-1 text-xs text-light-ink-muted dark:text-dark-ink-muted">Submitted {formatDateTime(attempt.submittedAt)}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setSelectedAttemptId(attempt.id)} className="btn-ghost px-3 py-2 text-xs">
+                      <Eye size={13} /> View Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </GlassCard>
 
       <GlassCard className="p-4 sm:p-5">
         <div className="flex items-center gap-2">

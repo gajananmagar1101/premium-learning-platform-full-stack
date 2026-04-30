@@ -1,10 +1,10 @@
 import axios from 'axios'
 
 const LOCAL_API_CANDIDATES = [
-  'http://127.0.0.1:5003/api',
-  'http://localhost:5003/api',
   'http://127.0.0.1:5002/api',
   'http://localhost:5002/api',
+  'http://127.0.0.1:5003/api',
+  'http://localhost:5003/api',
 ]
 
 const normalizeApiUrl = (url: string) => (url.endsWith('/api') ? url : `${url.replace(/\/$/, '')}/api`)
@@ -29,6 +29,29 @@ const api = axios.create({
 
 let handlingUnauthorized = false
 
+const shouldRetryWithNextBaseUrl = (error: {
+  config?: { method?: string; __baseUrlRetryIndex?: number }
+  request?: unknown
+  response?: { status?: number; data?: { message?: string } }
+}) => {
+  const method = error.config?.method?.toLowerCase()
+  if (method && method !== 'get') {
+    return false
+  }
+
+  if (error.request && !error.response) {
+    return true
+  }
+
+  const status = error.response?.status
+  if (status !== 404 && status !== 405 && status !== 501) {
+    return false
+  }
+
+  const message = error.response?.data?.message?.toLowerCase() ?? ''
+  return message.includes('not found') || message.includes('route') || message.includes('cannot')
+}
+
 // Attach JWT token to every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
@@ -42,7 +65,7 @@ api.interceptors.response.use(
   async (err) => {
     const requestConfig = err.config as (typeof err.config & { __baseUrlRetryIndex?: number }) | undefined
 
-    if (err.request && !err.response && requestConfig) {
+    if (requestConfig && shouldRetryWithNextBaseUrl(err)) {
       const currentRetryIndex = requestConfig.__baseUrlRetryIndex ?? 0
       const nextBaseURL = BASE_URLS[currentRetryIndex + 1]
 

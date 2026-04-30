@@ -38,6 +38,35 @@ interface QuizState {
 const FALLBACK_STORAGE_KEY = 'quiz-store-fallback'
 const createId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
 const ENABLE_LOCAL_FALLBACK = import.meta.env.DEV
+const safeText = (value: unknown) => (typeof value === 'string' ? value : '')
+
+const normalizeQuiz = (quiz: Partial<Quiz> & { id: string }): Quiz => ({
+  id: quiz.id,
+  subjectId: safeText(quiz.subjectId) || undefined,
+  title: safeText(quiz.title),
+  subject: safeText(quiz.subject),
+  className: safeText(quiz.className),
+  description: safeText(quiz.description),
+  deadlineAt: safeText(quiz.deadlineAt) || undefined,
+  durationMinutes: Number.isFinite(quiz.durationMinutes) ? Number(quiz.durationMinutes) : 0,
+  status: quiz.status === 'published' || quiz.status === 'closed' ? quiz.status : 'draft',
+  questions: Array.isArray(quiz.questions)
+    ? quiz.questions.map((question) => ({
+      id: safeText(question.id) || createId(),
+      prompt: safeText(question.prompt),
+      options: Array.isArray(question.options)
+        ? question.options.map((option) => safeText(option))
+        : ['', '', '', ''],
+      correctOption: Number.isFinite(question.correctOption) ? Number(question.correctOption) : 0,
+      points: Number.isFinite(question.points) ? Number(question.points) : 1,
+    }))
+    : [],
+  totalPoints: Number.isFinite(quiz.totalPoints)
+    ? Number(quiz.totalPoints)
+    : (Array.isArray(quiz.questions) ? quiz.questions.reduce((sum, question) => sum + (Number(question.points) || 0), 0) : 0),
+  createdAt: safeText(quiz.createdAt) || new Date().toISOString(),
+  updatedAt: safeText(quiz.updatedAt) || safeText(quiz.createdAt) || new Date().toISOString(),
+})
 
 const normalizeQuizPayload = (input: CreateQuizInput) => ({
   ...input,
@@ -94,7 +123,11 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     set({ loading: true })
     try {
       const res = await quizAPI.getAll()
-      const quizzes = res.data.quizzes ?? []
+      const quizzes = Array.isArray(res.data.quizzes)
+        ? res.data.quizzes
+          .filter((quiz: Partial<Quiz> & { id?: string }) => Boolean(quiz?.id))
+          .map((quiz: Partial<Quiz> & { id: string }) => normalizeQuiz(quiz))
+        : []
       set((state) => {
         saveFallbackState(quizzes, state.attempts)
         return { quizzes }

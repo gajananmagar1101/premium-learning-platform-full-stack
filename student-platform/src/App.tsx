@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Suspense, lazy, useEffect } from 'react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useUIStore } from '@/store/useUIStore'
@@ -49,6 +49,88 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+const SCROLL_STORAGE_KEY = 'app-scroll-positions'
+
+function ScrollRestorationManager() {
+  const location = useLocation()
+
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual'
+    }
+
+    return () => {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'auto'
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const routeKey = `${location.pathname}${location.search}`
+
+    const loadPositions = () => {
+      try {
+        const raw = window.sessionStorage.getItem(SCROLL_STORAGE_KEY)
+        return raw ? JSON.parse(raw) as Record<string, number> : {}
+      } catch {
+        return {}
+      }
+    }
+
+    const savePosition = () => {
+      try {
+        const positions = loadPositions()
+        positions[routeKey] = window.scrollY
+        window.sessionStorage.setItem(SCROLL_STORAGE_KEY, JSON.stringify(positions))
+      } catch {
+        // ignore storage failures
+      }
+    }
+
+    const restorePosition = () => {
+      const positions = loadPositions()
+      const target = positions[routeKey]
+      if (typeof target === 'number') {
+        window.requestAnimationFrame(() => {
+          window.scrollTo({ top: target, left: 0, behavior: 'auto' })
+        })
+        return
+      }
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+      })
+    }
+
+    restorePosition()
+
+    let ticking = false
+    const handleScroll = () => {
+      if (ticking) return
+      ticking = true
+      window.requestAnimationFrame(() => {
+        savePosition()
+        ticking = false
+      })
+    }
+
+    const handleBeforeUnload = () => {
+      savePosition()
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      savePosition()
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [location.pathname, location.search])
+
+  return null
+}
+
 export default function App() {
   const { user, hydrated, markHydrated } = useAuthStore()
   const darkMode = useUIStore((state) => state.darkMode)
@@ -81,6 +163,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ScrollRestorationManager />
       <Suspense fallback={<AppShellFallback />}>
         <Routes>
           <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
@@ -93,6 +176,8 @@ export default function App() {
             <Route path="/assessments" element={<Assessments />} />
             <Route path="/quizzes" element={<Quizzes />} />
             <Route path="/quizzes/create" element={<Quizzes />} />
+            <Route path="/quizzes/subject" element={<ProtectedRoute adminOnly><Quizzes /></ProtectedRoute>} />
+            <Route path="/quizzes/library/subject" element={<Quizzes />} />
             <Route path="/quizzes/attempt/:quizId" element={<Quizzes />} />
             <Route path="/assessments/subject" element={<ProtectedRoute adminOnly><SubjectAssignmentsPage /></ProtectedRoute>} />
             <Route path="/students" element={<ProtectedRoute adminOnly><Students /></ProtectedRoute>} />

@@ -496,7 +496,7 @@ function AdminAssignmentsView() {
     setModalOpen(true)
   }
 
-  const useAsTemplate = (assignment: AssignmentItem) => {
+  const cloneAsTemplate = (assignment: AssignmentItem) => {
     setEditing(null)
     setQuestionFileName(assignment.questionFileName ?? null)
     setQuestionFileContent(assignment.questionFileContent ?? null)
@@ -736,7 +736,7 @@ function AdminAssignmentsView() {
                       <button type="button" onClick={() => openEdit(assignment)} className="btn-ghost px-3 py-2 text-xs">
                         <Edit3 size={13} /> Edit
                       </button>
-                      <button type="button" onClick={() => useAsTemplate(assignment)} className="btn-ghost px-3 py-2 text-xs">
+                      <button type="button" onClick={() => cloneAsTemplate(assignment)} className="btn-ghost px-3 py-2 text-xs">
                         <Copy size={13} /> Template
                       </button>
                       <button

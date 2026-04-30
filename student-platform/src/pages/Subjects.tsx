@@ -174,7 +174,7 @@ export function Subjects() {
               </div>
               <h2 className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">Add Subject</h2>
               <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
-                Specific year select kara ani tya year sathi subjects ekdach add kara.
+                Select a specific academic year and add all subjects for that year in one step.
               </p>
             </div>
             <Badge variant="info" label={`${years.length} years`} />
@@ -228,7 +228,7 @@ export function Subjects() {
             <div>
               <h2 className="text-lg font-semibold text-light-ink-primary dark:text-dark-ink-primary">Year-wise Subjects</h2>
               <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
-                Year open kela ki tya year che subjects disatil.
+                Expand a year to view the subjects assigned to that cohort.
               </p>
             </div>
             <Badge variant="success" label={`${subjects.length} subjects`} />
