@@ -866,17 +866,261 @@ function AdminQuizzesView() {
     }
   }
 
+  const quizDeleteModal = (
+    <Modal open={Boolean(quizToDelete)} onClose={() => setQuizToDelete(null)} title="Delete Quiz">
+      <div className="space-y-4">
+        <p className="text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+          Delete <span className="font-semibold">{quizToDelete?.title}</span>? Related attempts will also be removed.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={() => setQuizToDelete(null)} className="btn-ghost">Cancel</button>
+          <button type="button" onClick={handleDeleteQuiz} className="inline-flex items-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white">
+            <Trash2 size={14} /> Delete Quiz
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+
   if (isSubjectRoute) {
     return (
-      <AdminQuizSubjectPage
-        quizzes={quizzes}
-        attempts={visibleAttempts}
-        students={students}
-        onEdit={openEdit}
-        onDelete={setQuizToDelete}
-        onPublish={handlePublishQuiz}
-        onTemplate={cloneAsTemplate}
-      />
+      <>
+        <AdminQuizSubjectPage
+          quizzes={quizzes}
+          attempts={visibleAttempts}
+          students={students}
+          onEdit={openEdit}
+          onDelete={setQuizToDelete}
+          onPublish={handlePublishQuiz}
+          onTemplate={cloneAsTemplate}
+        />
+        {modalOpen && (
+          <div className="fixed inset-0 z-[120] overflow-y-auto bg-slate-950/45 px-4 py-6 backdrop-blur-sm">
+            <div className="mx-auto flex min-h-full max-w-6xl items-start justify-center">
+              <GlassCard className="w-full max-w-5xl p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.24em] text-light-ink-muted dark:text-dark-ink-muted">
+                      {editing ? 'Edit quiz' : 'Use as template'}
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                      {editing ? `Refine ${editing.title}` : 'Create a new quiz draft'}
+                    </h2>
+                    <p className="mt-2 text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                      Keep the same subject and year details, then adjust questions before saving.
+                    </p>
+                  </div>
+                  <button type="button" onClick={closeModal} className="btn-ghost px-3 py-2 text-xs">Close</button>
+                </div>
+
+                <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)}>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="space-y-2 text-sm">
+                      <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">Title</span>
+                      <input
+                        {...register('title', { required: 'Quiz title is required' })}
+                        className="form-input"
+                        placeholder="Operating Systems - Unit 1 Quiz"
+                      />
+                      {errors.title && <span className="text-xs text-red-500">{errors.title.message}</span>}
+                    </label>
+
+                    <label className="space-y-2 text-sm">
+                      <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">Academic year</span>
+                      <select {...register('className', { required: 'Select a year' })} className="form-input">
+                        <option value="">Select year</option>
+                        {btechYearOptions.map((year) => (
+                          <option key={year.value} value={year.value}>{year.label}</option>
+                        ))}
+                      </select>
+                      {errors.className && <span className="text-xs text-red-500">{errors.className.message}</span>}
+                    </label>
+
+                    <label className="space-y-2 text-sm">
+                      <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">Subject</span>
+                      <select
+                        {...register('subjectId', { required: 'Select a subject' })}
+                        className="form-input"
+                        disabled={!selectedFormYear || subjectsLoading}
+                      >
+                        <option value="">
+                          {selectedFormYear
+                            ? (subjectsLoading ? 'Loading subjects...' : 'Select subject')
+                            : 'Select year first'}
+                        </option>
+                        {availableSubjects.map((subject) => (
+                          <option key={subject.id} value={subject.id}>{subject.name}</option>
+                        ))}
+                      </select>
+                      {!selectedSubject && subjectPrefillName && (
+                        <span className="text-xs text-light-ink-muted dark:text-dark-ink-muted">
+                          Current subject: {subjectPrefillName}
+                        </span>
+                      )}
+                      {errors.subjectId && <span className="text-xs text-red-500">{errors.subjectId.message}</span>}
+                    </label>
+
+                    <label className="space-y-2 text-sm">
+                      <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">Status</span>
+                      <select {...register('status')} className="form-input">
+                        <option value="draft">Draft</option>
+                        <option value="published">Published</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                    </label>
+
+                    <label className="space-y-2 text-sm">
+                      <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">Deadline</span>
+                      <input {...register('deadlineAt')} type="datetime-local" className="form-input" />
+                    </label>
+
+                    <label className="space-y-2 text-sm">
+                      <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">Duration (minutes)</span>
+                      <input
+                        {...register('durationMinutes', { valueAsNumber: true, min: { value: 1, message: 'Minimum 1 minute' } })}
+                        type="number"
+                        min={1}
+                        className="form-input"
+                      />
+                      {errors.durationMinutes && <span className="text-xs text-red-500">{errors.durationMinutes.message}</span>}
+                    </label>
+                  </div>
+
+                  <label className="space-y-2 text-sm">
+                    <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">Description</span>
+                    <textarea
+                      {...register('description')}
+                      rows={3}
+                      className="form-input min-h-[7rem] resize-y"
+                      placeholder="Add a short note for students."
+                    />
+                  </label>
+
+                  <div className="rounded-3xl border border-light-border p-4 dark:border-dark-border">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Questions</p>
+                        <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">
+                          Add, reorder mentally, and polish every question before saving.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <label className="inline-flex items-center gap-2 text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
+                          <input
+                            type="checkbox"
+                            checked={applySamePoints}
+                            onChange={(event) => setApplySamePoints(event.target.checked)}
+                          />
+                          Same points for all
+                        </label>
+                        {applySamePoints && (
+                          <input
+                            type="number"
+                            min={1}
+                            value={bulkPoints}
+                            onChange={(event) => setBulkPoints(Math.max(1, Number(event.target.value) || 1))}
+                            className="form-input w-24"
+                          />
+                        )}
+                        <button type="button" onClick={addQuestion} className="btn-ghost px-3 py-2 text-xs">
+                          <Plus size={13} /> Add question
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-4">
+                      {questions.map((question, questionIndex) => (
+                        <div key={question.id} className="rounded-2xl border border-light-border bg-white/60 p-4 dark:border-dark-border dark:bg-dark-card2/50">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-light-ink-primary dark:text-dark-ink-primary">
+                              Question {questionIndex + 1}
+                            </p>
+                            <button
+                              type="button"
+                              disabled={questions.length === 1}
+                              onClick={() => setQuestions((current) => current.filter((item) => item.id !== question.id))}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <Trash2 size={12} /> Remove
+                            </button>
+                          </div>
+
+                          <div className="mt-4 grid gap-4">
+                            <label className="space-y-2 text-sm">
+                              <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">Prompt</span>
+                              <textarea
+                                value={question.prompt}
+                                onChange={(event) => updateQuestion(question.id, (current) => ({ ...current, prompt: event.target.value }))}
+                                rows={3}
+                                className="form-input min-h-[7rem] resize-y"
+                                placeholder="Write the question"
+                              />
+                            </label>
+
+                            <div className="grid gap-3 md:grid-cols-2">
+                              {question.options.map((option, optionIndex) => (
+                                <label key={`${question.id}-option-${optionIndex}`} className="space-y-2 text-sm">
+                                  <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">Option {optionIndex + 1}</span>
+                                  <input
+                                    value={option}
+                                    onChange={(event) => updateQuestion(question.id, (current) => ({
+                                      ...current,
+                                      options: current.options.map((entry, index) => (index === optionIndex ? event.target.value : entry)),
+                                    }))}
+                                    className="form-input"
+                                    placeholder={`Option ${optionIndex + 1}`}
+                                  />
+                                </label>
+                              ))}
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <label className="space-y-2 text-sm">
+                                <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">Correct option</span>
+                                <select
+                                  value={question.correctOption}
+                                  onChange={(event) => updateQuestion(question.id, (current) => ({ ...current, correctOption: Number(event.target.value) }))}
+                                  className="form-input"
+                                >
+                                  {question.options.map((_, optionIndex) => (
+                                    <option key={`${question.id}-correct-${optionIndex}`} value={optionIndex}>
+                                      Option {optionIndex + 1}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+
+                              <label className="space-y-2 text-sm">
+                                <span className="font-medium text-light-ink-primary dark:text-dark-ink-primary">Points</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={question.points}
+                                  onChange={(event) => updateQuestion(question.id, (current) => ({ ...current, points: Math.max(1, Number(event.target.value) || 1) }))}
+                                  className="form-input"
+                                  disabled={applySamePoints}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button type="button" onClick={closeModal} className="btn-ghost flex-1 justify-center">Cancel</button>
+                    <button type="submit" className="btn-primary flex-1 justify-center">
+                      {editing ? 'Update Quiz' : 'Create Quiz'}
+                    </button>
+                  </div>
+                </form>
+              </GlassCard>
+            </div>
+          </div>
+        )}
+        {quizDeleteModal}
+      </>
     )
   }
 
@@ -1426,6 +1670,13 @@ function AdminQuizzesView() {
                         <button type="button" onClick={() => cloneAsTemplate(quiz)} className="btn-ghost px-3 py-2 text-xs">
                           <Copy size={13} /> Template
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setQuizToDelete(quiz)}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1888,19 +2139,7 @@ function AdminQuizzesView() {
         </div>
       )}
 
-      <Modal open={Boolean(quizToDelete)} onClose={() => setQuizToDelete(null)} title="Delete Quiz">
-        <div className="space-y-4">
-          <p className="text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
-            Delete <span className="font-semibold">{quizToDelete?.title}</span>? Related attempts will also be removed.
-          </p>
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setQuizToDelete(null)} className="btn-ghost">Cancel</button>
-            <button type="button" onClick={handleDeleteQuiz} className="inline-flex items-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white">
-              <Trash2 size={14} /> Delete Quiz
-            </button>
-          </div>
-        </div>
-      </Modal>
+      {quizDeleteModal}
     </div>
   )
 }

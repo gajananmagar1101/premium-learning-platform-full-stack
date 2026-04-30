@@ -93,7 +93,8 @@
 
   .portal-scroll-region {
     min-height: 0;
-    overscroll-behavior: contain;
+    overscroll-behavior-x: auto;
+    overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
   }
 
