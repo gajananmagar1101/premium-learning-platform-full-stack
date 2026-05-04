@@ -2,6 +2,8 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const { connectDB, getDatabaseHealth, isTruthy } = require('./config/db')
+const { wantsHtml, sendBrowserMessagePage } = require('./utils/browserResponse')
+const clientAppUrl = process.env.CLIENT_APP_URL || process.env.CLIENT_ORIGINS?.split(',')[0]?.trim() || ''
 
 const app = express()
 const requiredEnv = ['MONGO_URI', 'JWT_SECRET', 'ADMIN_EMAIL', 'ADMIN_PASSWORD']
@@ -44,6 +46,17 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }))
 
 // Root route
 app.get('/', (_, res) => {
+  if (wantsHtml(_)) {
+    return sendBrowserMessagePage(_, res, {
+      statusCode: 200,
+      eyebrow: 'Backend Online',
+      title: 'Student Learning Platform API',
+      message: 'The backend is running successfully. Use the frontend app to sign in, manage learners, and work with the platform experience.',
+      hint: 'Developer endpoints: /api/health, /api/auth, /api/users, /api/assessments, /api/scores, /api/quizzes',
+      appUrl: clientAppUrl,
+    })
+  }
+
   res.json({
     success: true,
     message: '🎓 EduTrack API is live',

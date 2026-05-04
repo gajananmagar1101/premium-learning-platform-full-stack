@@ -2,6 +2,7 @@ package com.studentplatform.backend.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studentplatform.backend.security.JwtAuthenticationFilter;
+import com.studentplatform.backend.util.BrowserPageRenderer;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,17 +35,20 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService;
     private final ObjectMapper objectMapper;
     private final CorsProperties corsProperties;
+    private final String frontendUrl;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
             UserDetailsService userDetailsService,
             ObjectMapper objectMapper,
-            CorsProperties corsProperties
+            CorsProperties corsProperties,
+            @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5173}") String frontendUrl
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
         this.objectMapper = objectMapper;
         this.corsProperties = corsProperties;
+        this.frontendUrl = frontendUrl;
     }
 
     @Bean
@@ -62,12 +66,36 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            if (BrowserPageRenderer.wantsHtml(request)) {
+                                response.setContentType(MediaType.TEXT_HTML_VALUE);
+                                response.getWriter().write(BrowserPageRenderer.buildPage(
+                                        "Invalid or expired token",
+                                        "Session Expired",
+                                        "Your session token is no longer valid. Please go back to the app and sign in again to continue.",
+                                        "This usually happens when the token has expired, the link is old, or the request was opened directly in the browser.",
+                                        frontendUrl,
+                                        HttpServletResponse.SC_UNAUTHORIZED
+                                ));
+                                return;
+                            }
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             objectMapper.writeValue(response.getOutputStream(),
                                     Map.of("success", false, "message", "Invalid or expired token."));
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
                             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            if (BrowserPageRenderer.wantsHtml(request)) {
+                                response.setContentType(MediaType.TEXT_HTML_VALUE);
+                                response.getWriter().write(BrowserPageRenderer.buildPage(
+                                        "Admin access required",
+                                        "Access Restricted",
+                                        "This page is available only to admin-level users in the platform.",
+                                        "If you believe you should have access, sign in with the correct account or contact the admin.",
+                                        frontendUrl,
+                                        HttpServletResponse.SC_FORBIDDEN
+                                ));
+                                return;
+                            }
                             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             objectMapper.writeValue(response.getOutputStream(),
                                     Map.of("success", false, "message", "Admin access required."));
