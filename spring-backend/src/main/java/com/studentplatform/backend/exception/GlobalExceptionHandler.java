@@ -38,7 +38,21 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
-        return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid request data."));
+        String message = ex.getMessage();
+        if (message == null || message.isBlank()) {
+            message = "Invalid request data.";
+        }
+        return ResponseEntity.badRequest().body(Map.of("success", false, "message", message));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
+        String message = ex.getMessage();
+        if (message == null || message.isBlank()) {
+            message = "Unable to process the request.";
+        }
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("success", false, "message", message));
     }
 
     @ExceptionHandler(DuplicateKeyException.class)

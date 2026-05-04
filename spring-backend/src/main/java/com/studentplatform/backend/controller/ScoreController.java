@@ -29,20 +29,20 @@ public class ScoreController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public Map<String, Object> getAll() {
         return Map.of("success", true, "scores", scoreService.getAll());
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> assign(@Valid @RequestBody ScoreAssignmentRequest request) {
         return Map.of("success", true, "score", scoreService.assign(request));
     }
 
     @GetMapping("/analytics")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public Map<String, Object> analytics() {
         return Map.of("success", true, "analytics", scoreService.getAnalytics());
     }
@@ -56,7 +56,7 @@ public class ScoreController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public Map<String, Object> delete(@PathVariable String id) {
         scoreService.delete(id);
         return Map.of("success", true, "message", "Score deleted.");

@@ -27,7 +27,7 @@ public class SubjectController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public Map<String, Object> getAll() {
         return Map.of(
                 "success", true,
@@ -44,7 +44,7 @@ public class SubjectController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> create(@Valid @RequestBody CreateSubjectRequest request) {
         return Map.of(
@@ -54,7 +54,7 @@ public class SubjectController {
     }
 
     @DeleteMapping("/{subjectId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public Map<String, Object> delete(@PathVariable String subjectId) {
         subjectService.delete(subjectId);
         return Map.of(

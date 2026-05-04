@@ -38,9 +38,36 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  isEmailVerified: {
+    type: Boolean,
+    default: false,
+  },
+  emailVerificationTokenHash: {
+    type: String,
+    default: null,
+    select: false,
+  },
+  emailVerificationExpiresAt: {
+    type: Date,
+    default: null,
+    select: false,
+  },
+  emailVerificationSentAt: {
+    type: Date,
+    default: null,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
+  },
+  accessBlockedUntil: {
+    type: Date,
+    default: null,
+  },
+  accessBlockReason: {
+    type: String,
+    default: null,
+    trim: true,
   },
 })
 

@@ -18,6 +18,7 @@ const seed = async () => {
     email: process.env.ADMIN_EMAIL,
     password: process.env.ADMIN_PASSWORD,
     role: 'admin',
+    isEmailVerified: true,
   })
 
   // Create students
@@ -28,7 +29,7 @@ const seed = async () => {
     { name: 'David Lee', email: 'david@school.edu', password: 'student123', grade: '11th' },
     { name: 'Emma Davis', email: 'emma@school.edu', password: 'student123', grade: '12th' },
   ]
-  const students = await User.create(studentData.map((s) => ({ ...s, role: 'student' })))
+  const students = await User.create(studentData.map((s) => ({ ...s, role: 'student', isEmailVerified: true })))
 
   // Create assessments
   const assessments = await Assessment.create([

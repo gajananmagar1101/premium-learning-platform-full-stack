@@ -6,7 +6,21 @@ export const authAPI = {
     api.post('/auth/register', data),
   login: (data: { email: string; password: string }) =>
     api.post('/auth/login', data),
+  verifyEmail: (data: { email: string; otp: string }) =>
+    api.post('/auth/verify-email', data),
+  resendVerification: (data: { email: string }) =>
+    api.post('/auth/resend-verification', data),
   getMe: () => api.get('/auth/me'),
+}
+
+export const facultyRequestAPI = {
+  getAll: () => api.get('/users/faculty-requests'),
+  getFaculty: () => api.get('/users/faculty'),
+  approve: (id: string) => api.put(`/users/faculty-requests/${id}/approve`),
+  reject: (id: string) => api.put(`/users/faculty-requests/${id}/reject`),
+  updateAccess: (id: string, data: { blockedUntil?: string | null; reason?: string }) =>
+    api.put(`/users/faculty/${id}/access`, data),
+  delete: (id: string) => api.delete(`/users/faculty/${id}`),
 }
 
 // ── Assessments ───────────────────────────────────────
@@ -22,6 +36,8 @@ export const studentAPI = {
   getAll: () => api.get('/users/students'),
   getOne: (id: string) => api.get(`/users/students/${id}`),
   update: (id: string, data: object) => api.put(`/users/students/${id}`, data),
+  updateAccess: (id: string, data: { blockedUntil?: string | null; reason?: string }) =>
+    api.put(`/users/students/${id}/access`, data),
   updateMe: (data: { name: string; email: string; grade?: string }) => api.put('/users/me', data),
   delete: (id: string) => api.delete(`/users/students/${id}`),
   getMyScores: () => api.get('/users/me/scores'),

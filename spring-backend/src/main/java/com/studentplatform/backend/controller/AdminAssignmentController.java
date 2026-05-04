@@ -21,7 +21,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/assignments")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
 public class AdminAssignmentController {
 
     private final AssignmentManagementService assignmentManagementService;

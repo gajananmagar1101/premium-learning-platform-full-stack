@@ -8,6 +8,17 @@ spring:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/student_platform}
       auto-index-creation: false
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASS:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:true}
 server:
   port: ${PORT:5003}
 
@@ -15,6 +26,7 @@ app:
   jwt:
     secret: ${JWT_SECRET:6i6dwD3Fkj5HcXf0R7BgyTHj0aE22l2oWl7w0eb5yL7eWwL9xF4XEtz9VbXlA0rV}
     expiration-days: ${JWT_EXPIRATION_DAYS:7}
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
   cors:
     allowed-origins:
       - ${FRONTEND_URL:http://localhost:5173}

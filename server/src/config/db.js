@@ -40,10 +40,12 @@ const syncSingleAdmin = async () => {
       password: adminPassword,
       role: 'admin',
       grade: '',
+      isEmailVerified: true,
     })
   } else {
     adminUser.name = adminName
     adminUser.role = 'admin'
+    adminUser.isEmailVerified = true
     const matchesPassword = await adminUser.comparePassword(adminPassword)
     if (!matchesPassword) adminUser.password = adminPassword
   }

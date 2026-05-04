@@ -76,9 +76,18 @@ public class DataSeeder implements CommandLineRunner {
             user.setEmail(adminEmail);
             user.setPassword(passwordEncoder.encode(adminPassword));
             user.setRole(Role.ADMIN);
+            user.setEmailVerified(true);
             user.prepareForSave();
             return userRepository.save(user);
         });
+
+        if (!admin.isEmailVerified()) {
+            admin.setEmailVerified(true);
+            admin.setEmailVerificationTokenHash(null);
+            admin.setEmailVerificationExpiresAt(null);
+            admin.setEmailVerificationSentAt(null);
+            userRepository.save(admin);
+        }
 
         if (!seedDemoData || userRepository.countByRole(Role.STUDENT) > 0 || assessmentRepository.count() > 0) {
             return;
@@ -127,6 +136,7 @@ public class DataSeeder implements CommandLineRunner {
         user.setPassword(passwordEncoder.encode("Student@123"));
         user.setRole(Role.STUDENT);
         user.setGrade(grade);
+        user.setEmailVerified(true);
         user.prepareForSave();
         return userRepository.save(user);
     }

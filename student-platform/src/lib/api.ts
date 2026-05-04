@@ -29,6 +29,11 @@ const api = axios.create({
 
 let handlingUnauthorized = false
 
+const isAuthRequest = (url?: string) => {
+  if (!url) return false
+  return url.includes('/auth/login') || url.includes('/auth/register')
+}
+
 const shouldRetryWithNextBaseUrl = (error: {
   config?: { method?: string; __baseUrlRetryIndex?: number }
   request?: unknown
@@ -77,13 +82,30 @@ api.interceptors.response.use(
       }
     }
 
-    if (err.response?.status === 401 && !handlingUnauthorized) {
+    if (err.response?.status === 401 && !handlingUnauthorized && !isAuthRequest(requestConfig?.url)) {
       handlingUnauthorized = true
       localStorage.removeItem('token')
       localStorage.removeItem('auth-store')
 
       if (window.location.pathname !== '/login') {
         window.location.replace('/login')
+      }
+
+      window.setTimeout(() => {
+        handlingUnauthorized = false
+      }, 250)
+    }
+
+    if (
+      err.response?.status === 403 &&
+      typeof err.response?.data?.message === 'string' &&
+      err.response.data.message.toLowerCase().includes('temporarily blocked') &&
+      !handlingUnauthorized
+    ) {
+      handlingUnauthorized = true
+
+      if (window.location.pathname !== '/account-blocked') {
+        window.location.replace('/account-blocked')
       }
 
       window.setTimeout(() => {

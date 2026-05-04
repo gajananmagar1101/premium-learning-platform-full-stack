@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, RefreshCw, Trash2, UserX } from 'lucide-react'
+import { ArrowLeft, Ban, Clock3, RefreshCw, ShieldAlert, Trash2, Unlock, UserX } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Modal } from '@/components/ui/Modal'
 import { useStudentStore } from '@/store/useStudentStore'
+import { useAuthStore } from '@/store/useAuthStore'
 import { useUIStore } from '@/store/useUIStore'
 import { studentAPI } from '@/lib/services'
 import { formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
@@ -18,20 +19,59 @@ const avatarColors = [
   'from-blue-500 to-cyan-600',
 ]
 
+const toLocalDateTimeValue = (isoText?: string | null) => {
+  if (!isoText) return ''
+
+  const date = new Date(isoText)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const timezoneOffsetMs = date.getTimezoneOffset() * 60 * 1000
+  return new Date(date.getTime() - timezoneOffsetMs).toISOString().slice(0, 16)
+}
+
 export function ClassStudentsPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const grade = searchParams.get('grade') ?? 'FE'
-  const { students, loading, error, fetchStudents, removeStudent } = useStudentStore()
+  const user = useAuthStore((state) => state.user)
+  const { students, loading, error, fetchStudents, removeStudent, updateStudent } = useStudentStore()
   const addToast = useUIStore((state) => state.addToast)
   const [search, setSearch] = useState('')
   const [studentToDelete, setStudentToDelete] = useState<DBStudent | null>(null)
+  const [processingId, setProcessingId] = useState<string | null>(null)
+  const [blockUntilByStudent, setBlockUntilByStudent] = useState<Record<string, string>>({})
+  const [blockReasonByStudent, setBlockReasonByStudent] = useState<Record<string, string>>({})
+  const canManageStudentAccess = user?.role === 'admin'
 
   useEffect(() => {
     if (students.length === 0) {
       fetchStudents()
     }
   }, [fetchStudents, students.length])
+
+  useEffect(() => {
+    setBlockUntilByStudent((current) => {
+      const next = { ...current }
+      students.forEach((student) => {
+        const studentId = student._id ?? student.id
+        if (next[studentId] == null) {
+          next[studentId] = toLocalDateTimeValue(student.accessBlockedUntil)
+        }
+      })
+      return next
+    })
+
+    setBlockReasonByStudent((current) => {
+      const next = { ...current }
+      students.forEach((student) => {
+        const studentId = student._id ?? student.id
+        if (next[studentId] == null) {
+          next[studentId] = student.accessBlockReason ?? ''
+        }
+      })
+      return next
+    })
+  }, [students])
 
   const filtered = useMemo(
     () =>
@@ -62,6 +102,45 @@ export function ClassStudentsPage() {
       setStudentToDelete(null)
     } catch {
       addToast('Failed to delete learner', 'error')
+    }
+  }
+
+  const handleAccessUpdate = async (student: DBStudent, mode: 'block' | 'restore') => {
+    const studentId = student._id ?? student.id
+    setProcessingId(studentId)
+
+    try {
+      if (mode === 'restore') {
+        const response = await studentAPI.updateAccess(studentId, { blockedUntil: null, reason: '' })
+        const updatedStudent = response.data.student as DBStudent
+        updateStudent(updatedStudent)
+        setBlockUntilByStudent((current) => ({ ...current, [studentId]: '' }))
+        setBlockReasonByStudent((current) => ({ ...current, [studentId]: '' }))
+        addToast('Learner access restored', 'success')
+        return
+      }
+
+      const blockUntilValue = blockUntilByStudent[studentId]
+      if (!blockUntilValue) {
+        addToast('Select block-until date and time', 'error')
+        return
+      }
+
+      const blockUntilIso = new Date(blockUntilValue).toISOString()
+      const response = await studentAPI.updateAccess(studentId, {
+        blockedUntil: blockUntilIso,
+        reason: blockReasonByStudent[studentId]?.trim() || undefined,
+      })
+      const updatedStudent = response.data.student as DBStudent
+      updateStudent(updatedStudent)
+      setBlockUntilByStudent((current) => ({ ...current, [studentId]: toLocalDateTimeValue(updatedStudent.accessBlockedUntil) }))
+      setBlockReasonByStudent((current) => ({ ...current, [studentId]: updatedStudent.accessBlockReason ?? '' }))
+      addToast('Learner access blocked', 'info')
+    } catch (error) {
+      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+      addToast(message ?? 'Failed to update learner access', 'error')
+    } finally {
+      setProcessingId(null)
     }
   }
 
@@ -141,7 +220,14 @@ export function ClassStudentsPage() {
                       {student.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm truncate">{student.name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-gray-900 text-sm truncate">{student.name}</p>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                          student.accessBlocked ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {student.accessBlocked ? 'Blocked' : 'Active'}
+                        </span>
+                      </div>
                       <p className="text-xs text-gray-500 truncate">{student.email}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">
@@ -149,16 +235,83 @@ export function ClassStudentsPage() {
                         </span>
                         <span className="text-xs text-gray-400">Joined {new Date(student.createdAt).toLocaleDateString()}</span>
                       </div>
+                      {student.accessBlocked && student.accessBlockedUntil ? (
+                        <p className="mt-2 flex items-center gap-1 text-xs font-medium text-red-600">
+                          <Clock3 size={12} />
+                          Blocked until {new Date(student.accessBlockedUntil).toLocaleString()}
+                        </p>
+                      ) : (
+                        <p className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-600">
+                          <ShieldAlert size={12} />
+                          Learner can access the portal right now.
+                        </p>
+                      )}
+                      {student.accessBlocked && student.accessBlockReason ? (
+                        <p className="mt-1 text-xs text-gray-500">Reason: {student.accessBlockReason}</p>
+                      ) : null}
                     </div>
-                    <button
-                      onClick={(e) => openDeleteConfirmation(student, e)}
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
-                      title="Delete learner"
-                    >
-                      <Trash2 size={14} />
-                    </button>
                   </div>
-                  <p className="text-xs text-indigo-500 mt-3 font-medium">Click to view scores & details →</p>
+                  {canManageStudentAccess ? (
+                    <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white/70 p-3" onClick={(event) => event.stopPropagation()}>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <label className="block">
+                          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">Block Until</span>
+                          <input
+                            type="datetime-local"
+                            value={blockUntilByStudent[student._id] ?? ''}
+                            onChange={(event) => {
+                              const nextValue = event.target.value
+                              setBlockUntilByStudent((current) => ({ ...current, [student._id]: nextValue }))
+                            }}
+                            className="form-input w-full"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">Reason</span>
+                          <input
+                            type="text"
+                            value={blockReasonByStudent[student._id] ?? ''}
+                            onChange={(event) => {
+                              const nextValue = event.target.value
+                              setBlockReasonByStudent((current) => ({ ...current, [student._id]: nextValue }))
+                            }}
+                            placeholder="Optional reason"
+                            className="form-input w-full"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={processingId === student._id}
+                          onClick={() => void handleAccessUpdate(student, 'block')}
+                          className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
+                        >
+                          <Ban size={13} />
+                          Block account
+                        </button>
+                        <button
+                          type="button"
+                          disabled={processingId === student._id || !student.accessBlocked}
+                          onClick={() => void handleAccessUpdate(student, 'restore')}
+                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60"
+                        >
+                          <Unlock size={13} />
+                          Restore access
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => openDeleteConfirmation(student, event)}
+                          className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                        >
+                          <Trash2 size={13} />
+                          Delete account
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <p className="text-xs text-indigo-500 mt-3 font-medium">Click card to view scores & details →</p>
                 </GlassCard>
               </motion.div>
             )

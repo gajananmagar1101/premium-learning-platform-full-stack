@@ -2,11 +2,23 @@ const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 const { getEmailValidationMessage, isRealisticEmail, normalizeEmail } = require('../utils/emailValidation')
 const { normalizeRole } = require('../utils/roles')
-
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.toLowerCase().trim()
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN })
+
+const serializeUser = (user) => {
+  const data = typeof user?.toObject === 'function' ? user.toObject() : { ...user }
+  const blockedUntil = data.accessBlockedUntil ? new Date(data.accessBlockedUntil) : null
+  const accessBlocked = Boolean(blockedUntil && blockedUntil.getTime() > Date.now())
+
+  return {
+    ...data,
+    accessBlocked,
+    accessBlockedUntil: accessBlocked && blockedUntil ? blockedUntil.toISOString() : null,
+    accessBlockReason: accessBlocked ? data.accessBlockReason ?? null : null,
+  }
+}
 
 // POST /api/auth/register
 const register = async (req, res) => {
@@ -37,19 +49,24 @@ const register = async (req, res) => {
 
     // Public registration can only create student accounts.
     const assignedRole = 'student'
-
     const user = await User.create({
       name: name.trim(),
       email: normalizedEmail,
       password,
       role: assignedRole,
       grade: grade || '',
+      isEmailVerified: true,
+      emailVerificationTokenHash: null,
+      emailVerificationExpiresAt: null,
+      emailVerificationSentAt: null,
     })
 
     console.log(`[register] ✅ Created user: id=${user._id}, name=${user.name}, role=${user.role}`)
-
-    const token = signToken(user._id)
-    res.status(201).json({ success: true, token, user })
+    res.status(201).json({
+      success: true,
+      message: 'Account created successfully. You can log in now.',
+      email: user.email,
+    })
   } catch (err) {
     console.error('[register] Error:', err.message)
     res.status(500).json({ success: false, message: err.message })
@@ -82,7 +99,7 @@ const login = async (req, res) => {
 
     console.log(`[login] ✅ Login success: id=${user._id}, role=${user.role}`)
     const token = signToken(user._id)
-    res.json({ success: true, token, user })
+    res.json({ success: true, token, user: serializeUser(user) })
   } catch (err) {
     console.error('[login] Error:', err.message)
     res.status(500).json({ success: false, message: err.message })
@@ -91,7 +108,15 @@ const login = async (req, res) => {
 
 // GET /api/auth/me
 const getMe = async (req, res) => {
-  res.json({ success: true, user: req.user })
+  res.json({ success: true, user: serializeUser(req.user) })
 }
 
-module.exports = { register, login, getMe }
+const verifyEmail = async (req, res) => {
+  return res.status(410).json({ success: false, message: 'Email verification is currently disabled.' })
+}
+
+const resendVerification = async (req, res) => {
+  return res.status(410).json({ success: false, message: 'Email verification is currently disabled.' })
+}
+
+module.exports = { register, login, getMe, verifyEmail, resendVerification }

@@ -59,7 +59,7 @@ public class QuizService {
     public List<QuizResponse> getAll(UserEntity currentUser) {
         flushExpiredSessions();
         List<QuizEntity> quizzes;
-        if (currentUser.getRole() == Role.ADMIN) {
+        if (currentUser.getRole().isStaff()) {
             quizzes = quizRepository.findAllByOrderByCreatedAtDesc();
         } else {
             String grade = currentUser.getGrade() == null ? "" : currentUser.getGrade().trim();
@@ -124,11 +124,11 @@ public class QuizService {
     @Transactional(readOnly = true)
     public List<QuizAttemptResponse> getAttempts(UserEntity currentUser) {
         flushExpiredSessions();
-        List<QuizAttemptEntity> attempts = currentUser.getRole() == Role.ADMIN
+        List<QuizAttemptEntity> attempts = currentUser.getRole().isStaff()
                 ? quizAttemptRepository.findAllByOrderBySubmittedAtDesc()
                 : quizAttemptRepository.findByStudentIdOrderBySubmittedAtDesc(currentUser.getId());
 
-        if (currentUser.getRole() == Role.ADMIN) {
+        if (currentUser.getRole().isStaff()) {
             attempts = attempts.stream()
                     .filter(this::retainAttemptForExistingStudent)
                     .toList();
@@ -273,8 +273,7 @@ public class QuizService {
         quizAttemptRepository.save(attempt);
         quizSessionRepository.delete(session);
 
-        notificationService.notifyRole(
-                Role.ADMIN,
+        notificationService.notifyStaff(
                 "Quiz auto-submitted",
                 session.getStudentName() + "'s " + quiz.getTitle() + " attempt was auto-submitted when time ended.",
                 "info",
@@ -426,8 +425,7 @@ public class QuizService {
     }
 
     private void notifyAdminsAboutSubmission(UserEntity currentUser, QuizEntity quiz) {
-        notificationService.notifyRole(
-                Role.ADMIN,
+        notificationService.notifyStaff(
                 "Quiz submission",
                 currentUser.getName() + " submitted " + quiz.getTitle() + ".",
                 "info",

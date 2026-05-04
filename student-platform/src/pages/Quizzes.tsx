@@ -7,6 +7,7 @@ import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { useAuthStore } from '@/store/useAuthStore'
+import { isStaffRole } from '@/lib/roles'
 import { useQuizStore } from '@/store/useQuizStore'
 import { useUIStore } from '@/store/useUIStore'
 import { quizAPI, studentAPI, subjectAPI } from '@/lib/services'
@@ -3420,7 +3421,7 @@ function StudentQuizzesView() {
 export function Quizzes() {
   const user = useAuthStore((state) => state.user)
 
-  if (user?.role === 'admin') {
+  if (isStaffRole(user?.role)) {
     return <AdminQuizzesView />
   }
 

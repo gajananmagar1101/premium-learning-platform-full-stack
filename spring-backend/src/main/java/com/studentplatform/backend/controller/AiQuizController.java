@@ -25,13 +25,13 @@ public class AiQuizController {
     }
 
     @GetMapping("/status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public AiQuizStatusResponse status() {
         return aiQuizService.getStatus();
     }
 
     @PostMapping("/generate-quiz")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public List<AiQuizQuestionResponse> generateQuiz(@Valid @RequestBody AiQuizGenerateRequest request) {
         return aiQuizService.generateQuiz(request);
     }

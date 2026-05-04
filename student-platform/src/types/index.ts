@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'student'
+export type Role = 'admin' | 'faculty' | 'student'
 
 export interface User {
   _id?: string
@@ -6,8 +6,12 @@ export interface User {
   name: string
   email: string
   role: Role
+  isEmailVerified?: boolean
   grade?: string
   avatar?: string
+  accessBlocked?: boolean
+  accessBlockedUntil?: string | null
+  accessBlockReason?: string | null
 }
 
 export interface Assessment {
@@ -125,6 +129,9 @@ export interface DBStudent {
   grade: string
   role: string
   createdAt: string
+  accessBlocked: boolean
+  accessBlockedUntil: string | null
+  accessBlockReason: string | null
 }
 
 // Full student with scores (used in drawer)
@@ -225,4 +232,27 @@ export interface YearOption {
   id: string
   code: string
   name: string
+}
+
+export interface FacultyRegistrationRequest {
+  id: string
+  name: string
+  email: string
+  role: string
+  emailVerified: boolean
+  approvalStatus: string | null
+  requestedAt: string | null
+  updatedAt: string | null
+}
+
+export interface FacultyMember {
+  _id?: string
+  id: string
+  name: string
+  email: string
+  role: string
+  createdAt: string | null
+  accessBlocked: boolean
+  accessBlockedUntil: string | null
+  accessBlockReason: string | null
 }

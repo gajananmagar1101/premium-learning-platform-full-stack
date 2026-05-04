@@ -14,10 +14,12 @@ export function AdminLogin() {
   const [showPw, setShowPw] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>()
+  const emailField = register('email', { required: 'Required', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email' } })
+  const passwordField = register('password', { required: 'Required', minLength: { value: 6, message: 'Min 6 chars' } })
 
   const onSubmit = async (data: FormData) => {
     setLocalError(null)
-    const ok = await login(data.email, data.password, 'admin')
+    const ok = await login(data.email, data.password, 'staff')
     if (ok) {
       navigate('/dashboard')
     }
@@ -59,8 +61,9 @@ export function AdminLogin() {
               <div className="relative">
                 <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-light-ink-muted dark:text-dark-ink-muted" />
                 <input type="email" placeholder="admin@school.edu"
-                  {...register('email', { required: 'Required', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email' } })}
-                  onChange={() => {
+                  {...emailField}
+                  onChange={(event) => {
+                    emailField.onChange(event)
                     clearError()
                     setLocalError(null)
                   }}
@@ -74,8 +77,9 @@ export function AdminLogin() {
               <div className="relative">
                 <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-light-ink-muted dark:text-dark-ink-muted" />
                 <input type={showPw ? 'text' : 'password'} placeholder="••••••••"
-                  {...register('password', { required: 'Required', minLength: { value: 6, message: 'Min 6 chars' } })}
-                  onChange={() => {
+                  {...passwordField}
+                  onChange={(event) => {
+                    passwordField.onChange(event)
                     clearError()
                     setLocalError(null)
                   }}

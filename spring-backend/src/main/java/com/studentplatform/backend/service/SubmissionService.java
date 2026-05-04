@@ -56,8 +56,7 @@ public class SubmissionService {
         submission.prepareForSave();
         SubmissionEntity saved = submissionRepository.save(submission);
 
-        notificationService.notifyRole(
-                Role.ADMIN,
+        notificationService.notifyStaff(
                 "New assignment submission",
                 student.getName() + " submitted " + assignment.getTitle() + ".",
                 "info",
@@ -83,8 +82,7 @@ public class SubmissionService {
         submission.prepareForSave();
         SubmissionEntity saved = submissionRepository.save(submission);
 
-        notificationService.notifyRole(
-                Role.ADMIN,
+        notificationService.notifyStaff(
                 "Submission updated",
                 student.getName() + " updated submission for " + submission.getAssignment().getTitle() + ".",
                 "info",
@@ -127,7 +125,7 @@ public class SubmissionService {
 
     @Transactional(readOnly = true)
     public StudentPerformanceResponse getStudentPerformance(String studentId, UserEntity currentUser) {
-        if (!currentUser.getRole().name().equals("ADMIN") && !currentUser.getId().equals(studentId)) {
+        if (!currentUser.getRole().isStaff() && !currentUser.getId().equals(studentId)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Not allowed to view this student's performance.");
         }
 

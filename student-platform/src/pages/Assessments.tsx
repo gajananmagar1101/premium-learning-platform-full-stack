@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { subjectAPI } from '@/lib/services'
 import { useAuthStore } from '@/store/useAuthStore'
+import { isStaffRole } from '@/lib/roles'
 import { useUIStore } from '@/store/useUIStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useStudentStore } from '@/store/useStudentStore'
@@ -272,7 +273,10 @@ function AdminAssignmentsView() {
   const plannerAssignments = useMemo(() => {
     const now = new Date().getTime()
     return filteredAssignments
-      .filter((assignment) => new Date(assignment.deadline).getTime() >= now)
+      .filter((assignment) =>
+        assignment.publicationStatus === 'draft' &&
+        new Date(assignment.deadline).getTime() >= now
+      )
       .sort((first, second) => {
         const firstSubmissionCount = assignmentSubmissionStats[first.id]?.total ?? 0
         const secondSubmissionCount = assignmentSubmissionStats[second.id]?.total ?? 0
@@ -696,7 +700,7 @@ function AdminAssignmentsView() {
             <div>
               <h3 className="text-base font-semibold text-light-ink-primary dark:text-dark-ink-primary">Admin Planner</h3>
               <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">
-                Draft-ready and upcoming assignments you can edit or publish next.
+                Draft assignments you can edit or publish next.
               </p>
             </div>
             <Badge label={`${plannerAssignments.length} planned`} variant="info" />
@@ -705,7 +709,7 @@ function AdminAssignmentsView() {
             <div className="grid gap-3">
               {plannerAssignments.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-light-border p-5 text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
-                  No draft or upcoming assignments match the current filters.
+                  No draft assignments match the current filters.
                 </div>
               ) : plannerAssignments.map((assignment) => (
                 <div key={assignment.id} className="rounded-2xl border border-light-border bg-white/40 p-4 dark:border-dark-border dark:bg-dark-card2/40">
@@ -1600,7 +1604,7 @@ function StudentAssignmentsView() {
 export function Assessments() {
   const user = useAuthStore((state) => state.user)
 
-  if (user?.role === 'admin') {
+  if (isStaffRole(user?.role)) {
     return <AdminAssignmentsView />
   }
 

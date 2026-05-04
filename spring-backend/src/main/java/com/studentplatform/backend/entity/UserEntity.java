@@ -21,7 +21,19 @@ public class UserEntity {
 
     private String grade = "";
 
+    private boolean emailVerified = false;
+
+    private String emailVerificationTokenHash;
+
+    private Instant emailVerificationExpiresAt;
+
+    private Instant emailVerificationSentAt;
+
     private Instant createdAt;
+
+    private Instant accessBlockedUntil;
+
+    private String accessBlockReason;
 
     public void prepareForSave() {
         if (createdAt == null) {
@@ -37,6 +49,10 @@ public class UserEntity {
 
     public String getId() {
         return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getName() {
@@ -81,5 +97,57 @@ public class UserEntity {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getAccessBlockedUntil() {
+        return accessBlockedUntil;
+    }
+
+    public void setAccessBlockedUntil(Instant accessBlockedUntil) {
+        this.accessBlockedUntil = accessBlockedUntil;
+    }
+
+    public String getAccessBlockReason() {
+        return accessBlockReason;
+    }
+
+    public void setAccessBlockReason(String accessBlockReason) {
+        this.accessBlockReason = accessBlockReason;
+    }
+
+    public boolean hasActiveAccessBlock(Instant now) {
+        return accessBlockedUntil != null && accessBlockedUntil.isAfter(now);
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
+    }
+
+    public String getEmailVerificationTokenHash() {
+        return emailVerificationTokenHash;
+    }
+
+    public void setEmailVerificationTokenHash(String emailVerificationTokenHash) {
+        this.emailVerificationTokenHash = emailVerificationTokenHash;
+    }
+
+    public Instant getEmailVerificationExpiresAt() {
+        return emailVerificationExpiresAt;
+    }
+
+    public void setEmailVerificationExpiresAt(Instant emailVerificationExpiresAt) {
+        this.emailVerificationExpiresAt = emailVerificationExpiresAt;
+    }
+
+    public Instant getEmailVerificationSentAt() {
+        return emailVerificationSentAt;
+    }
+
+    public void setEmailVerificationSentAt(Instant emailVerificationSentAt) {
+        this.emailVerificationSentAt = emailVerificationSentAt;
     }
 }

@@ -37,20 +37,20 @@ public class QuizController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> create(@Valid @RequestBody QuizRequest request) {
         return Map.of("success", true, "quiz", quizService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public Map<String, Object> update(@PathVariable String id, @Valid @RequestBody QuizRequest request) {
         return Map.of("success", true, "quiz", quizService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public Map<String, Object> delete(@PathVariable String id) {
         quizService.delete(id);
         return Map.of("success", true, "message", "Quiz deleted.");

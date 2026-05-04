@@ -13,6 +13,8 @@ export function StudentLogin() {
   const { login, loginError, clearError, loading } = useAuthStore()
   const [showPw, setShowPw] = useState(false)
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>()
+  const emailField = register('email', { required: 'Required', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email' } })
+  const passwordField = register('password', { required: 'Required', minLength: { value: 6, message: 'Min 6 chars' } })
 
   const onSubmit = async (data: FormData) => {
     const ok = await login(data.email, data.password, 'student')
@@ -57,8 +59,11 @@ export function StudentLogin() {
               <div className="relative">
                 <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-light-ink-muted dark:text-dark-ink-muted" />
                 <input type="email" placeholder="you@school.edu"
-                  {...register('email', { required: 'Required', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email' } })}
-                  onChange={() => clearError()}
+                  {...emailField}
+                  onChange={(event) => {
+                    emailField.onChange(event)
+                    clearError()
+                  }}
                   className="form-input pl-9" />
               </div>
               {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email.message}</p>}
@@ -69,8 +74,11 @@ export function StudentLogin() {
               <div className="relative">
                 <Lock size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-light-ink-muted dark:text-dark-ink-muted" />
                 <input type={showPw ? 'text' : 'password'} placeholder="••••••••"
-                  {...register('password', { required: 'Required', minLength: { value: 6, message: 'Min 6 chars' } })}
-                  onChange={() => clearError()}
+                  {...passwordField}
+                  onChange={(event) => {
+                    passwordField.onChange(event)
+                    clearError()
+                  }}
                   className="form-input pl-9 pr-10" />
                 <button type="button" onClick={() => setShowPw((v) => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-light-ink-muted dark:text-dark-ink-muted hover:text-light-ink-primary dark:hover:text-dark-ink-primary transition-colors">

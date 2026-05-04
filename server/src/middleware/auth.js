@@ -16,6 +16,16 @@ const protect = async (req, res, next) => {
     if (!user) return res.status(401).json({ success: false, message: 'User not found.' })
 
     user.role = normalizeRole(user.role)
+    if (
+      user.accessBlockedUntil &&
+      new Date(user.accessBlockedUntil).getTime() > Date.now() &&
+      req.path !== '/me'
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account access is temporarily blocked. Please wait until admin restores your access.',
+      })
+    }
     req.user = user
     next()
   } catch {

@@ -8,6 +8,7 @@ interface StudentState {
   error: string | null
   fetchStudents: () => Promise<void>
   removeStudent: (id: string) => void
+  updateStudent: (student: DBStudent) => void
 }
 
 export const useStudentStore = create<StudentState>((set) => ({
@@ -35,4 +36,19 @@ export const useStudentStore = create<StudentState>((set) => ({
 
   removeStudent: (id) =>
     set((s) => ({ students: s.students.filter((st) => st._id !== id && st.id !== id) })),
+
+  updateStudent: (student) =>
+    set((state) => ({
+      students: state.students.map((item) => {
+        const itemId = item._id ?? item.id
+        const nextId = student._id ?? student.id
+        return itemId === nextId
+          ? {
+              ...item,
+              ...student,
+              id: nextId,
+            }
+          : item
+      }),
+    })),
 }))

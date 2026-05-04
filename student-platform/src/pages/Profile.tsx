@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { useUIStore } from '@/store/useUIStore'
 import { studentAPI } from '@/lib/services'
 import { formatAcademicYearLabel } from '@/lib/btech'
+import { getRoleLabel, isStaffRole } from '@/lib/roles'
 import { Mail, Shield, User, Edit2, Check, Moon, Sun, Bell, X, GraduationCap } from 'lucide-react'
 import { motion } from 'framer-motion'
 import axios from 'axios'
@@ -90,7 +91,7 @@ export function Profile() {
             </div>
             <p className="text-sm text-light-ink-muted dark:text-dark-ink-muted">{user?.email}</p>
             <span className="mt-2 inline-block rounded-full bg-indigo-500/12 px-3 py-1 text-xs font-semibold capitalize text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-              {user?.role === 'admin' ? '👨‍🏫 Program Admin' : '🎓 B.Tech Learner'}
+              {isStaffRole(user?.role) ? `👨‍🏫 ${getRoleLabel(user?.role)}` : '🎓 B.Tech Learner'}
             </span>
           </div>
         </div>
@@ -181,7 +182,9 @@ export function Profile() {
             </div>
             <div>
               <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">Role</p>
-              <p className="text-sm font-medium capitalize text-light-ink-primary dark:text-dark-ink-primary">{user?.role === 'admin' ? 'Administrator / Faculty' : 'B.Tech Learner'}</p>
+              <p className="text-sm font-medium capitalize text-light-ink-primary dark:text-dark-ink-primary">
+                {isStaffRole(user?.role) ? getRoleLabel(user?.role) : 'B.Tech Learner'}
+              </p>
             </div>
           </div>
         </div>

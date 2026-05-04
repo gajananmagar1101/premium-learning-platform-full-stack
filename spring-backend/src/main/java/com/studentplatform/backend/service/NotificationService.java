@@ -96,6 +96,14 @@ public class NotificationService {
         notifyUsersByIds(recipientIds, title, message, type, actorUserId);
     }
 
+    public void notifyStaff(String title, String message, String type, String actorUserId) {
+        List<String> recipientIds = userRepository.findAll().stream()
+                .filter(user -> user.getRole() != null && user.getRole().isStaff())
+                .map(UserEntity::getId)
+                .toList();
+        notifyUsersByIds(recipientIds, title, message, type, actorUserId);
+    }
+
     public void notifyStudentsByGrade(String grade, String title, String message, String type, String actorUserId) {
         String targetGrade = grade == null ? "" : grade.trim();
         if (targetGrade.isBlank()) return;

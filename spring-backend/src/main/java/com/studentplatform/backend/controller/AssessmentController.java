@@ -35,7 +35,7 @@ public class AssessmentController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> create(
             @Valid @RequestBody AssessmentRequest request,
@@ -45,13 +45,13 @@ public class AssessmentController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public Map<String, Object> update(@PathVariable String id, @Valid @RequestBody AssessmentRequest request) {
         return Map.of("success", true, "assessment", assessmentService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public Map<String, Object> delete(@PathVariable String id) {
         assessmentService.delete(id);
         return Map.of("success", true, "message", "Assessment deleted.");

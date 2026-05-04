@@ -3,7 +3,10 @@ package com.studentplatform.backend.controller;
 import com.studentplatform.backend.dto.AuthResponse;
 import com.studentplatform.backend.dto.LoginRequest;
 import com.studentplatform.backend.dto.RegisterRequest;
+import com.studentplatform.backend.dto.SimpleMessageResponse;
 import com.studentplatform.backend.dto.UserResponse;
+import com.studentplatform.backend.dto.VerificationEmailRequest;
+import com.studentplatform.backend.dto.VerifyOtpRequest;
 import com.studentplatform.backend.security.AppUserDetails;
 import com.studentplatform.backend.service.AuthService;
 import jakarta.validation.Valid;
@@ -27,13 +30,23 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
+    public SimpleMessageResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
     }
 
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @PostMapping("/verify-email")
+    public SimpleMessageResponse verifyEmail(@Valid @RequestBody VerifyOtpRequest request) {
+        return authService.verifyEmail(request);
+    }
+
+    @PostMapping("/resend-verification")
+    public SimpleMessageResponse resendVerification(@Valid @RequestBody VerificationEmailRequest request) {
+        return authService.resendVerification(request);
     }
 
     @GetMapping("/me")

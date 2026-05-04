@@ -1,4 +1,4 @@
-services:
+https://student-learning-platform-api-production.up.railway.app/api/healthservices:
   - type: web
     name: student-learning-platform-api
     runtime: java

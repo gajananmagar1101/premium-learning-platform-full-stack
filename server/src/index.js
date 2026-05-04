@@ -12,6 +12,10 @@ for (const key of requiredEnv) {
   }
 }
 
+if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS || !process.env.EMAIL_FROM) {
+  console.warn('⚠️ SMTP/email env vars are missing. Registration email verification will not work until SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM are set.')
+}
+
 const allowedOrigins = new Set(
   (process.env.CLIENT_ORIGINS || '')
     .split(',')

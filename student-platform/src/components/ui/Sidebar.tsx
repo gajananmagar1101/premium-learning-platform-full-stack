@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ClipboardList, Users, BarChart3, User, X, LogOut, BrainCircuit, ChartColumnBig, BookCopy } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Users, BarChart3, User, X, LogOut, BrainCircuit, ChartColumnBig, BookCopy, UserCheck } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import kluHeaderLogo from '@/assets/klu-header-logo.png'
+import { getRoleLabel, isStaffRole } from '@/lib/roles'
 
 const adminLinks = [
   { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard' },
@@ -14,6 +15,10 @@ const adminLinks = [
   { to: '/students',    icon: Users,           label: 'B.Tech Cohorts' },
   { to: '/reports',     icon: BarChart3,       label: 'Reports' },
   { to: '/profile',     icon: User,            label: 'Profile' },
+]
+
+const adminOnlyLinks = [
+  { to: '/faculty', icon: UserCheck, label: 'Faculty' },
 ]
 
 const studentLinks = [
@@ -29,8 +34,10 @@ interface SidebarProps { open: boolean; onClose: () => void }
 export function Sidebar({ open, onClose }: SidebarProps) {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
-  const links = user?.role === 'admin' ? adminLinks : studentLinks
-  const roleLabel = user?.role === 'admin' ? 'Program Admin' : 'B.Tech Learner'
+  const links = isStaffRole(user?.role)
+    ? [...adminLinks, ...(user?.role === 'admin' ? adminOnlyLinks : [])]
+    : studentLinks
+  const roleLabel = getRoleLabel(user?.role)
 
   const handleLogout = () => { logout(); navigate('/login') }
 

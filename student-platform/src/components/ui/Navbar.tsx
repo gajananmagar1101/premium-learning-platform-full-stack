@@ -14,6 +14,7 @@ import {
   SearchCheck,
   Sun,
   UserCircle2,
+  UserCheck,
   UsersRound,
 } from 'lucide-react'
 import { LayoutGroup, motion } from 'framer-motion'
@@ -23,6 +24,7 @@ import { useUIStore } from '@/store/useUIStore'
 import { NotificationPanel } from './NotificationPanel'
 import { SearchBar } from './SearchBar'
 import { cn } from '@/lib/utils'
+import { getHomeRouteForRole, getRoleLabel, isStaffRole } from '@/lib/roles'
 
 interface NavbarProps { title: string }
 
@@ -45,16 +47,17 @@ export function Navbar({ title }: NavbarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const initial = user?.name?.charAt(0).toUpperCase() ?? 'U'
-  const roleLabel = user?.role === 'admin' ? 'Program Admin' : 'B.Tech Learner'
+  const roleLabel = getRoleLabel(user?.role)
 
   const topLinks = useMemo<TopLink[]>(() => {
-    if (user?.role === 'admin') {
+    if (isStaffRole(user?.role)) {
       return [
         { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { to: '/assessments', label: 'Assignments', icon: BookOpenCheck },
         { to: '/quizzes', label: 'Quizzes', icon: SearchCheck },
         { to: '/subjects', label: 'Subjects', icon: BookCopy },
         { to: '/students', label: 'B.Tech Cohorts', icon: UsersRound },
+        ...(user?.role === 'admin' ? [{ to: '/faculty', label: 'Faculty', icon: UserCheck }] : []),
         { to: '/reports', label: 'Reports', icon: BarChart3 },
       ]
     }
@@ -68,11 +71,12 @@ export function Navbar({ title }: NavbarProps) {
   }, [user?.role])
 
   const menuItems = useMemo(() => {
-    if (user?.role === 'admin') {
+    if (isStaffRole(user?.role)) {
       return [
         { to: '/profile', icon: UserCircle2, label: 'My Profile' },
         { to: '/profile?mode=edit', icon: PencilLine, label: 'Edit Profile' },
         { to: '/dashboard', icon: LayoutDashboard, label: 'Go to Dashboard' },
+        ...(user?.role === 'admin' ? [{ to: '/faculty', icon: UserCheck, label: 'Faculty' }] : []),
       ]
     }
 
@@ -157,7 +161,7 @@ export function Navbar({ title }: NavbarProps) {
         </div>
 
         <button
-          onClick={() => navigate(user?.role === 'admin' ? '/dashboard' : '/student-dashboard')}
+          onClick={() => navigate(getHomeRouteForRole(user?.role))}
           className="brand-pill apple-glass flex shrink-0 items-center gap-2 rounded-full px-2.5 py-1.5 transition-colors hover:bg-white/80 dark:border-white/15 dark:bg-slate-900/85 dark:text-white dark:hover:bg-slate-800/90"
           title={title}
         >
