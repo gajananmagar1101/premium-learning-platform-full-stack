@@ -57,7 +57,7 @@ public class AssignmentManagementService {
 
     @Transactional(readOnly = true)
     public List<StudentAssignmentResponse> getAllForStudent(UserEntity student) {
-        String studentClass = normalizeClassName(student.getGrade());
+        String studentClass = student.getGrade() == null ? "" : student.getGrade().trim();
         Map<String, SubmissionEntity> submissionsByAssignment = submissionRepository
                 .findByStudent_IdOrderByUpdatedAtDesc(student.getId())
                 .stream()
@@ -172,6 +172,12 @@ public class AssignmentManagementService {
         assignment.setStatus(request.status() == null ? AssignmentStatus.DRAFT : request.status());
         assignment.setQuestionFileName(request.questionFileName());
         assignment.setQuestionFileContent(request.questionFileContent());
+    }
+
+    public String resolveSubjectName(AssignmentEntity assignment) {
+        return resolveSubjectName(assignment, subjectService.resolveSubjectNamesById(
+                List.of(assignment.getSubjectId())
+        ));
     }
 
     private String resolveSubjectName(AssignmentEntity assignment, Map<String, String> subjectNamesById) {
