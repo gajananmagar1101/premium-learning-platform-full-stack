@@ -834,34 +834,29 @@ function AdminQuizzesView({
     const finalQuestions = shuffleBeforeSave ? shuffleQuestions(questions) : questions
     const subjectName = selectedSubject?.name ?? subjectPrefillName
 
-    try {
-      if (editing) {
-        await updateQuiz(editing.id, {
-          ...data,
-          subject: subjectName,
-          description: data.description?.trim() ?? '',
-          deadlineAt: data.deadlineAt ? new Date(data.deadlineAt).toISOString() : undefined,
-          questions: finalQuestions,
-          durationMinutes: Number(data.durationMinutes),
-        })
-        addToast('Quiz updated', 'success')
-        closeModal()
-      } else {
-        await createQuiz({
-          ...data,
-          subject: subjectName,
-          description: data.description?.trim() ?? '',
-          deadlineAt: data.deadlineAt ? new Date(data.deadlineAt).toISOString() : undefined,
-          questions: finalQuestions,
-          durationMinutes: Number(data.durationMinutes),
-        })
-        addToast('Quiz created', 'success')
-        navigate('/quizzes')
-      }
-    } catch (error) {
-      console.error('[Quizzes] Failed to save quiz:', error)
-      addToast('Failed to save quiz. Please try again.', 'error')
+    const payload = {
+      ...data,
+      subject: subjectName,
+      description: data.description?.trim() ?? '',
+      deadlineAt: data.deadlineAt ? new Date(data.deadlineAt).toISOString() : undefined,
+      questions: finalQuestions,
+      durationMinutes: Number(data.durationMinutes),
     }
+
+    const savePromise = editing ? updateQuiz(editing.id, payload) : createQuiz(payload)
+    
+    if (editing) {
+      closeModal()
+    } else {
+      navigate('/quizzes')
+    }
+
+    savePromise
+      .then(() => addToast(editing ? 'Quiz updated' : 'Quiz created', 'success'))
+      .catch((error) => {
+        console.error('[Quizzes] Failed to save quiz:', error)
+        addToast('Failed to save quiz. Please try again.', 'error')
+      })
   }
 
   const handleDeleteQuiz = async () => {

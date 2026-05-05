@@ -158,6 +158,7 @@ function NotificationCard({
       <motion.div
         ref={cardRef}
         layout
+        className="touch-none"
         onPointerDown={handlePointerStart}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
@@ -350,6 +351,7 @@ export function NotificationPanel() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.14 }}
+                onClick={() => setOpen(false)}
                 className="fixed inset-0 z-[130] bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.22),transparent_18%),radial-gradient(circle_at_82%_18%,rgba(255,255,255,0.14),transparent_14%),radial-gradient(circle_at_24%_78%,rgba(34,197,94,0.14),transparent_18%),radial-gradient(circle_at_80%_76%,rgba(168,85,247,0.14),transparent_18%),rgba(15,23,42,0.32)] backdrop-blur-[34px] supports-[backdrop-filter]:backdrop-saturate-150"
               />
 

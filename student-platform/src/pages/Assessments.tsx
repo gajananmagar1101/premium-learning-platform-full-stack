@@ -553,13 +553,12 @@ function AdminAssignmentsView({
   }
 
   const handlePublishAssignment = async (assignment: AssignmentItem) => {
-    try {
-      await publishAssignment(assignment.id)
-      addToast('Assignment published', 'success')
-    } catch (error) {
-      console.error('[Assignments] Failed to publish assignment:', error)
-      addToast('Failed to publish assignment', 'error')
-    }
+    publishAssignment(assignment.id)
+      .then(() => addToast('Assignment published', 'success'))
+      .catch((error) => {
+        console.error('[Assignments] Failed to publish assignment:', error)
+        addToast('Failed to publish assignment', 'error')
+      })
   }
 
   const onSubmit = async (data: AssignmentFormData) => {
@@ -574,22 +573,23 @@ function AdminAssignmentsView({
       questionFileContent: questionFileContent ?? undefined,
     }
 
-    try {
-      if (editing) {
-        await updateAssignment(editing.id, payload)
-        addToast('Assignment updated', 'success')
-      } else {
-        await createAssignment(payload)
-        addToast('Assignment created', 'success')
-      }
-      closeModal()
-    } catch (error) {
-      console.error('[Assignments] Failed to save assignment:', error)
-      const message = axios.isAxiosError(error)
-        ? error.response?.data?.message ?? (error.request ? 'Cannot reach backend server. Check API URL and backend status.' : error.message)
-        : 'Failed to save assignment'
-      addToast(message, 'error')
-    }
+    const savePromise = editing
+      ? updateAssignment(editing.id, payload)
+      : createAssignment(payload)
+
+    closeModal()
+
+    savePromise
+      .then(() => {
+        addToast(editing ? 'Assignment updated' : 'Assignment created', 'success')
+      })
+      .catch((error) => {
+        console.error('[Assignments] Failed to save assignment:', error)
+        const message = axios.isAxiosError(error)
+          ? error.response?.data?.message ?? (error.request ? 'Cannot reach backend server. Check API URL and backend status.' : error.message)
+          : 'Failed to save assignment'
+        addToast(message, 'error')
+      })
   }
 
   const handleSaveMarks = async (submission: AdminSubmission) => {
@@ -600,13 +600,12 @@ function AdminAssignmentsView({
       return
     }
 
-    try {
-      await gradeSubmission(submission.id, marks)
-      addToast('Marks saved', 'success')
-    } catch (error) {
-      console.error('[Assignments] Failed to grade submission:', error)
-      addToast('Failed to save marks', 'error')
-    }
+    gradeSubmission(submission.id, marks)
+      .then(() => addToast('Marks saved', 'success'))
+      .catch((error) => {
+        console.error('[Assignments] Failed to grade submission:', error)
+        addToast('Failed to save marks', 'error')
+      })
   }
 
   return (
@@ -1436,19 +1435,20 @@ function StudentAssignmentsView({
       fileContent: fileContent ?? undefined,
     }
 
-    try {
-      if (activeAssignment.submission?.id) {
-        await updateSubmission(activeAssignment.submission.id, payload)
-        addToast('Submission updated', 'success')
-      } else {
-        await submitAssignment(payload)
-        addToast('Assignment submitted', 'success')
-      }
-      closeModal()
-    } catch (error) {
-      console.error('[Assignments] Failed to save submission:', error)
-      addToast('Failed to save submission', 'error')
-    }
+    const savePromise = activeAssignment.submission?.id
+      ? updateSubmission(activeAssignment.submission.id, payload)
+      : submitAssignment(payload)
+
+    closeModal()
+
+    savePromise
+      .then(() => {
+        addToast(activeAssignment.submission?.id ? 'Submission updated' : 'Assignment submitted', 'success')
+      })
+      .catch((error) => {
+        console.error('[Assignments] Failed to save submission:', error)
+        addToast('Failed to save submission', 'error')
+      })
   }
 
   return (

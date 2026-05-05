@@ -174,25 +174,27 @@ export function SubjectAssignmentsPage() {
       return
     }
 
-    try {
-      await updateAssignment(editing.id, {
-        ...data,
-        subject: selectedSubject.name,
-        totalMarks: Number(data.totalMarks),
-        deadline: new Date(data.deadline).toISOString().slice(0, 19),
-        status: data.status,
-        questionFileName: questionFileName ?? undefined,
-        questionFileContent: questionFileContent ?? undefined,
-      })
-      addToast('Assignment updated', 'success')
-      closeModal()
-    } catch (error) {
-      console.error('[SubjectAssignmentsPage] Failed to update assignment:', error)
-      const message = axios.isAxiosError(error)
-        ? error.response?.data?.message ?? (error.request ? 'Cannot reach backend server. Check API URL and backend status.' : error.message)
-        : 'Failed to update assignment'
-      addToast(message, 'error')
+    const payload = {
+      ...data,
+      subject: selectedSubject.name,
+      totalMarks: Number(data.totalMarks),
+      deadline: new Date(data.deadline).toISOString().slice(0, 19),
+      status: data.status,
+      questionFileName: questionFileName ?? undefined,
+      questionFileContent: questionFileContent ?? undefined,
     }
+
+    updateAssignment(editing.id, payload)
+      .then(() => addToast('Assignment updated', 'success'))
+      .catch((error) => {
+        console.error('[SubjectAssignmentsPage] Failed to update assignment:', error)
+        const message = axios.isAxiosError(error)
+          ? error.response?.data?.message ?? (error.request ? 'Cannot reach backend server. Check API URL and backend status.' : error.message)
+          : 'Failed to update assignment'
+        addToast(message, 'error')
+      })
+      
+    closeModal()
   }
 
   const handleDelete = async (assignmentId: string) => {
