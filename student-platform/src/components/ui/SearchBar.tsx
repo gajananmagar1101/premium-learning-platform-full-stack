@@ -164,6 +164,17 @@ export function SearchBar() {
   }, [])
 
   useEffect(() => {
+    if (!open) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open])
+
+  useEffect(() => {
     hasLoadedDataRef.current = false
     setFaculty([])
     setSubjects([])
@@ -317,13 +328,13 @@ export function SearchBar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-slate-950/45 p-3 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-[160] overflow-y-auto bg-slate-950/50 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-sm md:hidden"
           >
             <motion.div
               initial={{ y: 18, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 18, opacity: 0 }}
-              className="mx-auto flex h-full max-h-[32rem] w-full max-w-md flex-col overflow-hidden rounded-[1.8rem] border border-white/40 bg-white/96 shadow-2xl dark:border-white/10 dark:bg-[#08111f]/96"
+              className="mx-auto flex min-h-[18rem] w-full max-w-md flex-col overflow-hidden rounded-[1.8rem] border border-white/40 bg-white/96 shadow-2xl max-h-[calc(100dvh-env(safe-area-inset-top)-1.5rem)] dark:border-white/10 dark:bg-[#08111f]/96"
             >
               <div className="flex items-center gap-2 border-b border-light-border px-3 py-3 dark:border-dark-border">
                 <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-slate-200/80 bg-slate-100/80 px-3 py-2 dark:border-white/15 dark:bg-white/10">
@@ -359,7 +370,7 @@ export function SearchBar() {
                 </button>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto p-2">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
                 {loadingData && query.trim().length <= 1 ? (
                   <p className="px-3 py-6 text-center text-sm text-light-ink-muted dark:text-dark-ink-muted">Preparing search...</p>
                 ) : null}
@@ -374,7 +385,7 @@ export function SearchBar() {
                           className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-light-hover dark:hover:bg-dark-hover"
                         >
                           <span className="shrink-0 rounded-full bg-indigo-500/12 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300">{result.kind}</span>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">{result.label}</p>
                             <p className="truncate text-xs text-light-ink-muted dark:text-dark-ink-muted">{result.sub}</p>
                           </div>
