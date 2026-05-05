@@ -4,55 +4,26 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContai
 import { StatCard } from '@/components/ui/StatCard'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
-import { useAssessmentStore } from '@/store/useAssessmentStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useStudentStore } from '@/store/useStudentStore'
 import { useQuizStore } from '@/store/useQuizStore'
-import { scoreAPI } from '@/lib/services'
 import { formatAcademicYearLabel } from '@/lib/btech'
-import type { StudentScore } from '@/types'
-
-interface Analytics {
-  totalStudents: number
-  totalAssessments: number
-  avgScore: number
-  subjectAverages: { subject: string; classAvg: number; topScore: number }[]
-  leaderboard: { id: string; name: string; grade: string; avg: number }[]
-}
 
 const formatMonth = (value: string) =>
   new Date(value).toLocaleString([], { month: 'short', year: '2-digit' })
 
 export function Dashboard() {
-  const { assessments, fetchAssessments } = useAssessmentStore()
   const { submissions, fetchAdminSubmissions, fetchAdminAssignments, adminAssignments } = useAssignmentStore()
   const { students, fetchStudents } = useStudentStore()
   const { quizzes, attempts } = useQuizStore()
-  const [analytics, setAnalytics] = useState<Analytics | null>(null)
-  const [scores, setScores] = useState<StudentScore[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchStudents()
-    fetchAssessments()
     fetchAdminAssignments()
     fetchAdminSubmissions()
-    const load = async () => {
-      try {
-        const [analyticsRes, scoresRes] = await Promise.all([
-          scoreAPI.getAnalytics(),
-          scoreAPI.getAll(),
-        ])
-        setAnalytics(analyticsRes.data.analytics)
-        setScores(scoresRes.data.scores ?? [])
-      } catch (error) {
-        console.error('[Dashboard] Failed to load analytics:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [fetchAdminAssignments, fetchAdminSubmissions, fetchAssessments, fetchStudents])
+    setLoading(false)
+  }, [fetchAdminAssignments, fetchAdminSubmissions, fetchStudents])
 
   const gradedSubmissions = useMemo(
     () => submissions.filter((submission) => submission.marks != null),
@@ -114,15 +85,13 @@ export function Dashboard() {
     }
   }, [gradedSubmissions, students])
 
-  const displayAnalytics = gradedSubmissions.length
-    ? {
-        totalStudents: students.length,
-        totalAssessments: adminAssignments.length || assessments.length,
-        avgScore: assignmentAnalytics.avgScore,
-        subjectAverages: assignmentAnalytics.subjectAverages,
-        leaderboard: assignmentAnalytics.leaderboard,
-      }
-    : analytics
+  const displayAnalytics = {
+    totalStudents: students.length,
+    totalAssessments: adminAssignments.length,
+    avgScore: assignmentAnalytics.avgScore,
+    subjectAverages: assignmentAnalytics.subjectAverages,
+    leaderboard: assignmentAnalytics.leaderboard,
+  }
 
   const trendData = useMemo(() => {
     const grouped = new Map<string, { total: number; count: number }>()
@@ -134,37 +103,27 @@ export function Dashboard() {
         current.count += 1
         grouped.set(key, current)
       })
-    } else {
-      scores.forEach((score) => {
-        const key = formatMonth(score.submittedAt)
-        const current = grouped.get(key) ?? { total: 0, count: 0 }
-        current.total += (score.score / (score.assessment?.maxScore ?? 100)) * 100
-        current.count += 1
-        grouped.set(key, current)
-      })
     }
     return Array.from(grouped.entries()).map(([month, stats]) => ({
       month,
       score: Math.round(stats.total / stats.count),
       average: displayAnalytics?.avgScore ?? Math.round(stats.total / stats.count),
     }))
-  }, [displayAnalytics?.avgScore, gradedSubmissions, scores])
+  }, [displayAnalytics?.avgScore, gradedSubmissions])
 
-  const recentActivity = useMemo(() => {
-    if (gradedSubmissions.length) {
-      return gradedSubmissions
-        .slice()
-        .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
-        .slice(0, 5)
-    }
-    return scores.slice(0, 5)
-  }, [gradedSubmissions, scores])
+  const recentActivity = useMemo(
+    () => gradedSubmissions
+      .slice()
+      .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+      .slice(0, 5),
+    [gradedSubmissions]
+  )
 
-  const completionRate = (adminAssignments.length || assessments.length)
-    ? Math.round((gradedSubmissions.length / (adminAssignments.length || assessments.length)) * 100)
+  const completionRate = adminAssignments.length
+    ? Math.round((gradedSubmissions.length / adminAssignments.length) * 100)
     : 0
 
-  const storedAssignmentsCount = adminAssignments.length || assessments.length
+  const storedAssignmentsCount = adminAssignments.length
 
   const recentQuizAttempts = attempts.slice(0, 5)
 
@@ -269,17 +228,14 @@ export function Dashboard() {
           ) : (
             <div className="slim-scrollbar max-h-[18rem] space-y-2 overflow-y-auto pr-1">
               {recentActivity.map((score) => {
-                const isSubmission = 'assignmentTitle' in score
-                const percent = isSubmission
-                  ? Math.round(((score.marks ?? 0) / (score.totalMarks || 100)) * 100)
-                  : Math.round((score.score / (score.assessment?.maxScore ?? 100)) * 100)
+                const percent = Math.round(((score.marks ?? 0) / (score.totalMarks || 100)) * 100)
                 return (
-                  <div key={isSubmission ? score.id : (score._id ?? `${score.studentId}-${score.assessmentId}-${score.submittedAt}`)} className="rounded-xl p-2.5 transition-colors hover:bg-white/40">
+                  <div key={score.id} className="rounded-xl p-2.5 transition-colors hover:bg-white/40">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{isSubmission ? score.assignmentTitle : (score.assessment?.title ?? 'Assessment')}</p>
+                        <p className="text-sm font-medium text-gray-900">{score.assignmentTitle}</p>
                         <p className="text-xs text-gray-500">
-                          {isSubmission ? score.subject : (score.assessment?.subject ?? 'Subject')} · {new Date(isSubmission ? score.updatedAt : score.submittedAt).toLocaleString()}
+                          {score.subject} · {new Date(score.updatedAt).toLocaleString()}
                         </p>
                       </div>
                       <Badge label={`${percent}%`} variant={percent >= 70 ? 'success' : 'warning'} />

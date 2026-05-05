@@ -1,18 +1,13 @@
 package com.studentplatform.backend.config;
 
 import com.studentplatform.backend.entity.AssignmentEntity;
-import com.studentplatform.backend.entity.AssessmentEntity;
-import com.studentplatform.backend.entity.AssessmentStatus;
 import com.studentplatform.backend.entity.Role;
-import com.studentplatform.backend.entity.ScoreEntity;
 import com.studentplatform.backend.entity.SubjectEntity;
 import com.studentplatform.backend.entity.SubmissionEntity;
 import com.studentplatform.backend.entity.SubmissionStatus;
 import com.studentplatform.backend.entity.UserEntity;
 import com.studentplatform.backend.entity.YearEntity;
 import com.studentplatform.backend.repository.AssignmentRepository;
-import com.studentplatform.backend.repository.AssessmentRepository;
-import com.studentplatform.backend.repository.ScoreRepository;
 import com.studentplatform.backend.repository.SubjectRepository;
 import com.studentplatform.backend.repository.SubmissionRepository;
 import com.studentplatform.backend.repository.UserRepository;
@@ -27,9 +22,7 @@ public class DataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final AssignmentRepository assignmentRepository;
-    private final AssessmentRepository assessmentRepository;
     private final SubmissionRepository submissionRepository;
-    private final ScoreRepository scoreRepository;
     private final YearRepository yearRepository;
     private final SubjectRepository subjectRepository;
     private final PasswordEncoder passwordEncoder;
@@ -49,18 +42,14 @@ public class DataSeeder implements CommandLineRunner {
     public DataSeeder(
             UserRepository userRepository,
             AssignmentRepository assignmentRepository,
-            AssessmentRepository assessmentRepository,
             SubmissionRepository submissionRepository,
-            ScoreRepository scoreRepository,
             YearRepository yearRepository,
             SubjectRepository subjectRepository,
             PasswordEncoder passwordEncoder
     ) {
         this.userRepository = userRepository;
         this.assignmentRepository = assignmentRepository;
-        this.assessmentRepository = assessmentRepository;
         this.submissionRepository = submissionRepository;
-        this.scoreRepository = scoreRepository;
         this.yearRepository = yearRepository;
         this.subjectRepository = subjectRepository;
         this.passwordEncoder = passwordEncoder;
@@ -89,22 +78,13 @@ public class DataSeeder implements CommandLineRunner {
             userRepository.save(admin);
         }
 
-        if (!seedDemoData || userRepository.countByRole(Role.STUDENT) > 0 || assessmentRepository.count() > 0) {
+        if (!seedDemoData || userRepository.countByRole(Role.STUDENT) > 0 || assignmentRepository.count() > 0) {
             return;
         }
 
         UserEntity alice = createStudent("Alice Johnson", "alice@studentplatform.local", "10");
         UserEntity bob = createStudent("Bob Martinez", "bob@studentplatform.local", "9");
         UserEntity carol = createStudent("Carol White", "carol@studentplatform.local", "11");
-
-        AssessmentEntity algebra = createAssessment(admin, "Algebra Midterm", "Mathematics", "2026-04-20", 100, AssessmentStatus.UPCOMING);
-        AssessmentEntity physics = createAssessment(admin, "Physics Lab", "Science", "2026-03-20", 50, AssessmentStatus.COMPLETED);
-        AssessmentEntity history = createAssessment(admin, "World History Quiz", "History", "2026-03-28", 40, AssessmentStatus.GRADING);
-
-        createScore(alice, physics, 45, "Strong practical work");
-        createScore(alice, history, 34, "Good recall");
-        createScore(bob, physics, 39, "Keep practicing graph analysis");
-        createScore(carol, physics, 48, "Excellent work");
 
         AssignmentEntity essay = createAssignment(
                 admin,
@@ -139,35 +119,6 @@ public class DataSeeder implements CommandLineRunner {
         user.setEmailVerified(true);
         user.prepareForSave();
         return userRepository.save(user);
-    }
-
-    private AssessmentEntity createAssessment(
-            UserEntity admin,
-            String title,
-            String subject,
-            String date,
-            int maxScore,
-            AssessmentStatus status
-    ) {
-        AssessmentEntity assessment = new AssessmentEntity();
-        assessment.setCreatedBy(admin);
-        assessment.setTitle(title);
-        assessment.setSubject(subject);
-        assessment.setDate(date);
-        assessment.setMaxScore(maxScore);
-        assessment.setStatus(status);
-        assessment.prepareForSave();
-        return assessmentRepository.save(assessment);
-    }
-
-    private void createScore(UserEntity student, AssessmentEntity assessment, int scoreValue, String feedback) {
-        ScoreEntity score = new ScoreEntity();
-        score.setStudent(student);
-        score.setAssessment(assessment);
-        score.setScore(scoreValue);
-        score.setFeedback(feedback);
-        score.prepareForSave();
-        scoreRepository.save(score);
     }
 
     private AssignmentEntity createAssignment(

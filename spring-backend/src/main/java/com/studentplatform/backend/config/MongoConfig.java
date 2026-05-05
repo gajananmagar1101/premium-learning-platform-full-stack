@@ -1,6 +1,5 @@
 package com.studentplatform.backend.config;
 
-import com.studentplatform.backend.entity.AssessmentStatus;
 import com.studentplatform.backend.entity.Role;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,9 +17,7 @@ public class MongoConfig {
     MongoCustomConversions mongoCustomConversions() {
         return new MongoCustomConversions(List.of(
                 new StringToRoleConverter(),
-                new RoleToStringConverter(),
-                new StringToAssessmentStatusConverter(),
-                new AssessmentStatusToStringConverter()
+                new RoleToStringConverter()
         ));
     }
 
@@ -40,19 +37,4 @@ public class MongoConfig {
         }
     }
 
-    @ReadingConverter
-    static class StringToAssessmentStatusConverter implements Converter<String, AssessmentStatus> {
-        @Override
-        public AssessmentStatus convert(String source) {
-            return AssessmentStatus.fromValue(source);
-        }
-    }
-
-    @WritingConverter
-    static class AssessmentStatusToStringConverter implements Converter<AssessmentStatus, String> {
-        @Override
-        public String convert(AssessmentStatus source) {
-            return source == null ? null : source.name().toLowerCase();
-        }
-    }
 }

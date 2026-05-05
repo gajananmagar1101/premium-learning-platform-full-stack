@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft, Calendar, CheckCheck, ChevronDown, ClipboardList, Clock3, Copy, Edit3, FileText, FolderKanban, NotebookPen, Plus, Save, Search, Send, Trash2, Upload } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { motion } from 'framer-motion'
@@ -69,7 +69,7 @@ async function readFileAsDataUrl(file: File) {
   })
 }
 
-function AdminAssignmentsView() {
+function AdminAssignmentsView({ initialSearch = '' }: { initialSearch?: string }) {
   const navigate = useNavigate()
   const {
     adminAssignments,
@@ -84,7 +84,7 @@ function AdminAssignmentsView() {
   } = useAssignmentStore()
   const addToast = useUIStore((state) => state.addToast)
   const { students, fetchStudents } = useStudentStore()
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
   const [assignmentYearFilter, setAssignmentYearFilter] = useState<'all' | string>('all')
   const [assignmentStatusFilter, setAssignmentStatusFilter] = useState<'all' | 'active' | 'closed' | 'dueSoon'>('all')
   const [assignmentSubjectFilter, setAssignmentSubjectFilter] = useState<'all' | string>('all')
@@ -111,6 +111,10 @@ function AdminAssignmentsView() {
     fetchAdminSubmissions()
     fetchStudents()
   }, [fetchAdminAssignments, fetchAdminSubmissions, fetchStudents])
+
+  useEffect(() => {
+    setSearch(initialSearch)
+  }, [initialSearch])
 
   const gradedCount = useMemo(
     () => submissions.filter((submission) => submission.status === 'graded').length,
@@ -404,7 +408,7 @@ function AdminAssignmentsView() {
 
     let cancelled = false
     setSubjectsLoading(true)
-    subjectAPI.getByYear(selectedFormYear)
+    subjectAPI.getByYearCached(selectedFormYear)
       .then((response) => {
         if (cancelled) return
         setAvailableSubjects(response.data.subjects ?? [])
@@ -1292,7 +1296,7 @@ function AdminAssignmentsView() {
   )
 }
 
-function StudentAssignmentsView() {
+function StudentAssignmentsView({ initialSearch = '' }: { initialSearch?: string }) {
   const user = useAuthStore((state) => state.user)
   const {
     studentAssignments,
@@ -1301,7 +1305,7 @@ function StudentAssignmentsView() {
     updateSubmission,
   } = useAssignmentStore()
   const addToast = useUIStore((state) => state.addToast)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
   const [modalOpen, setModalOpen] = useState(false)
   const [activeAssignment, setActiveAssignment] = useState<StudentAssignmentItem | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
@@ -1311,6 +1315,10 @@ function StudentAssignmentsView() {
   useEffect(() => {
     fetchStudentAssignments()
   }, [fetchStudentAssignments])
+
+  useEffect(() => {
+    setSearch(initialSearch)
+  }, [initialSearch])
 
   const filteredAssignments = useMemo(() => {
     const query = search.toLowerCase().trim()
@@ -1603,10 +1611,12 @@ function StudentAssignmentsView() {
 
 export function Assessments() {
   const user = useAuthStore((state) => state.user)
+  const [searchParams] = useSearchParams()
+  const initialSearch = searchParams.get('search') ?? ''
 
   if (isStaffRole(user?.role)) {
-    return <AdminAssignmentsView />
+    return <AdminAssignmentsView initialSearch={initialSearch} />
   }
 
-  return <StudentAssignmentsView />
+  return <StudentAssignmentsView initialSearch={initialSearch} />
 }

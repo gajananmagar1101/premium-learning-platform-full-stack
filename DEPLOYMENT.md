@@ -2,14 +2,9 @@
 
 This project is set up for:
 
-- Frontend: Netlify or Vercel
+- Frontend: Vercel
 - Backend: Railway or Render
 - Database: MongoDB Atlas
-
-If the Netlify URL shows "Site not available" and says the site reached usage
-limits, the app code is not the problem. Netlify has paused that deployed site
-at the account level. Fix it by upgrading/unpausing the Netlify account, moving
-the frontend to a new Netlify site/account, or deploying the frontend to Vercel.
 
 ## 1. MongoDB Atlas
 
@@ -50,7 +45,7 @@ If you use Render instead, keep using your Render service URL.
 
 ## 3. Frontend
 
-### Option A: Vercel
+### Vercel
 
 When importing this repository into Vercel, keep the root directory as:
 
@@ -70,25 +65,12 @@ For local frontend development with the Spring backend, use:
 After Vercel gives you a live domain, set the backend `FRONTEND_URL` to that exact
 domain so browser requests are allowed by CORS.
 
-### Option B: Netlify
-
-The root `netlify.toml` deploys the Vite frontend from `student-platform`.
-
-Set this environment variable in Netlify:
-
-- `VITE_API_URL=https://your-railway-backend.up.railway.app/api`
-
-If you use Netlify again, make sure the account/site is not paused for usage
-limits before testing the live URL.
-
 ## 4. GitHub
 
 Push the repository to GitHub after confirming these files:
 
 - `render.yaml`
-- `netlify.toml`
 - `vercel.json`
-- `student-platform/vercel.json`
 - `DEPLOYMENT.md`
 
 ## 5. Important

@@ -22,7 +22,6 @@ Production-style Spring Boot backend for the student platform frontend.
 - `GET /api/student/assignments`
 - `POST/PUT /api/student/submissions`
 - `GET/PUT /api/admin/submissions`
-- `GET/POST/PUT/DELETE /api/assessments`
 - `GET/PUT/DELETE /api/users/students`
 - `GET /api/users/me/scores`
 - `GET/POST/DELETE /api/scores`
@@ -102,7 +101,7 @@ Required Render environment variables:
 
 - `MONGODB_URI` your MongoDB Atlas connection string
 - `JWT_SECRET` a long random secret
-- `FRONTEND_URL` your Netlify site URL
+- `FRONTEND_URL` your live frontend URL
 - `ADMIN_EMAIL` admin login email
 - `ADMIN_PASSWORD` admin login password
 

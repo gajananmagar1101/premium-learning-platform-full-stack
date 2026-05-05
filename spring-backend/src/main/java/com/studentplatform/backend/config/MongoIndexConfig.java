@@ -25,8 +25,6 @@ public class MongoIndexConfig {
     private void removeInheritedEmailIndexes() {
         List<String> collections = List.of(
                 "assignments",
-                "assessments",
-                "scores",
                 "submissions",
                 "quiz_attempts",
                 "quiz_sessions"

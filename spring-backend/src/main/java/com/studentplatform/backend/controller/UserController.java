@@ -40,7 +40,7 @@ public class UserController {
     @GetMapping("/students/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','FACULTY')")
     public Map<String, Object> getStudent(@PathVariable String id) {
-        return userService.getStudentDetails(id);
+        return Map.of("success", true, "student", userService.getStudent(id));
     }
 
     @PutMapping("/students/{id}")
@@ -133,10 +133,5 @@ public class UserController {
     public Map<String, Object> deleteFaculty(@PathVariable String id) {
         userService.deleteFaculty(id);
         return Map.of("success", true, "message", "Faculty deleted.");
-    }
-
-    @GetMapping("/me/scores")
-    public Map<String, Object> myScores(@AuthenticationPrincipal AppUserDetails userDetails) {
-        return Map.of("success", true, "scores", userService.getMyScores(userDetails.getUser()));
     }
 }

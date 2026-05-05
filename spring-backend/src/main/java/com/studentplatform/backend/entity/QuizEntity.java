@@ -1,6 +1,8 @@
 package com.studentplatform.backend.entity;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
@@ -9,6 +11,9 @@ import java.util.List;
 import java.util.UUID;
 
 @Document(collection = "quizzes")
+@CompoundIndexes({
+        @CompoundIndex(name = "quiz_status_class_created_idx", def = "{'status': 1, 'className': 1, 'createdAt': -1}")
+})
 public class QuizEntity {
 
     @Id

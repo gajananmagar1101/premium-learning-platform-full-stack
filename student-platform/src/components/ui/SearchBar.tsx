@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { useAssessmentStore } from '@/store/useAssessmentStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useStudentStore } from '@/store/useStudentStore'
@@ -24,14 +24,15 @@ const includesQuery = (value: string, query: string) => value.toLowerCase().incl
 export function SearchBar() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [mounted, setMounted] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
   const [faculty, setFaculty] = useState<FacultyMember[]>([])
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
   const hasLoadedDataRef = useRef(false)
   const searchRef = useRef<HTMLDivElement>(null)
+  const mobilePanelRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
-  const { assessments, fetchAssessments } = useAssessmentStore()
   const { adminAssignments, studentAssignments, submissions, fetchAdminAssignments, fetchStudentAssignments, fetchAdminSubmissions } = useAssignmentStore()
   const { students, fetchStudents } = useStudentStore()
   const { quizzes, attempts, fetchQuizzes, fetchAttempts } = useQuizStore()
@@ -40,18 +41,6 @@ export function SearchBar() {
 
   const results: SearchResult[] = normalizedQuery.length > 1
     ? [
-        ...assessments
-          .filter((assessment) =>
-            includesQuery(assessment.title, normalizedQuery) ||
-            includesQuery(assessment.subject, normalizedQuery)
-          )
-          .slice(0, 4)
-          .map((assessment) => ({
-            label: assessment.title,
-            sub: `${assessment.subject} · ${assessment.status}`,
-            path: '/assessments',
-            kind: 'Assessment',
-          })),
         ...assignments
           .filter((assignment) =>
             includesQuery(assignment.title, normalizedQuery) ||
@@ -63,7 +52,9 @@ export function SearchBar() {
           .map((assignment) => ({
             label: assignment.title,
             sub: `${assignment.subject} · ${assignment.className}`,
-            path: '/assessments',
+            path: isStaffRole(user?.role)
+              ? `/assessments/subject?class=${encodeURIComponent(assignment.className)}&subject=${encodeURIComponent(assignment.subject)}&target=${encodeURIComponent(assignment.id)}`
+              : `/assessments?search=${encodeURIComponent(assignment.title)}&target=${encodeURIComponent(assignment.id)}`,
             kind: 'Assignment',
           })),
         ...subjects
@@ -76,7 +67,7 @@ export function SearchBar() {
           .map((subject) => ({
             label: subject.name,
             sub: subject.yearName ?? subject.yearCode ?? 'Subject',
-            path: '/subjects',
+            path: `/subjects?search=${encodeURIComponent(subject.name)}`,
             kind: 'Subject',
           })),
         ...students
@@ -103,7 +94,7 @@ export function SearchBar() {
           .map((member) => ({
             label: member.name,
             sub: member.email,
-            path: '/faculty',
+            path: `/faculty?search=${encodeURIComponent(member.name)}`,
             kind: 'Faculty',
           })),
         ...quizzes
@@ -117,7 +108,7 @@ export function SearchBar() {
           .map((quiz) => ({
             label: quiz.title,
             sub: `${quiz.subject} · ${quiz.status}`,
-            path: '/quizzes',
+            path: `/quizzes?search=${encodeURIComponent(quiz.title)}`,
             kind: 'Quiz',
           })),
         ...submissions
@@ -131,7 +122,7 @@ export function SearchBar() {
           .map((submission) => ({
             label: submission.assignmentTitle,
             sub: `${submission.studentName} · ${submission.subject}`,
-            path: '/reports',
+            path: `/assessments?search=${encodeURIComponent(submission.assignmentTitle)}`,
             kind: 'Submission',
           })),
         ...attempts
@@ -144,7 +135,7 @@ export function SearchBar() {
           .map((attempt) => ({
             label: attempt.studentName,
             sub: `${attempt.studentEmail} · Quiz attempt`,
-            path: '/quizzes',
+            path: `/quizzes?attemptSearch=${encodeURIComponent(attempt.studentName)}`,
             kind: 'Attempt',
           })),
       ].slice(0, 16)
@@ -153,8 +144,13 @@ export function SearchBar() {
   const go = (path: string) => { navigate(path); setOpen(false); setQuery('') }
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
-      if (!searchRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (!searchRef.current?.contains(target) && !mobilePanelRef.current?.contains(target)) {
         setOpen(false)
       }
     }
@@ -162,17 +158,6 @@ export function SearchBar() {
     document.addEventListener('mousedown', handlePointerDown)
     return () => document.removeEventListener('mousedown', handlePointerDown)
   }, [])
-
-  useEffect(() => {
-    if (!open) return
-
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-
-    return () => {
-      document.body.style.overflow = previousOverflow
-    }
-  }, [open])
 
   useEffect(() => {
     hasLoadedDataRef.current = false
@@ -190,7 +175,6 @@ export function SearchBar() {
       try {
         const tasks: Promise<unknown>[] = []
 
-        if (assessments.length === 0) tasks.push(fetchAssessments())
         if (quizzes.length === 0) tasks.push(fetchQuizzes())
         if (attempts.length === 0) tasks.push(fetchAttempts())
         if (isStaffRole(user?.role) && students.length === 0) tasks.push(fetchStudents())
@@ -224,11 +208,9 @@ export function SearchBar() {
     }
   }, [
     adminAssignments.length,
-    assessments.length,
     attempts.length,
     fetchAdminAssignments,
     fetchAdminSubmissions,
-    fetchAssessments,
     fetchAttempts,
     fetchQuizzes,
     fetchStudentAssignments,
@@ -242,7 +224,7 @@ export function SearchBar() {
   ])
 
   return (
-    <div ref={searchRef} className="relative">
+    <div ref={searchRef} className="relative z-[170]">
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -322,87 +304,90 @@ export function SearchBar() {
         </AnimatePresence>
       </div>
 
-      <AnimatePresence>
-        {open && (
+      {mounted ? createPortal(
+        <AnimatePresence>
+          {open && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[160] overflow-y-auto bg-slate-950/50 px-3 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-sm md:hidden"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[220] md:hidden"
           >
-            <motion.div
-              initial={{ y: 18, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 18, opacity: 0 }}
-              className="mx-auto flex min-h-[18rem] w-full max-w-md flex-col overflow-hidden rounded-[1.8rem] border border-white/40 bg-white/96 shadow-2xl max-h-[calc(100dvh-env(safe-area-inset-top)-1.5rem)] dark:border-white/10 dark:bg-[#08111f]/96"
-            >
-              <div className="flex items-center gap-2 border-b border-light-border px-3 py-3 dark:border-dark-border">
-                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-slate-200/80 bg-slate-100/80 px-3 py-2 dark:border-white/15 dark:bg-white/10">
-                  <Search size={16} className="shrink-0 text-light-ink-muted dark:text-slate-300" />
-                  <input
-                    autoFocus
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Escape') setOpen(false)
-                      if (event.key === 'Enter' && results[0]) go(results[0].path)
+            <div ref={mobilePanelRef} className="space-y-2">
+              <div className="rounded-[1.75rem] border border-white/45 bg-white/88 p-2.5 shadow-[0_18px_45px_rgba(15,23,42,0.2)] backdrop-blur-xl dark:border-white/10 dark:bg-[#08111f]/90">
+                <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-slate-200/80 bg-white px-3 py-3 shadow-sm dark:border-white/15 dark:bg-white/10">
+                    <Search size={16} className="shrink-0 text-light-ink-muted dark:text-slate-300" />
+                    <input
+                      autoFocus
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') setOpen(false)
+                        if (event.key === 'Enter' && results[0]) go(results[0].path)
+                      }}
+                      placeholder="Search"
+                      className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-light-ink-muted dark:text-slate-100 dark:placeholder:text-slate-400"
+                    />
+                    {query ? (
+                      <button
+                        type="button"
+                        onClick={() => setQuery('')}
+                        className="shrink-0 text-light-ink-muted dark:text-slate-300"
+                        aria-label="Clear search"
+                      >
+                        <X size={16} />
+                      </button>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false)
+                      setQuery('')
                     }}
-                    placeholder="Search assignments, quizzes, learners..."
-                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-light-ink-muted dark:text-slate-100 dark:placeholder:text-slate-400"
-                  />
-                  {query ? (
-                    <button
-                      type="button"
-                      onClick={() => setQuery('')}
-                      className="shrink-0 text-light-ink-muted dark:text-slate-300"
-                      aria-label="Clear search"
-                    >
-                      <X size={16} />
-                    </button>
-                  ) : null}
+                    className="shrink-0 rounded-full px-3 py-2 text-sm font-medium text-light-ink-secondary dark:text-slate-300"
+                  >
+                    Close
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-full px-2 py-1 text-sm font-medium text-light-ink-secondary dark:text-slate-300"
-                >
-                  Close
-                </button>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
-                {loadingData && query.trim().length <= 1 ? (
-                  <p className="px-3 py-6 text-center text-sm text-light-ink-muted dark:text-dark-ink-muted">Preparing search...</p>
-                ) : null}
-
-                {query.trim().length > 1 ? (
-                  results.length > 0 ? (
-                    <div className="space-y-1">
-                      {results.map((result, index) => (
-                        <button
-                          key={`${result.kind}-${result.path}-${index}`}
-                          onClick={() => go(result.path)}
-                          className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-light-hover dark:hover:bg-dark-hover"
-                        >
-                          <span className="shrink-0 rounded-full bg-indigo-500/12 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300">{result.kind}</span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">{result.label}</p>
-                            <p className="truncate text-xs text-light-ink-muted dark:text-dark-ink-muted">{result.sub}</p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="px-3 py-6 text-center text-sm text-light-ink-muted dark:text-dark-ink-muted">No results found</p>
-                  )
-                ) : (
-                  <p className="px-3 py-6 text-center text-sm text-light-ink-muted dark:text-dark-ink-muted">Type at least 2 letters to search.</p>
-                )}
-              </div>
-            </motion.div>
+              {query.trim().length > 1 ? (
+                <div className="overflow-hidden rounded-[1.5rem] border border-white/40 bg-white/88 shadow-[0_18px_45px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/10 dark:bg-[#08111f]/90">
+                  <div className="max-h-[min(22rem,60vh)] overflow-y-auto overscroll-contain p-2">
+                    {results.length > 0 ? (
+                      <div className="space-y-1">
+                        {results.map((result, index) => (
+                          <button
+                            key={`${result.kind}-${result.path}-${index}`}
+                            onClick={() => go(result.path)}
+                            className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-light-hover dark:hover:bg-dark-hover"
+                          >
+                            <span className="shrink-0 rounded-full bg-indigo-500/12 px-2 py-0.5 text-xs font-medium text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300">{result.kind}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">{result.label}</p>
+                              <p className="truncate text-xs text-light-ink-muted dark:text-dark-ink-muted">{result.sub}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="px-3 py-6 text-center text-sm text-light-ink-muted dark:text-dark-ink-muted">No results found</p>
+                    )}
+                  </div>
+                </div>
+              ) : loadingData ? (
+                <div className="overflow-hidden rounded-[1.5rem] border border-white/40 bg-white/88 px-4 py-4 text-center text-sm text-light-ink-muted shadow-[0_18px_45px_rgba(15,23,42,0.18)] backdrop-blur-xl dark:border-white/10 dark:bg-[#08111f]/90 dark:text-dark-ink-muted">
+                  Preparing search...
+                </div>
+              ) : null}
+            </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body
+      ) : null}
     </div>
   )
 }

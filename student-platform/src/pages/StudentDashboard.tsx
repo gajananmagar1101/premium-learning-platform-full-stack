@@ -5,16 +5,11 @@ import { GlassCard } from '@/components/ui/GlassCard'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Badge } from '@/components/ui/Badge'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useAssessmentStore } from '@/store/useAssessmentStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useQuizStore } from '@/store/useQuizStore'
-import { scoreAPI, studentAPI } from '@/lib/services'
+import { studentAPI } from '@/lib/services'
 import { normalizeAcademicYear } from '@/lib/btech'
-import type { Assessment, StudentPerformance, StudentScore } from '@/types'
-
-interface ScoreWithAssessment extends StudentScore {
-  assessment: Assessment
-}
+import type { StudentPerformance } from '@/types'
 
 const getLetterGrade = (percent: number) => {
   if (percent >= 90) return 'A'
@@ -26,10 +21,8 @@ const getLetterGrade = (percent: number) => {
 
 export function StudentDashboard() {
   const user = useAuthStore((state) => state.user)
-  const assessments = useAssessmentStore((state) => state.assessments)
   const { studentAssignments, fetchStudentAssignments } = useAssignmentStore()
   const { quizzes, attempts } = useQuizStore()
-  const [scores, setScores] = useState<ScoreWithAssessment[]>([])
   const [performance, setPerformance] = useState<StudentPerformance | null>(null)
   const [loading, setLoading] = useState(true)
   const userId = user?._id ?? user?.id
@@ -43,28 +36,17 @@ export function StudentDashboard() {
     let cancelled = false
     const load = async () => {
       try {
-        const scoresRes = await scoreAPI.getStudentScores(userId)
+        const performanceRes = await studentAPI.getPerformance(userId)
         if (!cancelled) {
-          setScores(scoresRes.data.scores ?? [])
-        }
-
-        try {
-          const performanceRes = await studentAPI.getPerformance(userId)
-          if (!cancelled) {
-            setPerformance(performanceRes.data.performance ?? null)
-          }
-        } catch (performanceError) {
-          const status = (performanceError as { response?: { status?: number } })?.response?.status
-          if (!cancelled) {
-            setPerformance(null)
-            if (status && status !== 404) {
-              console.error('[StudentDashboard] Failed to load performance:', performanceError)
-            }
-          }
+          setPerformance(performanceRes.data.performance ?? null)
         }
       } catch (error) {
         if (!cancelled) {
-          console.error('[StudentDashboard] Failed to load scores:', error)
+          const status = (error as { response?: { status?: number } })?.response?.status
+          setPerformance(null)
+          if (status && status !== 404) {
+            console.error('[StudentDashboard] Failed to load performance:', error)
+          }
         }
       } finally {
         if (!cancelled) {
@@ -151,38 +133,26 @@ export function StudentDashboard() {
         current.count += 1
         totals.set(subject, current)
       })
-    } else {
-      scores.forEach((score) => {
-        const subject = score.assessment?.subject ?? 'Unknown'
-        const current = totals.get(subject) ?? { total: 0, count: 0 }
-        current.total += (score.score / (score.assessment?.maxScore ?? 100)) * 100
-        current.count += 1
-        totals.set(subject, current)
-      })
     }
     return Array.from(totals.entries()).map(([subject, value]) => ({
       subject,
       progress: Math.round(value.total / value.count),
     }))
-  }, [gradedAssignments, scores])
+  }, [gradedAssignments])
 
   const trendData = useMemo(() => (
-    gradedAssignments.length
-      ? [...gradedAssignments]
-          .reverse()
-          .map((assignment) => ({
-            name: assignment.assignmentTitle.slice(0, 16) ?? 'Assignment',
-            score: assignment.percentage,
-          }))
-      : [...scores]
-          .reverse()
-          .map((score) => ({
-            name: score.assessment?.title?.slice(0, 16) ?? 'Assessment',
-            score: Math.round((score.score / (score.assessment?.maxScore ?? 100)) * 100),
-          }))
-  ), [gradedAssignments, scores])
+    [...gradedAssignments]
+      .reverse()
+      .map((assignment) => ({
+        name: assignment.assignmentTitle.slice(0, 16) ?? 'Assignment',
+        score: assignment.percentage,
+      }))
+  ), [gradedAssignments])
 
-  const upcomingAssessments = assessments.filter((assessment) => assessment.status === 'upcoming').slice(0, 4)
+  const upcomingAssessments = [...studentAssignments]
+    .filter((assignment) => assignment.canSubmit && new Date(assignment.deadline).getTime() >= Date.now())
+    .sort((left, right) => new Date(left.deadline).getTime() - new Date(right.deadline).getTime())
+    .slice(0, 4)
   const cohort = normalizeAcademicYear(user?.grade)
   const availableQuizzes = quizzes.filter((quiz) => quiz.status === 'published' && normalizeAcademicYear(quiz.className) === cohort)
   const myQuizAttempts = attempts.filter((attempt) => attempt.studentId === userId)
@@ -276,17 +246,17 @@ export function StudentDashboard() {
 
         <GlassCard className="flex min-h-0 flex-col p-4">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
-            <Calendar size={16} className="text-indigo-500" /> Upcoming Assessments
+            <Calendar size={16} className="text-indigo-500" /> Upcoming Assignments
           </h2>
           {!upcomingAssessments.length ? (
-            <p className="py-10 text-center text-sm text-gray-400">No upcoming assessments right now.</p>
+            <p className="py-10 text-center text-sm text-gray-400">No upcoming assignments right now.</p>
           ) : (
             <div className="slim-scrollbar max-h-[16rem] space-y-2.5 overflow-y-auto pr-1">
-              {upcomingAssessments.map((assessment) => (
-                <div key={assessment.id ?? assessment._id} className="flex items-center justify-between rounded-xl bg-white/30 p-2.5 transition-colors hover:bg-white/50">
+              {upcomingAssessments.map((assignment) => (
+                <div key={assignment.id ?? assignment._id} className="flex items-center justify-between rounded-xl bg-white/30 p-2.5 transition-colors hover:bg-white/50">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{assessment.title}</p>
-                    <p className="text-xs text-gray-500">{assessment.subject} · {assessment.date}</p>
+                    <p className="text-sm font-medium text-gray-900">{assignment.title}</p>
+                    <p className="text-xs text-gray-500">{assignment.subject} · {new Date(assignment.deadline).toLocaleString()}</p>
                   </div>
                   <Badge label="Upcoming" variant="info" />
                 </div>

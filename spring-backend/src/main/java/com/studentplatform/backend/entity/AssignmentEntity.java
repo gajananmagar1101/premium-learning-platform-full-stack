@@ -1,6 +1,8 @@
 package com.studentplatform.backend.entity;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -8,6 +10,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Document(collection = "assignments")
+@CompoundIndexes({
+        @CompoundIndex(name = "assignment_class_status_deadline_idx", def = "{'className': 1, 'status': 1, 'deadline': 1, 'createdAt': -1}")
+})
 public class AssignmentEntity {
 
     @Id

@@ -16,6 +16,8 @@ public interface UserRepository extends MongoRepository<UserEntity, String> {
     long countByRole(Role role);
     List<UserEntity> findAllByRoleOrderByCreatedAtDesc(Role role);
     List<UserEntity> findAllByRoleOrderByNameAsc(Role role);
+    List<UserEntity> findByRoleInOrderByCreatedAtDesc(List<Role> roles);
+    List<UserEntity> findByRoleAndGradeIgnoreCaseOrderByCreatedAtDesc(Role role, String grade);
     @Query(value = "{ 'role': { $in: ['FACULTY', 'faculty', 'Faculty', 'TEACHER', 'teacher', 'Teacher'] } }", sort = "{ 'name': 1 }")
     List<UserEntity> findAllFacultyLikeUsers();
 }

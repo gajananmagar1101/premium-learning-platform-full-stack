@@ -43,8 +43,15 @@ public class AssignmentManagementService {
 
     @Transactional(readOnly = true)
     public List<AssignmentResponse> getAllForAdmin() {
-        return assignmentRepository.findAllByOrderByDeadlineAscCreatedAtDesc().stream()
-                .map(this::toResponse)
+        List<AssignmentEntity> assignments = assignmentRepository.findAllByOrderByDeadlineAscCreatedAtDesc();
+        Map<String, String> subjectNamesById = subjectService.resolveSubjectNamesById(
+                assignments.stream()
+                        .map(AssignmentEntity::getSubjectId)
+                        .toList()
+        );
+
+        return assignments.stream()
+                .map(assignment -> toResponse(assignment, subjectNamesById))
                 .toList();
     }
 
@@ -60,18 +67,23 @@ public class AssignmentManagementService {
                         (left, _right) -> left
                 ));
 
-        return assignmentRepository.findAllByOrderByDeadlineAscCreatedAtDesc().stream()
-                .filter(assignment -> {
-                    String assignmentClass = normalizeClassName(assignment.getClassName());
-                    return !assignmentClass.isBlank()
-                            && !studentClass.isBlank()
-                            && assignmentClass.equals(studentClass)
-                            && assignment.getStatus() == AssignmentStatus.PUBLISHED;
-                })
+        List<AssignmentEntity> assignments = studentClass.isBlank()
+                ? List.of()
+                : assignmentRepository.findByClassNameIgnoreCaseAndStatusOrderByDeadlineAscCreatedAtDesc(
+                        student.getGrade(),
+                        AssignmentStatus.PUBLISHED
+                );
+        Map<String, String> subjectNamesById = subjectService.resolveSubjectNamesById(
+                assignments.stream()
+                        .map(AssignmentEntity::getSubjectId)
+                        .toList()
+        );
+
+        return assignments.stream()
                 .map(assignment -> StudentAssignmentResponse.from(
                         assignment,
                         submissionsByAssignment.get(assignment.getId()),
-                        resolveSubjectName(assignment)
+                        resolveSubjectName(assignment, subjectNamesById)
                 ))
                 .toList();
     }
@@ -93,7 +105,7 @@ public class AssignmentManagementService {
             );
         }
 
-        return toResponse(saved);
+        return toResponse(saved, subjectService.resolveSubjectNamesById(List.of(saved.getSubjectId())));
     }
 
     public AssignmentResponse update(String id, AssignmentRequest request) {
@@ -115,7 +127,7 @@ public class AssignmentManagementService {
             );
         }
 
-        return toResponse(saved);
+        return toResponse(saved, subjectService.resolveSubjectNamesById(List.of(saved.getSubjectId())));
     }
 
     public AssignmentResponse publish(String id) {
@@ -132,7 +144,7 @@ public class AssignmentManagementService {
                 null
         );
 
-        return toResponse(saved);
+        return toResponse(saved, subjectService.resolveSubjectNamesById(List.of(saved.getSubjectId())));
     }
 
     public void delete(String id) {
@@ -162,29 +174,19 @@ public class AssignmentManagementService {
         assignment.setQuestionFileContent(request.questionFileContent());
     }
 
-    public String resolveSubjectName(AssignmentEntity assignment) {
-        if (assignment.getSubjectId() != null && !assignment.getSubjectId().isBlank()) {
-            SubjectEntity subject = subjectService.resolveSubject(assignment.getSubjectId(), null);
-            return subjectService.resolveSubjectName(subject, assignment.getLegacySubject());
+    private String resolveSubjectName(AssignmentEntity assignment, Map<String, String> subjectNamesById) {
+        String subjectId = assignment.getSubjectId();
+        if (subjectId != null && !subjectId.isBlank()) {
+            String subjectName = subjectNamesById.get(subjectId);
+            if (subjectName != null && !subjectName.isBlank()) {
+                return subjectName;
+            }
         }
         return subjectService.resolveSubjectName(null, assignment.getLegacySubject());
     }
 
-    private AssignmentResponse toResponse(AssignmentEntity assignment) {
-        return AssignmentResponse.from(assignment, resolveSubjectName(assignment));
+    private AssignmentResponse toResponse(AssignmentEntity assignment, Map<String, String> subjectNamesById) {
+        return AssignmentResponse.from(assignment, resolveSubjectName(assignment, subjectNamesById));
     }
 
-    private String normalizeClassName(String value) {
-        if (value == null) {
-            return "";
-        }
-
-        return value
-                .trim()
-                .toLowerCase()
-                .replace("class", "")
-                .replace("grade", "")
-                .replaceAll("\\s+", "")
-                .replaceAll("(st|nd|rd|th)$", "");
-    }
 }

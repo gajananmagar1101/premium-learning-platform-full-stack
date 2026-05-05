@@ -2,7 +2,6 @@ package com.studentplatform.backend.service;
 
 import com.studentplatform.backend.dto.FacultyAccessResponse;
 import com.studentplatform.backend.dto.FacultyAccessUpdateRequest;
-import com.studentplatform.backend.dto.ScoreResponse;
 import com.studentplatform.backend.dto.StudentAccessUpdateRequest;
 import com.studentplatform.backend.dto.StudentUpdateRequest;
 import com.studentplatform.backend.dto.UserResponse;
@@ -11,7 +10,6 @@ import com.studentplatform.backend.entity.UserEntity;
 import com.studentplatform.backend.exception.ApiException;
 import com.studentplatform.backend.repository.QuizAttemptRepository;
 import com.studentplatform.backend.repository.QuizSessionRepository;
-import com.studentplatform.backend.repository.ScoreRepository;
 import com.studentplatform.backend.repository.SubmissionRepository;
 import com.studentplatform.backend.repository.UserRepository;
 import org.bson.Document;
@@ -33,7 +31,6 @@ import java.util.Map;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final ScoreRepository scoreRepository;
     private final SubmissionRepository submissionRepository;
     private final QuizAttemptRepository quizAttemptRepository;
     private final QuizSessionRepository quizSessionRepository;
@@ -42,7 +39,6 @@ public class UserService {
 
     public UserService(
             UserRepository userRepository,
-            ScoreRepository scoreRepository,
             SubmissionRepository submissionRepository,
             QuizAttemptRepository quizAttemptRepository,
             QuizSessionRepository quizSessionRepository,
@@ -50,7 +46,6 @@ public class UserService {
             MongoTemplate mongoTemplate
     ) {
         this.userRepository = userRepository;
-        this.scoreRepository = scoreRepository;
         this.submissionRepository = submissionRepository;
         this.quizAttemptRepository = quizAttemptRepository;
         this.quizSessionRepository = quizSessionRepository;
@@ -80,15 +75,6 @@ public class UserService {
     public UserResponse getStudent(String id) {
         UserEntity user = getStudentEntity(id);
         return UserResponse.from(user);
-    }
-
-    @Transactional(readOnly = true)
-    public Map<String, Object> getStudentDetails(String id) {
-        UserEntity user = getStudentEntity(id);
-        List<ScoreResponse> scores = scoreRepository.findByStudent_IdOrderBySubmittedAtDesc(user.getId()).stream()
-                .map(ScoreResponse::from)
-                .toList();
-        return Map.of("success", true, "student", UserResponse.from(user), "scores", scores);
     }
 
     public UserResponse updateStudent(String id, StudentUpdateRequest request) {
@@ -219,18 +205,10 @@ public class UserService {
 
     public void deleteStudent(String id) {
         UserEntity user = getStudentEntity(id);
-        scoreRepository.deleteByStudent_Id(user.getId());
         submissionRepository.deleteByStudent_Id(user.getId());
         quizAttemptRepository.deleteByStudentId(user.getId());
         quizSessionRepository.deleteByStudentId(user.getId());
         userRepository.delete(user);
-    }
-
-    @Transactional(readOnly = true)
-    public List<ScoreResponse> getMyScores(UserEntity currentUser) {
-        return scoreRepository.findByStudent_IdOrderBySubmittedAtDesc(currentUser.getId()).stream()
-                .map(ScoreResponse::from)
-                .toList();
     }
 
     public UserEntity getStudentEntity(String id) {

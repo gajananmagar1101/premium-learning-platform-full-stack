@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { X, Mail, BookOpen, TrendingUp, Award, RefreshCw, Trash2, UserX } from 'lucide-react'
+import { X, Mail, BookOpen, TrendingUp, Award, RefreshCw, UserX } from 'lucide-react'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Badge } from '@/components/ui/Badge'
@@ -9,16 +9,12 @@ import { useStudentStore } from '@/store/useStudentStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useQuizStore } from '@/store/useQuizStore'
 import { useUIStore } from '@/store/useUIStore'
-import { studentAPI, scoreAPI } from '@/lib/services'
+import { studentAPI } from '@/lib/services'
 import { btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
-import type { DBStudent, StudentPerformance, StudentScore, Assessment } from '@/types'
+import type { DBStudent, StudentPerformance } from '@/types'
 import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts'
 
 const cohortOptions = btechYearOptions.map((option) => option.value)
-
-interface ScoreWithAssessment extends StudentScore {
-  assessment: Assessment
-}
 
 const getLetterGrade = (percent: number) => {
   if (percent >= 90) return 'A'
@@ -35,37 +31,20 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
   } = useAssignmentStore()
   const addToast = useUIStore((state) => state.addToast)
   const { quizzes, attempts, fetchQuizzes, fetchAttempts } = useQuizStore()
-  const [scores, setScores] = useState<ScoreWithAssessment[]>([])
   const [performance, setPerformance] = useState<StudentPerformance | null>(null)
   const [loadingScores, setLoadingScores] = useState(true)
 
   const loadScores = useCallback(async () => {
-    let performanceLoaded = false
-
     try {
       const performanceRes = await studentAPI.getPerformance(student._id)
       setPerformance(performanceRes.data.performance ?? null)
-      performanceLoaded = true
     } catch (performanceErr) {
       const status = (performanceErr as { response?: { status?: number } })?.response?.status
       setPerformance(null)
       if (status && status !== 404) {
         console.error('[StudentDrawer] Failed to fetch performance:', performanceErr)
       }
-    }
-
-    try {
-      const scoresRes = await scoreAPI.getStudentScores(student._id)
-      const nextScores = scoresRes.data.scores ?? []
-      setScores(nextScores)
-      return nextScores as ScoreWithAssessment[]
-    } catch (scoreErr) {
-      setScores([])
-      console.error('[StudentDrawer] Failed to fetch scores:', scoreErr)
-      if (!performanceLoaded) {
-        addToast('Failed to fetch learner grades', 'error')
-      }
-      return []
+      addToast('Failed to fetch learner grades', 'error')
     } finally {
       setLoadingScores(false)
     }
@@ -91,17 +70,6 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
     const sid = student._id ?? student.id
     return attempt.studentId === sid
   })
-
-  const avg = scores.length
-    ? Math.round(scores.reduce((a, s) => {
-        const max = s.assessment?.maxScore ?? 100
-        return a + (s.score / max) * 100
-      }, 0) / scores.length)
-    : 0
-
-  const best = scores.length
-    ? Math.round(Math.max(...scores.map((s) => (s.score / (s.assessment?.maxScore ?? 100)) * 100)))
-    : 0
 
   const submissionHistory = gradedStudentSubmissions.map((submission) => ({
     submissionId: `assignment-${submission.id}`,
@@ -134,13 +102,13 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
 
   const avgPercentage = hasPerformanceHistory
     ? Math.round(performanceHistory.reduce((sum, item) => sum + item.percentage, 0) / performanceHistory.length)
-    : Math.round(performance?.avgPercentage ?? avg)
+    : Math.round(performance?.avgPercentage ?? 0)
   const bestPercentage = hasPerformanceHistory
     ? Math.max(...performanceHistory.map((item) => item.percentage))
-    : Math.round(performance?.bestPercentage ?? best)
+    : Math.round(performance?.bestPercentage ?? 0)
   const totalSubmissions = hasPerformanceHistory
     ? performanceHistory.length
-    : performance?.totalSubmissions ?? scores.length
+    : performance?.totalSubmissions ?? 0
 
   // Build subject breakdown from assignment grades when available.
   const subjectMap: Record<string, { total: number; count: number }> = {}
@@ -151,31 +119,12 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
       subjectMap[sub].total += item.percentage
       subjectMap[sub].count += 1
     })
-  } else {
-    scores.forEach((s) => {
-      const sub = s.assessment?.subject ?? 'Unknown'
-      if (!subjectMap[sub]) subjectMap[sub] = { total: 0, count: 0 }
-      subjectMap[sub].total += (s.score / (s.assessment?.maxScore ?? 100)) * 100
-      subjectMap[sub].count += 1
-    })
   }
   const subjects = Object.entries(subjectMap).map(([subject, d]) => ({
     subject,
     progress: Math.round(d.total / d.count),
   }))
   const radarData = subjects.map((s) => ({ subject: s.subject.slice(0, 4), score: s.progress }))
-
-  const handleDeleteScore = async (scoreId: string) => {
-    if (!confirm('Delete this learner grade?')) return
-    try {
-      await scoreAPI.delete(scoreId)
-      await loadScores()
-      addToast('Grade deleted successfully', 'info')
-    } catch (err) {
-      console.error('[StudentDrawer] Failed to delete score:', err)
-      addToast('Failed to delete learner grade', 'error')
-    }
-  }
 
   return (
     <>
@@ -283,38 +232,10 @@ export function StudentDrawer({ student, onClose }: { student: DBStudent; onClos
                   </div>
                 ))}
               </div>
-            ) : scores.length === 0 ? (
+            ) : (
               <div className="text-center py-6 text-gray-400">
                 <BookOpen size={24} className="mx-auto mb-2 opacity-40" />
                 <p className="text-sm">No scores yet</p>
-              </div>
-            ) : (
-              <div className="slim-scrollbar max-h-[20rem] space-y-2 overflow-y-auto pr-1">
-                {scores.map((sc) => {
-                  const pct = Math.round((sc.score / (sc.assessment?.maxScore ?? 100)) * 100)
-                  return (
-                    <div key={sc._id ?? sc.assessmentId} className="flex items-center justify-between p-2.5 rounded-xl bg-white/50 border border-gray-100">
-                      <div>
-                        <p className="text-xs font-medium text-gray-800">{sc.assessment?.title ?? 'Assessment'}</p>
-                        <p className="text-xs text-gray-400">{sc.assessment?.subject} · {new Date(sc.submittedAt).toLocaleDateString()}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-indigo-600">{sc.score}/{sc.assessment?.maxScore ?? 100}</span>
-                        <Badge label={`${pct}%`} variant={pct >= 85 ? 'success' : pct >= 60 ? 'info' : 'warning'} />
-                        <Badge label={getLetterGrade(pct)} variant={pct >= 85 ? 'success' : pct >= 60 ? 'info' : 'warning'} />
-                        {sc._id && (
-                          <button
-                            onClick={() => handleDeleteScore(sc._id!)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
-                            title="Delete grade"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
               </div>
             )}
           </div>
@@ -328,9 +249,7 @@ export function Students() {
   const { students, loading, error, fetchStudents } = useStudentStore()
   const navigate = useNavigate()
 
-  // ✅ FIX: Fetch real students from API on mount
   useEffect(() => {
-    console.log('[Students] Fetching students from API...')
     fetchStudents()
   }, [fetchStudents])
 

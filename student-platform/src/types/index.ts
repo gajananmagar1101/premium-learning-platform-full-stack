@@ -14,16 +14,6 @@ export interface User {
   accessBlockReason?: string | null
 }
 
-export interface Assessment {
-  _id?: string
-  id: string
-  title: string
-  subject: string
-  date: string
-  maxScore: number
-  status: 'upcoming' | 'completed' | 'grading'
-}
-
 export type AssignmentSubmissionStatus = 'pending' | 'submitted' | 'graded'
 export type AssignmentStatus = 'draft' | 'published'
 
@@ -84,16 +74,6 @@ export interface AdminSubmission {
   late: boolean
 }
 
-export interface StudentScore {
-  _id?: string
-  studentId?: string
-  assessmentId?: string
-  assessment?: Assessment
-  score: number
-  feedback?: string
-  submittedAt: string
-}
-
 export interface StudentPerformance {
   avgScore: number
   avgPercentage: number
@@ -141,7 +121,6 @@ export interface Student {
   name: string
   email: string
   grade: string
-  scores: StudentScore[]
   subjects: SubjectProgress[]
 }
 

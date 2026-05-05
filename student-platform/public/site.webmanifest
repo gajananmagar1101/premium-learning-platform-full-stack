@@ -1,7 +1,7 @@
 {
   "name": "KL University Student Learning Platform",
   "short_name": "KL U Platform",
-  "description": "KL University student learning, assessments, quizzes, and performance platform.",
+  "description": "KL University student learning, assignments, quizzes, and performance platform.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",

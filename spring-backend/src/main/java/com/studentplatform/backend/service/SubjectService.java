@@ -3,18 +3,15 @@ package com.studentplatform.backend.service;
 import com.studentplatform.backend.dto.CreateSubjectRequest;
 import com.studentplatform.backend.dto.SubjectResponse;
 import com.studentplatform.backend.dto.YearResponse;
-import com.studentplatform.backend.entity.AssessmentEntity;
 import com.studentplatform.backend.entity.AssignmentEntity;
 import com.studentplatform.backend.entity.QuizEntity;
 import com.studentplatform.backend.entity.SubjectEntity;
 import com.studentplatform.backend.entity.YearEntity;
 import com.studentplatform.backend.exception.ApiException;
-import com.studentplatform.backend.repository.AssessmentRepository;
 import com.studentplatform.backend.repository.AssignmentRepository;
 import com.studentplatform.backend.repository.QuizAttemptRepository;
 import com.studentplatform.backend.repository.QuizRepository;
 import com.studentplatform.backend.repository.QuizSessionRepository;
-import com.studentplatform.backend.repository.ScoreRepository;
 import com.studentplatform.backend.repository.SubjectRepository;
 import com.studentplatform.backend.repository.SubmissionRepository;
 import com.studentplatform.backend.repository.YearRepository;
@@ -25,10 +22,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -41,8 +41,6 @@ public class SubjectService {
     private final SubmissionRepository submissionRepository;
     private final QuizAttemptRepository quizAttemptRepository;
     private final QuizSessionRepository quizSessionRepository;
-    private final AssessmentRepository assessmentRepository;
-    private final ScoreRepository scoreRepository;
 
     public SubjectService(
             SubjectRepository subjectRepository,
@@ -51,9 +49,7 @@ public class SubjectService {
             QuizRepository quizRepository,
             SubmissionRepository submissionRepository,
             QuizAttemptRepository quizAttemptRepository,
-            QuizSessionRepository quizSessionRepository,
-            AssessmentRepository assessmentRepository,
-            ScoreRepository scoreRepository
+            QuizSessionRepository quizSessionRepository
     ) {
         this.subjectRepository = subjectRepository;
         this.yearRepository = yearRepository;
@@ -62,8 +58,6 @@ public class SubjectService {
         this.submissionRepository = submissionRepository;
         this.quizAttemptRepository = quizAttemptRepository;
         this.quizSessionRepository = quizSessionRepository;
-        this.assessmentRepository = assessmentRepository;
-        this.scoreRepository = scoreRepository;
     }
 
     public List<YearResponse> getYears() {
@@ -127,13 +121,6 @@ public class SubjectService {
             quizAttemptRepository.deleteByQuizId(quiz.getId());
         }
         quizRepository.deleteAll(quizzes);
-
-        List<AssessmentEntity> assessments = assessmentRepository.findBySubjectIgnoreCase(subject.getName());
-        for (AssessmentEntity assessment : assessments) {
-            scoreRepository.deleteByAssessment_Id(assessment.getId());
-        }
-        assessmentRepository.deleteAll(assessments);
-
         subjectRepository.delete(subject);
     }
 
@@ -163,6 +150,25 @@ public class SubjectService {
             return subject.getName();
         }
         return legacyName == null ? "" : legacyName;
+    }
+
+    public Map<String, String> resolveSubjectNamesById(List<String> subjectIds) {
+        if (subjectIds == null || subjectIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Set<String> uniqueIds = subjectIds.stream()
+                .filter(subjectId -> subjectId != null && !subjectId.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (uniqueIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<String, String> subjectNamesById = new HashMap<>();
+        subjectRepository.findAllById(uniqueIds).forEach(subject ->
+                subjectNamesById.put(subject.getId(), resolveSubjectName(subject, null))
+        );
+        return subjectNamesById;
     }
 
     private void ensureYearExists(String yearId) {

@@ -1,9 +1,7 @@
-import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Navbar } from '@/components/ui/Navbar'
 import { ToastContainer } from '@/components/ui/ToastContainer'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useAssessmentStore } from '@/store/useAssessmentStore'
 
 const pageTitles: Record<string, string> = {
   '/dashboard':        'Dashboard',
@@ -22,7 +20,6 @@ const pageTitles: Record<string, string> = {
 
 export function DashboardLayout() {
   const { pathname } = useLocation()
-  const fetchAssessments = useAssessmentStore((state) => state.fetchAssessments)
   const title = pathname.startsWith('/quizzes/attempt/')
     ? 'Attempt Quiz'
     : pathname.startsWith('/student-performance/assignments')
@@ -40,14 +37,6 @@ export function DashboardLayout() {
             : pathname.startsWith('/students/profile/')
               ? 'Learner Profile'
               : pageTitles[pathname] ?? 'EduTrack'
-
-  if (import.meta.env.DEV) {
-    console.count(`[Render] DashboardLayout (${pathname})`)
-  }
-
-  useEffect(() => {
-    fetchAssessments()
-  }, [fetchAssessments])
 
   return (
     <div className="h-screen bg-light-base dark:bg-dark-base flex overflow-hidden">

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useSearchParams } from 'react-router-dom'
 import { BookPlus, ChevronDown, Layers3, LoaderCircle, Trash2 } from 'lucide-react'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
@@ -38,6 +39,7 @@ const yearSortOrder = (code?: string | null) => {
 
 export function Subjects() {
   const addToast = useUIStore((state) => state.addToast)
+  const [searchParams] = useSearchParams()
   const [years, setYears] = useState<YearOption[]>([])
   const [subjects, setSubjects] = useState<SubjectOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -110,6 +112,7 @@ export function Subjects() {
 
       reset()
       if (createdSubjects.length > 0) {
+        subjectAPI.clearYearCache(values.yearId)
         setSubjects((current) => [...current, ...createdSubjects])
       }
       if (createdCount > 0) {
@@ -143,6 +146,17 @@ export function Subjects() {
   const sortedYears = [...years].sort(
     (left, right) => yearSortOrder(left.code) - yearSortOrder(right.code) || left.name.localeCompare(right.name)
   )
+  const search = searchParams.get('search')?.trim().toLowerCase() ?? ''
+
+  const filteredSubjectsByYear = useMemo(
+    () => subjectsByYear.map(({ year, subjects: yearSubjects }) => ({
+      year,
+      subjects: search
+        ? yearSubjects.filter((subject) => subject.name.toLowerCase().includes(search))
+        : yearSubjects,
+    })),
+    [search, subjectsByYear]
+  )
 
   const handleDeleteSubject = async () => {
     if (!subjectToDelete) return
@@ -150,6 +164,7 @@ export function Subjects() {
     setDeletingSubjectId(subjectToDelete.id)
     try {
       await subjectAPI.delete(subjectToDelete.id)
+      subjectAPI.clearYearCache(subjectToDelete.yearId)
       setSubjects((current) => current.filter((subject) => subject.id !== subjectToDelete.id))
       addToast('Subject removed successfully', 'success')
       setSubjectToDelete(null)
@@ -241,7 +256,7 @@ export function Subjects() {
             </div>
           ) : (
             <div className="space-y-3 p-4">
-              {subjectsByYear.map(({ year, subjects: yearSubjects }) => (
+              {filteredSubjectsByYear.map(({ year, subjects: yearSubjects }) => (
                 <details
                   key={year.id}
                   open={yearSubjects.length > 0}
@@ -301,7 +316,7 @@ export function Subjects() {
             <span className="font-semibold">{years.find((year) => year.id === subjectToDelete?.yearId)?.name ?? 'this year'}</span>?
           </p>
           <div className="rounded-2xl border border-red-200 bg-red-50/70 px-4 py-3 text-sm text-red-600">
-            This action cannot be undone. This will also remove related assignments, submissions, quizzes, attempts, and assessments linked to this subject.
+            This action cannot be undone. This will also remove related assignments, submissions, quizzes, and attempts linked to this subject.
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button

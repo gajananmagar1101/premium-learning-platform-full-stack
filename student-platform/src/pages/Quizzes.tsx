@@ -163,7 +163,7 @@ const shuffleQuestions = (questions: QuizQuestion[]) => {
   return next
 }
 
-function AdminQuizzesView() {
+function AdminQuizzesView({ initialSearch = '', initialAttemptSearch = '' }: { initialSearch?: string; initialAttemptSearch?: string }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const { quizzes, attempts, fetchQuizzes, fetchAttempts, createQuiz, updateQuiz, deleteQuiz } = useQuizStore()
@@ -171,8 +171,8 @@ function AdminQuizzesView() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Quiz | null>(null)
   const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null)
-  const [search, setSearch] = useState('')
-  const [recentSubmissionSearch, setRecentSubmissionSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
+  const [recentSubmissionSearch, setRecentSubmissionSearch] = useState(initialAttemptSearch)
   const [yearFilter, setYearFilter] = useState<'all' | string>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | Quiz['status'] | 'dueSoon'>('all')
   const [subjectFilter, setSubjectFilter] = useState<'all' | string>('all')
@@ -217,6 +217,14 @@ function AdminQuizzesView() {
     fetchQuizzes()
     fetchAttempts()
   }, [fetchAttempts, fetchQuizzes])
+
+  useEffect(() => {
+    setSearch(initialSearch)
+  }, [initialSearch])
+
+  useEffect(() => {
+    setRecentSubmissionSearch(initialAttemptSearch)
+  }, [initialAttemptSearch])
 
   useEffect(() => {
     let cancelled = false
@@ -282,7 +290,7 @@ function AdminQuizzesView() {
 
     let cancelled = false
     setSubjectsLoading(true)
-    subjectAPI.getByYear(selectedFormYear)
+    subjectAPI.getByYearCached(selectedFormYear)
       .then((response) => {
         if (cancelled) return
         setAvailableSubjects(response.data.subjects ?? [])
@@ -2441,7 +2449,7 @@ function AdminQuizSubjectPage({
   )
 }
 
-function StudentQuizzesView() {
+function StudentQuizzesView({ initialSearch = '' }: { initialSearch?: string }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
@@ -2453,7 +2461,7 @@ function StudentQuizzesView() {
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(0)
   const [quizzesLoaded, setQuizzesLoaded] = useState(false)
   const [sessionRestored, setSessionRestored] = useState(false)
-  const [quizSearch, setQuizSearch] = useState('')
+  const [quizSearch, setQuizSearch] = useState(initialSearch)
   const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null)
   const [selectedSubjectLibrary, setSelectedSubjectLibrary] = useState<string | null>(null)
   const [studentQuizFilter, setStudentQuizFilter] = useState<StudentQuizFilter>('all')
@@ -2486,6 +2494,10 @@ function StudentQuizzesView() {
       cancelled = true
     }
   }, [addToast, fetchAttempts, fetchQuizzes])
+
+  useEffect(() => {
+    setQuizSearch(initialSearch)
+  }, [initialSearch])
 
   const availableQuizzes = useMemo(
     () => quizzes.filter((quiz) => {
@@ -3420,10 +3432,13 @@ function StudentQuizzesView() {
 
 export function Quizzes() {
   const user = useAuthStore((state) => state.user)
+  const [searchParams] = useSearchParams()
+  const initialSearch = searchParams.get('search') ?? ''
+  const initialAttemptSearch = searchParams.get('attemptSearch') ?? ''
 
   if (isStaffRole(user?.role)) {
-    return <AdminQuizzesView />
+    return <AdminQuizzesView initialSearch={initialSearch} initialAttemptSearch={initialAttemptSearch} />
   }
 
-  return <StudentQuizzesView />
+  return <StudentQuizzesView initialSearch={initialSearch} />
 }

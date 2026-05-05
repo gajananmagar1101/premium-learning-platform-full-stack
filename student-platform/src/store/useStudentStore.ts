@@ -20,7 +20,6 @@ export const useStudentStore = create<StudentState>((set) => ({
     set({ loading: true, error: null })
     try {
       const res = await studentAPI.getAll()
-      console.log('[StudentStore] Fetched students:', res.data.students?.length)
       // Normalize _id → id
       const students: DBStudent[] = (res.data.students ?? []).map((s: DBStudent) => ({
         ...s,

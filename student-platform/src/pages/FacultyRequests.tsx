@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Ban, CheckCircle2, Clock3, ShieldAlert, Trash2, Unlock, UserCheck } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Modal } from '@/components/ui/Modal'
 import { facultyRequestAPI } from '@/lib/services'
@@ -16,6 +17,7 @@ const toLocalDateTimeValue = (isoText?: string | null) => {
 }
 
 export function FacultyRequests() {
+  const [searchParams] = useSearchParams()
   const [requests, setRequests] = useState<FacultyRegistrationRequest[]>([])
   const [faculty, setFaculty] = useState<FacultyMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -132,7 +134,20 @@ export function FacultyRequests() {
     }
   }
 
-  const blockedFacultyCount = faculty.filter((member) => member.accessBlocked).length
+  const search = searchParams.get('search')?.trim().toLowerCase() ?? ''
+  const filteredFaculty = useMemo(
+    () => search
+      ? faculty.filter((member) => member.name.toLowerCase().includes(search) || member.email.toLowerCase().includes(search))
+      : faculty,
+    [faculty, search]
+  )
+  const filteredRequests = useMemo(
+    () => search
+      ? requests.filter((request) => request.name.toLowerCase().includes(search) || request.email.toLowerCase().includes(search))
+      : requests,
+    [requests, search]
+  )
+  const blockedFacultyCount = filteredFaculty.filter((member) => member.accessBlocked).length
 
   return (
     <div className="space-y-3.5">
@@ -142,7 +157,7 @@ export function FacultyRequests() {
             <div className="rounded-xl bg-indigo-500/15 p-2.5"><UserCheck size={18} className="text-indigo-500" /></div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">Pending Requests</p>
-              <p className="mt-1 text-2xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{requests.length}</p>
+              <p className="mt-1 text-2xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{filteredRequests.length}</p>
             </div>
           </div>
         </GlassCard>
@@ -151,7 +166,7 @@ export function FacultyRequests() {
             <div className="rounded-xl bg-emerald-500/15 p-2.5"><CheckCircle2 size={18} className="text-emerald-500" /></div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-light-ink-muted dark:text-dark-ink-muted">Approved Faculty</p>
-              <p className="mt-1 text-2xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{faculty.length}</p>
+              <p className="mt-1 text-2xl font-bold text-light-ink-primary dark:text-dark-ink-primary">{filteredFaculty.length}</p>
             </div>
           </div>
         </GlassCard>
@@ -178,9 +193,9 @@ export function FacultyRequests() {
           <p className="mt-1 text-sm text-light-ink-muted dark:text-dark-ink-muted">View all approved faculty accounts here, and manage pending requests below.</p>
         </div>
 
-        {!loading && faculty.length > 0 ? (
+        {!loading && filteredFaculty.length > 0 ? (
           <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-700">
-            Total visible faculty accounts: <span className="font-semibold">{faculty.length}</span>
+            Total visible faculty accounts: <span className="font-semibold">{filteredFaculty.length}</span>
           </div>
         ) : null}
       </GlassCard>
@@ -193,7 +208,7 @@ export function FacultyRequests() {
 
         {loading ? (
           <p className="py-12 text-center text-sm text-light-ink-muted dark:text-dark-ink-muted">Loading faculty requests...</p>
-        ) : requests.length === 0 ? (
+        ) : filteredRequests.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-light-border px-4 py-12 text-center dark:border-dark-border">
             <ShieldAlert className="mx-auto mb-3 text-light-ink-muted dark:text-dark-ink-muted" size={22} />
             <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">No pending faculty requests.</p>
@@ -201,7 +216,7 @@ export function FacultyRequests() {
           </div>
         ) : (
           <div className="space-y-3">
-            {requests.map((request) => (
+            {filteredRequests.map((request) => (
               <div key={request.id} className="rounded-2xl border border-light-border bg-white/70 p-4 dark:border-dark-border dark:bg-dark-card2/60">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
@@ -252,7 +267,7 @@ export function FacultyRequests() {
 
         {loading ? (
           <p className="py-12 text-center text-sm text-light-ink-muted dark:text-dark-ink-muted">Loading faculty list...</p>
-        ) : faculty.length === 0 ? (
+        ) : filteredFaculty.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-light-border px-4 py-12 text-center dark:border-dark-border">
             <UserCheck className="mx-auto mb-3 text-light-ink-muted dark:text-dark-ink-muted" size={22} />
             <p className="text-sm font-medium text-light-ink-primary dark:text-dark-ink-primary">No approved faculty yet.</p>
@@ -260,7 +275,7 @@ export function FacultyRequests() {
           </div>
         ) : (
           <div className="space-y-3">
-            {faculty.map((member) => (
+            {filteredFaculty.map((member) => (
               <div key={member.id} className="rounded-2xl border border-light-border bg-white/70 p-4 dark:border-dark-border dark:bg-dark-card2/60">
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                   <div className="min-w-0">

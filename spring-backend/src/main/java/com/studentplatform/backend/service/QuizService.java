@@ -57,7 +57,6 @@ public class QuizService {
 
     @Transactional(readOnly = true)
     public List<QuizResponse> getAll(UserEntity currentUser) {
-        flushExpiredSessions();
         List<QuizEntity> quizzes;
         if (currentUser.getRole().isStaff()) {
             quizzes = quizRepository.findAllByOrderByCreatedAtDesc();
@@ -68,8 +67,14 @@ public class QuizService {
                     : quizRepository.findByStatusAndClassNameIgnoreCaseOrderByCreatedAtDesc("published", grade);
         }
 
+        var subjectNamesById = subjectService.resolveSubjectNamesById(
+                quizzes.stream()
+                        .map(QuizEntity::getSubjectId)
+                        .toList()
+        );
+
         return quizzes.stream()
-                .map(this::toResponse)
+                .map(quiz -> toResponse(quiz, subjectNamesById))
                 .toList();
     }
 
@@ -89,7 +94,7 @@ public class QuizService {
             );
         }
 
-        return toResponse(saved);
+        return toResponse(saved, subjectService.resolveSubjectNamesById(List.of(saved.getSubjectId())));
     }
 
     public QuizResponse update(String id, QuizRequest request) {
@@ -109,7 +114,7 @@ public class QuizService {
             );
         }
 
-        return toResponse(saved);
+        return toResponse(saved, subjectService.resolveSubjectNamesById(List.of(saved.getSubjectId())));
     }
 
     public void delete(String id) {
@@ -123,7 +128,6 @@ public class QuizService {
 
     @Transactional(readOnly = true)
     public List<QuizAttemptResponse> getAttempts(UserEntity currentUser) {
-        flushExpiredSessions();
         List<QuizAttemptEntity> attempts = currentUser.getRole().isStaff()
                 ? quizAttemptRepository.findAllByOrderBySubmittedAtDesc()
                 : quizAttemptRepository.findByStudentIdOrderBySubmittedAtDesc(currentUser.getId());
@@ -140,7 +144,6 @@ public class QuizService {
     }
 
     public QuizAttemptResponse submitAttempt(String quizId, QuizAttemptRequest request, UserEntity currentUser) {
-        flushExpiredSessions();
         if (currentUser.getRole() != Role.STUDENT) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only learners can submit quiz attempts.");
         }
@@ -175,7 +178,6 @@ public class QuizService {
     }
 
     public QuizSessionResponse startSession(String quizId, UserEntity currentUser) {
-        flushExpiredSessions();
         if (currentUser.getRole() != Role.STUDENT) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only learners can start quiz attempts.");
         }
@@ -206,7 +208,6 @@ public class QuizService {
     }
 
     public QuizSessionResponse updateSession(String quizId, QuizSessionRequest request, UserEntity currentUser) {
-        flushExpiredSessions();
         if (currentUser.getRole() != Role.STUDENT) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only learners can update quiz attempts.");
         }
@@ -229,10 +230,6 @@ public class QuizService {
 
     @Scheduled(fixedDelayString = "${app.quiz.auto-submit-interval-ms:15000}")
     public void autoSubmitExpiredSessions() {
-        flushExpiredSessions();
-    }
-
-    private void flushExpiredSessions() {
         List<QuizSessionEntity> expiredSessions = quizSessionRepository.findByEndsAtLessThanEqual(Instant.now());
         for (QuizSessionEntity session : expiredSessions) {
             try {
@@ -354,12 +351,9 @@ public class QuizService {
         entity.setQuestions(questions);
     }
 
-    private QuizResponse toResponse(QuizEntity quiz) {
-        if (quiz.getSubjectId() != null && !quiz.getSubjectId().isBlank()) {
-            SubjectEntity subject = subjectService.resolveSubject(quiz.getSubjectId(), null);
-            return QuizResponse.from(quiz, subjectService.resolveSubjectName(subject, quiz.getLegacySubject()));
-        }
-        return QuizResponse.from(quiz, subjectService.resolveSubjectName(null, quiz.getLegacySubject()));
+    private QuizResponse toResponse(QuizEntity quiz, java.util.Map<String, String> subjectNamesById) {
+        String subjectName = quiz.getSubjectId() == null ? null : subjectNamesById.get(quiz.getSubjectId());
+        return QuizResponse.from(quiz, subjectService.resolveSubjectName(null, subjectName == null ? quiz.getLegacySubject() : subjectName));
     }
 
     private QuizEntity validateOpenQuiz(String quizId) {

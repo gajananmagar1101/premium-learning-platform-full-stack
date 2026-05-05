@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface QuizSessionRepository extends MongoRepository<QuizSessionEntity, String> {
     Optional<QuizSessionEntity> findByQuizIdAndStudentId(String quizId, String studentId);
     List<QuizSessionEntity> findByEndsAtLessThanEqual(Instant now);
+    void deleteByEndsAtLessThanEqual(Instant now);
     void deleteByQuizId(String quizId);
     void deleteByStudentId(String studentId);
 }
