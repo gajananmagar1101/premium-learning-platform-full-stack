@@ -174,7 +174,7 @@ function NotificationCard({
           layout: { duration: 0.3, ease: 'easeOut' }
         }}
         className={cn(
-          'relative flex w-full touch-pan-y select-none gap-2 rounded-[2.15rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-3.5 text-left shadow-[0_18px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-[background-color,box-shadow,padding,opacity] duration-200',
+          'relative flex w-full touch-none select-none gap-2 rounded-[2.15rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-3.5 text-left shadow-[0_18px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-[background-color,box-shadow,padding,opacity] duration-200',
           expanded ? 'min-h-[4.15rem] items-start py-2' : 'h-[4.5rem] items-center py-1.5',
           notification.read
             ? 'hover:bg-white'
@@ -212,22 +212,22 @@ function NotificationCard({
           </div>
         </button>
 
-        <div className="flex shrink-0 self-stretch items-center gap-1 pl-1 pr-1">
+        <div className="flex shrink-0 self-center items-center gap-0.5 pl-0.5">
           {!notification.read && <span className="h-2 w-2 rounded-full bg-accent" />}
           <button
             type="button"
             onPointerDown={(event) => {
               event.stopPropagation()
+              onToggleExpand()
             }}
             onClick={(event) => {
               event.stopPropagation()
-              onToggleExpand()
             }}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-black/5"
+            className="rounded-full p-1 text-slate-500 transition-colors hover:bg-black/5"
             aria-label={expanded ? 'Collapse notification' : 'Expand notification'}
             data-notification-interactive="true"
           >
-            <ChevronDown size={20} className={cn('transition-transform duration-200', expanded && 'rotate-180')} />
+            <ChevronDown size={16} className={cn('transition-transform duration-200', expanded && 'rotate-180')} />
           </button>
         </div>
       </motion.div>
@@ -382,7 +382,7 @@ export function NotificationPanel() {
                       </button>
                     )}
                   </div>
-                  <div className="slim-scrollbar flex-1 overflow-y-auto overscroll-y-contain overflow-x-visible px-2 pb-0.5 pt-2">
+                  <div className="slim-scrollbar flex-1 overflow-y-auto overflow-x-visible px-2 pb-0.5 pt-2">
                     {!notificationsLoading && notifications.length === 0 && (
                       <div className="rounded-[1.75rem] border border-white/70 bg-white/64 px-4 py-8 text-center backdrop-blur-xl">
                         <p className="text-sm font-medium text-slate-900">No notifications yet</p>
