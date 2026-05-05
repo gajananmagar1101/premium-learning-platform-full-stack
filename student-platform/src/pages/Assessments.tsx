@@ -7,6 +7,7 @@ import axios from 'axios'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { cn } from '@/lib/utils'
 import { subjectAPI } from '@/lib/services'
 import { useAuthStore } from '@/store/useAuthStore'
 import { isStaffRole } from '@/lib/roles'
@@ -69,7 +70,13 @@ async function readFileAsDataUrl(file: File) {
   })
 }
 
-function AdminAssignmentsView({ initialSearch = '' }: { initialSearch?: string }) {
+function AdminAssignmentsView({
+  initialSearch = '',
+  focusSubmissionId,
+}: {
+  initialSearch?: string
+  focusSubmissionId?: string
+}) {
   const navigate = useNavigate()
   const {
     adminAssignments,
@@ -221,6 +228,18 @@ function AdminAssignmentsView({ initialSearch = '' }: { initialSearch?: string }
       return matchesQuery && matchesYear && matchesStatus
     })
   }, [orderedSubmissions, search, studentGradeById, submissionStatusFilter, submissionYearFilter])
+
+  useEffect(() => {
+    if (!focusSubmissionId) return
+    if (!filteredSubmissions.some((submission) => submission.id === focusSubmissionId)) return
+
+    window.requestAnimationFrame(() => {
+      document.getElementById(`submission-row-${focusSubmissionId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    })
+  }, [filteredSubmissions, focusSubmissionId])
 
   const filteredAssignments = useMemo(() => {
     const query = search.toLowerCase().trim()
@@ -1068,7 +1087,13 @@ function AdminAssignmentsView({ initialSearch = '' }: { initialSearch?: string }
                   </td>
                 </tr>
               ) : filteredSubmissions.map((submission) => (
-                <tr key={submission.id}>
+                <tr
+                  key={submission.id}
+                  id={`submission-row-${submission.id}`}
+                  className={cn(
+                    focusSubmissionId === submission.id && 'bg-indigo-500/8 ring-1 ring-inset ring-indigo-300/45'
+                  )}
+                >
                   <td>
                     <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{submission.studentName}</p>
                     <p className="text-xs text-light-ink-muted dark:text-dark-ink-muted">{submission.studentEmail}</p>
@@ -1296,7 +1321,13 @@ function AdminAssignmentsView({ initialSearch = '' }: { initialSearch?: string }
   )
 }
 
-function StudentAssignmentsView({ initialSearch = '' }: { initialSearch?: string }) {
+function StudentAssignmentsView({
+  initialSearch = '',
+  focusAssignmentId,
+}: {
+  initialSearch?: string
+  focusAssignmentId?: string
+}) {
   const user = useAuthStore((state) => state.user)
   const {
     studentAssignments,
@@ -1319,6 +1350,18 @@ function StudentAssignmentsView({ initialSearch = '' }: { initialSearch?: string
   useEffect(() => {
     setSearch(initialSearch)
   }, [initialSearch])
+
+  useEffect(() => {
+    if (!focusAssignmentId) return
+    if (!studentAssignments.some((assignment) => assignment.id === focusAssignmentId)) return
+
+    window.requestAnimationFrame(() => {
+      document.getElementById(`assignment-card-${focusAssignmentId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    })
+  }, [focusAssignmentId, studentAssignments])
 
   const filteredAssignments = useMemo(() => {
     const query = search.toLowerCase().trim()
@@ -1451,7 +1494,7 @@ function StudentAssignmentsView({ initialSearch = '' }: { initialSearch?: string
       <div className="space-y-4">
         {assignmentsBySubject.map((subjectGroup) => (
           <GlassCard key={subjectGroup.subject} className="overflow-hidden p-0">
-            <details open={Boolean(search)} className="group/subject">
+            <details open={Boolean(search) || subjectGroup.assignments.some((assignment) => assignment.id === focusAssignmentId)} className="group/subject">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="rounded-2xl bg-indigo-500/10 p-2.5 text-indigo-400">
@@ -1471,7 +1514,14 @@ function StudentAssignmentsView({ initialSearch = '' }: { initialSearch?: string
 
               <div className="slim-scrollbar grid max-h-[29rem] grid-cols-1 gap-3 overflow-y-auto border-t border-light-border px-3 py-3 dark:border-dark-border xl:grid-cols-2">
                 {subjectGroup.assignments.map((assignment) => (
-                  <GlassCard key={assignment.id} className="p-4">
+                  <GlassCard
+                    key={assignment.id}
+                    className={cn(
+                      'p-4',
+                      focusAssignmentId === assignment.id && 'ring-2 ring-indigo-300/55'
+                    )}
+                  >
+                    <div id={`assignment-card-${assignment.id}`} className="scroll-mt-28">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold text-indigo-300">
@@ -1556,6 +1606,7 @@ function StudentAssignmentsView({ initialSearch = '' }: { initialSearch?: string
                         <span className="self-center text-xs text-red-400">Deadline passed. Submission is locked.</span>
                       )}
                     </div>
+                    </div>
                   </GlassCard>
                 ))}
               </div>
@@ -1613,10 +1664,12 @@ export function Assessments() {
   const user = useAuthStore((state) => state.user)
   const [searchParams] = useSearchParams()
   const initialSearch = searchParams.get('search') ?? ''
+  const focusAssignmentId = searchParams.get('focusAssignment') ?? ''
+  const focusSubmissionId = searchParams.get('focusSubmission') ?? ''
 
   if (isStaffRole(user?.role)) {
-    return <AdminAssignmentsView initialSearch={initialSearch} />
+    return <AdminAssignmentsView initialSearch={initialSearch} focusSubmissionId={focusSubmissionId} />
   }
 
-  return <StudentAssignmentsView initialSearch={initialSearch} />
+  return <StudentAssignmentsView initialSearch={initialSearch} focusAssignmentId={focusAssignmentId} />
 }

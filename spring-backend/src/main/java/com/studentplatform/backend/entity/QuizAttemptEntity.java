@@ -11,7 +11,9 @@ import java.util.List;
 
 @Document(collection = "quiz_attempts")
 @CompoundIndexes({
-        @CompoundIndex(name = "quiz_student_unique", def = "{'quizId': 1, 'studentId': 1}", unique = true)
+        @CompoundIndex(name = "quiz_student_unique", def = "{'quizId': 1, 'studentId': 1}", unique = true),
+        @CompoundIndex(name = "quiz_attempt_student_submitted_idx", def = "{'studentId': 1, 'submittedAt': -1}"),
+        @CompoundIndex(name = "quiz_attempt_quiz_idx", def = "{'quizId': 1}")
 })
 public class QuizAttemptEntity {
 

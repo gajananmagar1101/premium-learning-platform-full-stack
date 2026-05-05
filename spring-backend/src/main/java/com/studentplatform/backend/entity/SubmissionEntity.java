@@ -9,7 +9,9 @@ import java.time.Instant;
 
 @Document(collection = "submissions")
 @CompoundIndexes({
-        @CompoundIndex(name = "student_assignment_submission_unique", def = "{'student.id': 1, 'assignment.id': 1}", unique = true)
+        @CompoundIndex(name = "student_assignment_submission_unique", def = "{'student.id': 1, 'assignment.id': 1}", unique = true),
+        @CompoundIndex(name = "submission_student_updated_idx", def = "{'student.id': 1, 'updatedAt': -1}"),
+        @CompoundIndex(name = "submission_assignment_idx", def = "{'assignment.id': 1}")
 })
 public class SubmissionEntity {
 

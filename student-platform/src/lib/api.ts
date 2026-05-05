@@ -1,10 +1,10 @@
 import axios from 'axios'
 
 const LOCAL_API_CANDIDATES = [
-  'http://127.0.0.1:5002/api',
-  'http://localhost:5002/api',
   'http://127.0.0.1:5003/api',
   'http://localhost:5003/api',
+  'http://127.0.0.1:5002/api',
+  'http://localhost:5002/api',
 ]
 
 const normalizeApiUrl = (url: string) => (url.endsWith('/api') ? url : `${url.replace(/\/$/, '')}/api`)
@@ -40,7 +40,7 @@ const shouldRetryWithNextBaseUrl = (error: {
   response?: { status?: number; data?: { message?: string } }
 }) => {
   const method = error.config?.method?.toLowerCase()
-  if (method && method !== 'get') {
+  if (method && !['get', 'delete', 'put', 'patch'].includes(method)) {
     return false
   }
 

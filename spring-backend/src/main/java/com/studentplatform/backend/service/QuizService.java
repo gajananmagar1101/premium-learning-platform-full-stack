@@ -22,6 +22,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -80,7 +82,7 @@ public class QuizService {
 
     public QuizResponse create(QuizRequest request) {
         QuizEntity quiz = new QuizEntity();
-        apply(quiz, request);
+        SubjectEntity subject = apply(quiz, request);
         quiz.prepareForSave();
         QuizEntity saved = quizRepository.save(quiz);
 
@@ -90,17 +92,19 @@ public class QuizService {
                     "New quiz published",
                     saved.getTitle() + " is available in your quizzes.",
                     "info",
-                    null
+                    null,
+                    "quiz",
+                    "/quizzes/library/subject?subject=" + encodeUrlValue(saved.getLegacySubject()) + "&focusQuiz=" + saved.getId()
             );
         }
 
-        return toResponse(saved, subjectService.resolveSubjectNamesById(List.of(saved.getSubjectId())));
+        return QuizResponse.from(saved, subject.getName());
     }
 
     public QuizResponse update(String id, QuizRequest request) {
         QuizEntity quiz = quizRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Quiz not found."));
-        apply(quiz, request);
+        SubjectEntity subject = apply(quiz, request);
         quiz.prepareForSave();
         QuizEntity saved = quizRepository.save(quiz);
 
@@ -110,11 +114,13 @@ public class QuizService {
                     "Quiz updated",
                     saved.getTitle() + " has been updated.",
                     "info",
-                    null
+                    null,
+                    "quiz",
+                    "/quizzes/library/subject?subject=" + encodeUrlValue(saved.getLegacySubject()) + "&focusQuiz=" + saved.getId()
             );
         }
 
-        return toResponse(saved, subjectService.resolveSubjectNamesById(List.of(saved.getSubjectId())));
+        return QuizResponse.from(saved, subject.getName());
     }
 
     public void delete(String id) {
@@ -267,14 +273,16 @@ public class QuizService {
         attempt.setTotalPoints(quiz.getTotalPoints());
         attempt.setSubmittedAt(session.getEndsAt() == null ? Instant.now() : session.getEndsAt());
         attempt.prepareForSave();
-        quizAttemptRepository.save(attempt);
+        QuizAttemptEntity savedAttempt = quizAttemptRepository.save(attempt);
         quizSessionRepository.delete(session);
 
         notificationService.notifyStaff(
                 "Quiz auto-submitted",
                 session.getStudentName() + "'s " + quiz.getTitle() + " attempt was auto-submitted when time ended.",
                 "info",
-                session.getStudentId()
+                session.getStudentId(),
+                "quiz-submission",
+                "/quizzes?focusAttempt=" + savedAttempt.getId()
         );
     }
 
@@ -286,7 +294,7 @@ public class QuizService {
         return exists;
     }
 
-    private void apply(QuizEntity entity, QuizRequest request) {
+    private SubjectEntity apply(QuizEntity entity, QuizRequest request) {
         String title = normalizeRequired(request.title(), "Quiz title is required.");
         String className = normalizeRequired(request.className(), "Academic year is required.");
         SubjectEntity subject = subjectService.resolveSubject(request.subjectId(), request.subject());
@@ -349,6 +357,7 @@ public class QuizService {
         entity.setDurationMinutes(durationMinutes);
         entity.setStatus(status);
         entity.setQuestions(questions);
+        return subject;
     }
 
     private QuizResponse toResponse(QuizEntity quiz, java.util.Map<String, String> subjectNamesById) {
@@ -419,12 +428,22 @@ public class QuizService {
     }
 
     private void notifyAdminsAboutSubmission(UserEntity currentUser, QuizEntity quiz) {
+        QuizAttemptEntity attempt = quizAttemptRepository.findByQuizIdAndStudentId(quiz.getId(), currentUser.getId()).orElse(null);
         notificationService.notifyStaff(
                 "Quiz submission",
                 currentUser.getName() + " submitted " + quiz.getTitle() + ".",
                 "info",
-                currentUser.getId()
+                currentUser.getId(),
+                "quiz-submission",
+                attempt == null ? "/quizzes?attemptSearch=" + encodeUrlValue(quiz.getTitle()) : "/quizzes?focusAttempt=" + attempt.getId()
         );
+    }
+
+    private String encodeUrlValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private String normalizeRequired(String value, String message) {

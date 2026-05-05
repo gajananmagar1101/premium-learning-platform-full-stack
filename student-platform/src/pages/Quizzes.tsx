@@ -6,6 +6,7 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 import { isStaffRole } from '@/lib/roles'
 import { useQuizStore } from '@/store/useQuizStore'
@@ -163,7 +164,15 @@ const shuffleQuestions = (questions: QuizQuestion[]) => {
   return next
 }
 
-function AdminQuizzesView({ initialSearch = '', initialAttemptSearch = '' }: { initialSearch?: string; initialAttemptSearch?: string }) {
+function AdminQuizzesView({
+  initialSearch = '',
+  initialAttemptSearch = '',
+  focusAttemptId,
+}: {
+  initialSearch?: string
+  initialAttemptSearch?: string
+  focusAttemptId?: string
+}) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const { quizzes, attempts, fetchQuizzes, fetchAttempts, createQuiz, updateQuiz, deleteQuiz } = useQuizStore()
@@ -456,6 +465,18 @@ function AdminQuizzesView({ initialSearch = '', initialAttemptSearch = '' }: { i
       )
     })
   }, [quizzes, recentAttempts, recentSubmissionSearch])
+
+  useEffect(() => {
+    if (!focusAttemptId) return
+    if (!filteredRecentAttempts.some((attempt) => attempt.id === focusAttemptId)) return
+
+    window.requestAnimationFrame(() => {
+      document.getElementById(`quiz-attempt-${focusAttemptId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    })
+  }, [filteredRecentAttempts, focusAttemptId])
 
   const pendingAttemptQueue = useMemo(() => {
     const now = Date.now()
@@ -1931,13 +1952,21 @@ function AdminQuizzesView({ initialSearch = '', initialAttemptSearch = '' }: { i
             <div className="rounded-2xl border border-dashed border-light-border p-8 text-center text-sm text-light-ink-muted dark:border-dark-border dark:text-dark-ink-muted">
               No quiz submissions yet.
             </div>
-          ) : filteredRecentAttempts.slice(0, 10).map((attempt) => {
+          ) : (focusAttemptId ? filteredRecentAttempts : filteredRecentAttempts.slice(0, 10)).map((attempt) => {
             const quiz = quizzes.find((item) => item.id === attempt.quizId)
             if (!quiz) return null
             const percent = Math.round((attempt.score / attempt.totalPoints) * 100)
 
             return (
-              <details key={attempt.id} className="group overflow-hidden rounded-2xl border border-light-border bg-white/45 dark:border-dark-border dark:bg-dark-card2/40">
+              <details
+                key={attempt.id}
+                id={`quiz-attempt-${attempt.id}`}
+                open={focusAttemptId === attempt.id}
+                className={cn(
+                  'group overflow-hidden rounded-2xl border border-light-border bg-white/45 dark:border-dark-border dark:bg-dark-card2/40',
+                  focusAttemptId === attempt.id && 'ring-2 ring-indigo-300/50'
+                )}
+              >
                 <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-4">
                   <div className="min-w-0">
                     <p className="font-semibold text-light-ink-primary dark:text-dark-ink-primary">{attempt.studentName}</p>
@@ -2449,7 +2478,13 @@ function AdminQuizSubjectPage({
   )
 }
 
-function StudentQuizzesView({ initialSearch = '' }: { initialSearch?: string }) {
+function StudentQuizzesView({
+  initialSearch = '',
+  focusQuizId,
+}: {
+  initialSearch?: string
+  focusQuizId?: string
+}) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
@@ -2628,6 +2663,18 @@ function StudentQuizzesView({ initialSearch = '' }: { initialSearch?: string }) 
     () => groupedAvailableQuizzes.find((group) => group.subject === selectedSubjectLibrary) ?? null,
     [groupedAvailableQuizzes, selectedSubjectLibrary]
   )
+
+  useEffect(() => {
+    if (!focusQuizId || !selectedSubjectGroup) return
+    if (!selectedSubjectGroup.quizzes.some((quiz) => quiz.id === focusQuizId)) return
+
+    window.requestAnimationFrame(() => {
+      document.getElementById(`student-quiz-${focusQuizId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    })
+  }, [focusQuizId, selectedSubjectGroup])
 
   const openSubjectLibraryPage = (subject: string) => {
     navigate(`/quizzes/library/subject?subject=${encodeURIComponent(subject)}`)
@@ -3254,7 +3301,14 @@ function StudentQuizzesView({ initialSearch = '' }: { initialSearch?: string }) 
                   const percent = latestAttempt ? Math.round((latestAttempt.score / latestAttempt.totalPoints) * 100) : null
 
                   return (
-                    <div key={quiz.id} className="rounded-[1.6rem] border border-light-border bg-white/45 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.52)] dark:border-dark-border dark:bg-dark-card2/40">
+                    <div
+                      key={quiz.id}
+                      id={`student-quiz-${quiz.id}`}
+                      className={cn(
+                        'rounded-[1.6rem] border border-light-border bg-white/45 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.52)] dark:border-dark-border dark:bg-dark-card2/40',
+                        focusQuizId === quiz.id && 'ring-2 ring-indigo-300/55'
+                      )}
+                    >
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
                           <div className="flex flex-wrap gap-2">
@@ -3435,10 +3489,12 @@ export function Quizzes() {
   const [searchParams] = useSearchParams()
   const initialSearch = searchParams.get('search') ?? ''
   const initialAttemptSearch = searchParams.get('attemptSearch') ?? ''
+  const focusQuizId = searchParams.get('focusQuiz') ?? ''
+  const focusAttemptId = searchParams.get('focusAttempt') ?? ''
 
   if (isStaffRole(user?.role)) {
-    return <AdminQuizzesView initialSearch={initialSearch} initialAttemptSearch={initialAttemptSearch} />
+    return <AdminQuizzesView initialSearch={initialSearch} initialAttemptSearch={initialAttemptSearch} focusAttemptId={focusAttemptId} />
   }
 
-  return <StudentQuizzesView initialSearch={initialSearch} />
+  return <StudentQuizzesView initialSearch={initialSearch} focusQuizId={focusQuizId} />
 }

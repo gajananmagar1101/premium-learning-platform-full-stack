@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -70,7 +71,7 @@ public class AssignmentManagementService {
         List<AssignmentEntity> assignments = studentClass.isBlank()
                 ? List.of()
                 : assignmentRepository.findByClassNameIgnoreCaseAndStatusOrderByDeadlineAscCreatedAtDesc(
-                        student.getGrade(),
+                        studentClass,
                         AssignmentStatus.PUBLISHED
                 );
         Map<String, String> subjectNamesById = subjectService.resolveSubjectNamesById(
@@ -90,7 +91,7 @@ public class AssignmentManagementService {
 
     public AssignmentResponse create(AssignmentRequest request, UserEntity createdBy) {
         AssignmentEntity assignment = new AssignmentEntity();
-        apply(assignment, request);
+        SubjectEntity subject = apply(assignment, request);
         assignment.setCreatedBy(createdBy);
         assignment.prepareForSave();
         AssignmentEntity saved = assignmentRepository.save(assignment);
@@ -101,17 +102,19 @@ public class AssignmentManagementService {
                     "New assignment",
                     saved.getTitle() + " has been posted for your cohort.",
                     "info",
-                    createdBy.getId()
+                    createdBy.getId(),
+                    "assignment",
+                    "/assessments?focusAssignment=" + saved.getId()
             );
         }
 
-        return toResponse(saved, subjectService.resolveSubjectNamesById(List.of(saved.getSubjectId())));
+        return AssignmentResponse.from(saved, subject.getName());
     }
 
     public AssignmentResponse update(String id, AssignmentRequest request) {
         AssignmentEntity assignment = getEntity(id);
         AssignmentStatus previousStatus = assignment.getStatus();
-        apply(assignment, request);
+        SubjectEntity subject = apply(assignment, request);
         assignment.prepareForSave();
         AssignmentEntity saved = assignmentRepository.save(assignment);
 
@@ -123,11 +126,13 @@ public class AssignmentManagementService {
                             ? saved.getTitle() + " has been posted for your cohort."
                             : saved.getTitle() + " has been updated.",
                     "info",
-                    null
+                    null,
+                    "assignment",
+                    "/assessments?focusAssignment=" + saved.getId()
             );
         }
 
-        return toResponse(saved, subjectService.resolveSubjectNamesById(List.of(saved.getSubjectId())));
+        return AssignmentResponse.from(saved, subject.getName());
     }
 
     public AssignmentResponse publish(String id) {
@@ -141,10 +146,12 @@ public class AssignmentManagementService {
                 "New assignment",
                 saved.getTitle() + " has been posted for your cohort.",
                 "info",
-                null
+                null,
+                "assignment",
+                "/assessments?focusAssignment=" + saved.getId()
         );
 
-        return toResponse(saved, subjectService.resolveSubjectNamesById(List.of(saved.getSubjectId())));
+        return AssignmentResponse.from(saved, subjectService.resolveSubjectName(null, saved.getLegacySubject()));
     }
 
     public void delete(String id) {
@@ -159,7 +166,7 @@ public class AssignmentManagementService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Assignment not found."));
     }
 
-    private void apply(AssignmentEntity assignment, AssignmentRequest request) {
+    private SubjectEntity apply(AssignmentEntity assignment, AssignmentRequest request) {
         SubjectEntity subject = subjectService.resolveSubject(request.subjectId(), request.subject());
         subjectService.validateSubjectYear(subject, request.className());
         assignment.setTitle(request.title().trim());
@@ -172,6 +179,14 @@ public class AssignmentManagementService {
         assignment.setStatus(request.status() == null ? AssignmentStatus.DRAFT : request.status());
         assignment.setQuestionFileName(request.questionFileName());
         assignment.setQuestionFileContent(request.questionFileContent());
+        return subject;
+    }
+
+    public String resolveSubjectName(AssignmentEntity assignment) {
+        return resolveSubjectName(
+                assignment,
+                subjectService.resolveSubjectNamesById(List.of(assignment.getSubjectId()))
+        );
     }
 
     public String resolveSubjectName(AssignmentEntity assignment) {
@@ -193,6 +208,30 @@ public class AssignmentManagementService {
 
     private AssignmentResponse toResponse(AssignmentEntity assignment, Map<String, String> subjectNamesById) {
         return AssignmentResponse.from(assignment, resolveSubjectName(assignment, subjectNamesById));
+    }
+
+    private String normalizeClassName(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        String normalized = value.trim()
+                .toLowerCase(Locale.ROOT)
+                .replace("b.tech", "")
+                .replace("btech", "")
+                .replace("standard", "")
+                .replace("class", "")
+                .replace("grade", "")
+                .replace("year", "")
+                .replace(" ", "");
+
+        return switch (normalized) {
+            case "", "1", "2", "3", "fe", "first" -> "FE";
+            case "4", "5", "6", "se", "second" -> "SE";
+            case "7", "8", "9", "te", "third" -> "TE";
+            case "10", "11", "12", "be", "final", "fourth" -> "BE";
+            default -> normalized.toUpperCase(Locale.ROOT);
+        };
     }
 
 }

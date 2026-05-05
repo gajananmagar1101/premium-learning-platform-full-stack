@@ -191,6 +191,16 @@ export interface Notification {
   time: string
   read: boolean
   type: 'info' | 'success' | 'warning'
+  category:
+    | 'assignment'
+    | 'quiz'
+    | 'submission'
+    | 'quiz-submission'
+    | 'marks'
+    | 'profile'
+    | 'access'
+    | 'general'
+  actionUrl?: string
 }
 
 export interface Toast {

@@ -10,6 +10,9 @@ interface AssignmentStoreState {
   adminAssignments: AssignmentItem[]
   studentAssignments: StudentAssignmentItem[]
   submissions: AdminSubmission[]
+  adminAssignmentsLoaded: boolean
+  studentAssignmentsLoaded: boolean
+  submissionsLoaded: boolean
   loading: boolean
   fetchAdminAssignments: () => Promise<void>
   fetchStudentAssignments: () => Promise<void>
@@ -43,55 +46,110 @@ const normalizeAssignmentSubmission = (submission: AssignmentSubmission & { _id?
   normalizeSubmission(submission)
 )
 
+let adminAssignmentsRequest: Promise<void> | null = null
+let studentAssignmentsRequest: Promise<void> | null = null
+let adminSubmissionsRequest: Promise<void> | null = null
+
 export const useAssignmentStore = create<AssignmentStoreState>((set, get) => ({
   adminAssignments: [],
   studentAssignments: [],
   submissions: [],
+  adminAssignmentsLoaded: false,
+  studentAssignmentsLoaded: false,
+  submissionsLoaded: false,
   loading: false,
 
   fetchAdminAssignments: async () => {
-    set({ loading: true })
-    try {
-      const res = await adminAssignmentAPI.getAll()
-      set({
-        adminAssignments: (res.data.assignments ?? []).map((assignment: AssignmentItem) => normalizeAssignment(assignment)),
-        loading: false,
-      })
-    } catch (error) {
-      console.error('[AssignmentStore] Failed to fetch admin assignments:', error)
-      set({ loading: false })
+    if (get().adminAssignmentsLoaded) {
+      return
     }
+
+    if (adminAssignmentsRequest) {
+      return adminAssignmentsRequest
+    }
+
+    set({ loading: true })
+    adminAssignmentsRequest = adminAssignmentAPI.getAll()
+      .then((res) => {
+        set({
+          adminAssignments: (res.data.assignments ?? []).map((assignment: AssignmentItem) => normalizeAssignment(assignment)),
+          adminAssignmentsLoaded: true,
+          loading: false,
+        })
+      })
+      .catch((error) => {
+        console.error('[AssignmentStore] Failed to fetch admin assignments:', error)
+        set({ loading: false })
+      })
+      .finally(() => {
+        adminAssignmentsRequest = null
+      })
+
+    return adminAssignmentsRequest
   },
 
   fetchStudentAssignments: async () => {
-    set({ loading: true })
-    try {
-      const res = await studentAssignmentAPI.getAll()
-      set({
-        studentAssignments: (res.data.assignments ?? []).map((assignment: StudentAssignmentItem) => normalizeStudentAssignment(assignment)),
-        loading: false,
-      })
-    } catch (error) {
-      console.error('[AssignmentStore] Failed to fetch student assignments:', error)
-      set({ loading: false })
+    if (get().studentAssignmentsLoaded) {
+      return
     }
+
+    if (studentAssignmentsRequest) {
+      return studentAssignmentsRequest
+    }
+
+    set({ loading: true })
+    studentAssignmentsRequest = studentAssignmentAPI.getAll()
+      .then((res) => {
+        set({
+          studentAssignments: (res.data.assignments ?? []).map((assignment: StudentAssignmentItem) => normalizeStudentAssignment(assignment)),
+          studentAssignmentsLoaded: true,
+          loading: false,
+        })
+      })
+      .catch((error) => {
+        console.error('[AssignmentStore] Failed to fetch student assignments:', error)
+        set({ loading: false })
+      })
+      .finally(() => {
+        studentAssignmentsRequest = null
+      })
+
+    return studentAssignmentsRequest
   },
 
   fetchAdminSubmissions: async () => {
-    try {
-      const res = await submissionAPI.getAllForAdmin()
-      set({
-        submissions: (res.data.submissions ?? []).map((submission: AdminSubmission) => normalizeSubmission(submission)),
-      })
-    } catch (error) {
-      console.error('[AssignmentStore] Failed to fetch admin submissions:', error)
+    if (get().submissionsLoaded) {
+      return
     }
+
+    if (adminSubmissionsRequest) {
+      return adminSubmissionsRequest
+    }
+
+    adminSubmissionsRequest = submissionAPI.getAllForAdmin()
+      .then((res) => {
+        set({
+          submissions: (res.data.submissions ?? []).map((submission: AdminSubmission) => normalizeSubmission(submission)),
+          submissionsLoaded: true,
+        })
+      })
+      .catch((error) => {
+        console.error('[AssignmentStore] Failed to fetch admin submissions:', error)
+      })
+      .finally(() => {
+        adminSubmissionsRequest = null
+      })
+
+    return adminSubmissionsRequest
   },
 
   createAssignment: async (data) => {
     const res = await adminAssignmentAPI.create(data)
     const assignment = normalizeAssignment(res.data.assignment)
-    set((state) => ({ adminAssignments: [assignment, ...state.adminAssignments] }))
+    set((state) => ({
+      adminAssignments: [assignment, ...state.adminAssignments],
+      adminAssignmentsLoaded: true,
+    }))
   },
 
   updateAssignment: async (id, data) => {
@@ -99,6 +157,7 @@ export const useAssignmentStore = create<AssignmentStoreState>((set, get) => ({
     const assignment = normalizeAssignment(res.data.assignment)
     set((state) => ({
       adminAssignments: state.adminAssignments.map((item) => item.id === id ? assignment : item),
+      adminAssignmentsLoaded: true,
     }))
   },
 
@@ -107,6 +166,7 @@ export const useAssignmentStore = create<AssignmentStoreState>((set, get) => ({
     const assignment = normalizeAssignment(res.data.assignment)
     set((state) => ({
       adminAssignments: state.adminAssignments.map((item) => item.id === id ? assignment : item),
+      adminAssignmentsLoaded: true,
     }))
   },
 
@@ -115,6 +175,8 @@ export const useAssignmentStore = create<AssignmentStoreState>((set, get) => ({
     set((state) => ({
       adminAssignments: state.adminAssignments.filter((item) => item.id !== id),
       submissions: state.submissions.filter((submission) => submission.assignmentId !== id),
+      adminAssignmentsLoaded: true,
+      submissionsLoaded: true,
     }))
   },
 
@@ -155,7 +217,11 @@ export const useAssignmentStore = create<AssignmentStoreState>((set, get) => ({
   },
 
   gradeSubmission: async (id, marks) => {
-    await submissionAPI.grade(id, { marks })
-    await get().fetchAdminSubmissions()
+    const res = await submissionAPI.grade(id, { marks })
+    const submission = normalizeSubmission(res.data.submission)
+    set((state) => ({
+      submissions: state.submissions.map((item) => item.id === id ? submission : item),
+      submissionsLoaded: true,
+    }))
   },
 }))

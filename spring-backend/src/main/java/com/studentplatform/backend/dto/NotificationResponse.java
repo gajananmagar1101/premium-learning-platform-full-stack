@@ -9,6 +9,8 @@ public record NotificationResponse(
         String title,
         String message,
         String type,
+        String category,
+        String actionUrl,
         boolean read,
         Instant createdAt
 ) {
@@ -18,6 +20,8 @@ public record NotificationResponse(
                 notification.getTitle(),
                 notification.getMessage(),
                 notification.getType(),
+                notification.getCategory(),
+                notification.getActionUrl(),
                 notification.isRead(),
                 notification.getCreatedAt()
         );

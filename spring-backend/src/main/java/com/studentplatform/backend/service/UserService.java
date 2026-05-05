@@ -87,7 +87,9 @@ public class UserService {
                 "Profile updated",
                 "Your profile details were updated by admin.",
                 "info",
-                null
+                null,
+                "profile",
+                "/profile"
         );
 
         return UserResponse.from(saved);
@@ -127,7 +129,9 @@ public class UserService {
                         ? "Your learner portal access has been paused temporarily by admin."
                         : "Your learner portal access has been restored by admin.",
                 blocked ? "warning" : "success",
-                null
+                null,
+                "access",
+                "/profile"
         );
 
         return UserResponse.from(saved);
@@ -142,7 +146,9 @@ public class UserService {
                     "Student profile updated",
                     saved.getName() + " updated profile information.",
                     "info",
-                    saved.getId()
+                    saved.getId(),
+                    "profile",
+                    "/students/profile/" + saved.getId()
             );
         }
 
@@ -183,7 +189,9 @@ public class UserService {
                         ? "Your faculty portal access has been paused temporarily by admin."
                         : "Your faculty portal access has been restored by admin.",
                 blocked ? "warning" : "success",
-                null
+                null,
+                "access",
+                "/profile"
         );
 
         return FacultyAccessResponse.from(saved);

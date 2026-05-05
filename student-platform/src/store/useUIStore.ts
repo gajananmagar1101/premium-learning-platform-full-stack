@@ -18,6 +18,68 @@ interface UIState {
   removeToast: (id: string) => void
 }
 
+const extractBetween = (text: string, prefix: string, suffix: string) => {
+  const start = text.indexOf(prefix)
+  if (start === -1) return ''
+  const contentStart = start + prefix.length
+  const end = text.indexOf(suffix, contentStart)
+  if (end === -1) return ''
+  return text.slice(contentStart, end).trim()
+}
+
+const inferNotificationCategory = (title: string, message: string): Notification['category'] => {
+  const titleText = title.toLowerCase()
+  const messageText = message.toLowerCase()
+
+  if (titleText.includes('assignment') && titleText.includes('submission')) return 'submission'
+  if (titleText.includes('quiz') && titleText.includes('submission')) return 'quiz-submission'
+  if (titleText.includes('marks')) return 'marks'
+  if (titleText.includes('assignment')) return 'assignment'
+  if (titleText.includes('quiz')) return 'quiz'
+  if (titleText.includes('profile')) return 'profile'
+  if (titleText.includes('access')) return 'access'
+  if (messageText.includes('assignment')) return 'assignment'
+  if (messageText.includes('quiz')) return 'quiz'
+  return 'general'
+}
+
+const inferNotificationActionUrl = (category: Notification['category'], title: string, message: string) => {
+  if (category === 'assignment') {
+    const assignmentTitle = extractBetween(message, '', ' has ')
+    return assignmentTitle ? `/assessments?search=${encodeURIComponent(assignmentTitle)}` : '/assessments'
+  }
+
+  if (category === 'marks') {
+    const assignmentTitle = extractBetween(message, 'Your marks for ', ' are now available.')
+    return assignmentTitle ? `/assessments?search=${encodeURIComponent(assignmentTitle)}` : '/assessments'
+  }
+
+  if (category === 'submission') {
+    const assignmentTitle = extractBetween(message, 'submitted ', '.') || extractBetween(message, 'updated submission for ', '.')
+    return assignmentTitle ? `/assessments?search=${encodeURIComponent(assignmentTitle)}` : '/assessments'
+  }
+
+  if (category === 'quiz') {
+    const quizTitle = extractBetween(message, '', ' is available in your quizzes.') || extractBetween(message, '', ' has been updated.')
+    return quizTitle ? `/quizzes?search=${encodeURIComponent(quizTitle)}` : '/quizzes'
+  }
+
+  if (category === 'quiz-submission') {
+    const quizTitle = extractBetween(message, 'submitted ', '.') || extractBetween(message, "'s ", ' attempt was auto-submitted')
+    return quizTitle ? `/quizzes?attemptSearch=${encodeURIComponent(quizTitle)}` : '/quizzes'
+  }
+
+  if (category === 'profile' || category === 'access') {
+    return '/profile'
+  }
+
+  if (title.toLowerCase().includes('faculty')) {
+    return '/faculty'
+  }
+
+  return undefined
+}
+
 const formatNotificationTime = (createdAt?: string) => {
   if (!createdAt) return ''
   const date = new Date(createdAt)
@@ -40,6 +102,34 @@ const normalizeNotification = (raw: unknown): Notification | null => {
     title: String(item.title ?? 'Notification'),
     message: String(item.message ?? ''),
     type: item.type === 'success' || item.type === 'warning' ? item.type : 'info',
+    category: (
+      item.category === 'assignment'
+      || item.category === 'quiz'
+      || item.category === 'submission'
+      || item.category === 'quiz-submission'
+      || item.category === 'marks'
+      || item.category === 'profile'
+      || item.category === 'access'
+    )
+      ? item.category
+      : inferNotificationCategory(String(item.title ?? 'Notification'), String(item.message ?? '')),
+    actionUrl: typeof item.actionUrl === 'string' && item.actionUrl.trim()
+      ? item.actionUrl
+      : inferNotificationActionUrl(
+          (
+            item.category === 'assignment'
+            || item.category === 'quiz'
+            || item.category === 'submission'
+            || item.category === 'quiz-submission'
+            || item.category === 'marks'
+            || item.category === 'profile'
+            || item.category === 'access'
+          )
+            ? item.category
+            : inferNotificationCategory(String(item.title ?? 'Notification'), String(item.message ?? '')),
+          String(item.title ?? 'Notification'),
+          String(item.message ?? '')
+        ),
     read: Boolean(item.read),
     time: formatNotificationTime(typeof item.createdAt === 'string' ? item.createdAt : undefined),
   }

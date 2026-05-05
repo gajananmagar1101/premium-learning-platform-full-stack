@@ -20,6 +20,8 @@ public class NotificationEntity {
     private String title;
     private String message;
     private String type = "info";
+    private String category = "general";
+    private String actionUrl;
     private boolean read = false;
     private Instant createdAt;
     private Instant readAt;
@@ -30,6 +32,9 @@ public class NotificationEntity {
         }
         if (type == null || type.isBlank()) {
             type = "info";
+        }
+        if (category == null || category.isBlank()) {
+            category = "general";
         }
     }
 
@@ -71,6 +76,22 @@ public class NotificationEntity {
 
     public boolean isRead() {
         return read;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getActionUrl() {
+        return actionUrl;
+    }
+
+    public void setActionUrl(String actionUrl) {
+        this.actionUrl = actionUrl;
     }
 
     public void setRead(boolean read) {

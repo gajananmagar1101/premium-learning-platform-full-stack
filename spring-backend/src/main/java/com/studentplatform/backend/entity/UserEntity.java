@@ -1,11 +1,17 @@
 package com.studentplatform.backend.entity;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
 
 @Document(collection = "users")
+@CompoundIndexes({
+        @CompoundIndex(name = "user_role_created_idx", def = "{'role': 1, 'createdAt': -1}"),
+        @CompoundIndex(name = "user_role_grade_created_idx", def = "{'role': 1, 'grade': 1, 'createdAt': -1}")
+})
 public class UserEntity {
 
     @Id

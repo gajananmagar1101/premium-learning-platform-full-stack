@@ -67,7 +67,20 @@ public class NotificationService {
 
     @Async("notificationExecutor")
     public void notifyUsersByIds(List<String> recipientIds, String title, String message, String type, String actorUserId) {
-        saveNotifications(recipientIds, title, message, type, actorUserId);
+        saveNotifications(recipientIds, title, message, type, actorUserId, null, null);
+    }
+
+    @Async("notificationExecutor")
+    public void notifyUsersByIds(
+            List<String> recipientIds,
+            String title,
+            String message,
+            String type,
+            String actorUserId,
+            String category,
+            String actionUrl
+    ) {
+        saveNotifications(recipientIds, title, message, type, actorUserId, category, actionUrl);
     }
 
     @Async("notificationExecutor")
@@ -75,29 +88,55 @@ public class NotificationService {
         List<String> recipientIds = userRepository.findAllByRoleOrderByCreatedAtDesc(role).stream()
                 .map(UserEntity::getId)
                 .toList();
-        saveNotifications(recipientIds, title, message, type, actorUserId);
+        saveNotifications(recipientIds, title, message, type, actorUserId, null, null);
     }
 
     @Async("notificationExecutor")
     public void notifyStaff(String title, String message, String type, String actorUserId) {
+        notifyStaff(title, message, type, actorUserId, null, null);
+    }
+
+    @Async("notificationExecutor")
+    public void notifyStaff(String title, String message, String type, String actorUserId, String category, String actionUrl) {
         List<String> recipientIds = userRepository.findByRoleInOrderByCreatedAtDesc(List.of(Role.ADMIN, Role.FACULTY)).stream()
                 .map(UserEntity::getId)
                 .toList();
-        saveNotifications(recipientIds, title, message, type, actorUserId);
+        saveNotifications(recipientIds, title, message, type, actorUserId, category, actionUrl);
     }
 
     @Async("notificationExecutor")
     public void notifyStudentsByGrade(String grade, String title, String message, String type, String actorUserId) {
+        notifyStudentsByGrade(grade, title, message, type, actorUserId, null, null);
+    }
+
+    @Async("notificationExecutor")
+    public void notifyStudentsByGrade(
+            String grade,
+            String title,
+            String message,
+            String type,
+            String actorUserId,
+            String category,
+            String actionUrl
+    ) {
         String targetGrade = grade == null ? "" : grade.trim();
         if (targetGrade.isBlank()) return;
 
         List<String> recipientIds = userRepository.findByRoleAndGradeIgnoreCaseOrderByCreatedAtDesc(Role.STUDENT, targetGrade).stream()
                 .map(UserEntity::getId)
                 .toList();
-        saveNotifications(recipientIds, title, message, type, actorUserId);
+        saveNotifications(recipientIds, title, message, type, actorUserId, category, actionUrl);
     }
 
-    private void saveNotifications(List<String> recipientIds, String title, String message, String type, String actorUserId) {
+    private void saveNotifications(
+            List<String> recipientIds,
+            String title,
+            String message,
+            String type,
+            String actorUserId,
+            String category,
+            String actionUrl
+    ) {
         if (recipientIds == null || recipientIds.isEmpty()) {
             return;
         }
@@ -119,6 +158,8 @@ public class NotificationService {
             notification.setTitle(title);
             notification.setMessage(message);
             notification.setType(type);
+            notification.setCategory(category);
+            notification.setActionUrl(actionUrl);
             notification.setRead(false);
             notification.prepareForSave();
             batch.add(notification);

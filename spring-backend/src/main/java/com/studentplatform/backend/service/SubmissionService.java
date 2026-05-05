@@ -26,15 +26,18 @@ public class SubmissionService {
     private final SubmissionRepository submissionRepository;
     private final AssignmentManagementService assignmentManagementService;
     private final NotificationService notificationService;
+    private final SubjectService subjectService;
 
     public SubmissionService(
             SubmissionRepository submissionRepository,
             AssignmentManagementService assignmentManagementService,
-            NotificationService notificationService
+            NotificationService notificationService,
+            SubjectService subjectService
     ) {
         this.submissionRepository = submissionRepository;
         this.assignmentManagementService = assignmentManagementService;
         this.notificationService = notificationService;
+        this.subjectService = subjectService;
     }
 
     public SubmissionSummaryResponse create(UserEntity student, SubmissionRequest request) {
@@ -60,7 +63,9 @@ public class SubmissionService {
                 "New assignment submission",
                 student.getName() + " submitted " + assignment.getTitle() + ".",
                 "info",
-                student.getId()
+                student.getId(),
+                "submission",
+                "/assessments?focusSubmission=" + saved.getId()
         );
 
         return SubmissionSummaryResponse.from(saved);
@@ -86,7 +91,9 @@ public class SubmissionService {
                 "Submission updated",
                 student.getName() + " updated submission for " + submission.getAssignment().getTitle() + ".",
                 "info",
-                student.getId()
+                student.getId(),
+                "submission",
+                "/assessments?focusSubmission=" + saved.getId()
         );
 
         return SubmissionSummaryResponse.from(saved);
@@ -94,8 +101,15 @@ public class SubmissionService {
 
     @Transactional(readOnly = true)
     public List<SubmissionResponse> getAllForAdmin() {
-        return submissionRepository.findAllByOrderByUpdatedAtDesc().stream()
-                .map(this::toResponse)
+        List<SubmissionEntity> submissions = submissionRepository.findAllByOrderByUpdatedAtDesc();
+        var subjectNamesById = subjectService.resolveSubjectNamesById(
+                submissions.stream()
+                        .map(submission -> submission.getAssignment().getSubjectId())
+                        .toList()
+        );
+
+        return submissions.stream()
+                .map(submission -> toResponse(submission, subjectNamesById))
                 .toList();
     }
 
@@ -117,7 +131,9 @@ public class SubmissionService {
                 "Marks published",
                 "Your marks for " + saved.getAssignment().getTitle() + " are now available.",
                 "success",
-                null
+                null,
+                "marks",
+                "/assessments?focusAssignment=" + saved.getAssignment().getId()
         );
 
         return toResponse(saved);
@@ -161,13 +177,18 @@ public class SubmissionService {
 
         int progressPercent = (int) Math.round(avgPercentage);
         String overallGrade = toLetterGrade(avgPercentage);
+        var subjectNamesById = subjectService.resolveSubjectNamesById(
+                gradedSubmissions.stream()
+                        .map(submission -> submission.getAssignment().getSubjectId())
+                        .toList()
+        );
 
         List<StudentPerformanceResponse.ScoreHistoryItem> scoreHistory = gradedSubmissions.stream()
                 .map(submission -> new StudentPerformanceResponse.ScoreHistoryItem(
                         submission.getId(),
                         submission.getAssignment().getId(),
                         submission.getAssignment().getTitle(),
-                        assignmentManagementService.resolveSubjectName(submission.getAssignment()),
+                        resolveSubjectName(submission.getAssignment(), subjectNamesById),
                         submission.getMarks(),
                         submission.getAssignment().getTotalMarks(),
                         (int) Math.round((submission.getMarks() * 100.0) / submission.getAssignment().getTotalMarks()),
@@ -228,7 +249,26 @@ public class SubmissionService {
     private SubmissionResponse toResponse(SubmissionEntity submission) {
         return SubmissionResponse.from(
                 submission,
-                assignmentManagementService.resolveSubjectName(submission.getAssignment())
+                subjectService.resolveSubjectName(null, submission.getAssignment().getLegacySubject())
         );
+    }
+
+    private SubmissionResponse toResponse(SubmissionEntity submission, java.util.Map<String, String> subjectNamesById) {
+        return SubmissionResponse.from(
+                submission,
+                resolveSubjectName(submission.getAssignment(), subjectNamesById)
+        );
+    }
+
+    private String resolveSubjectName(AssignmentEntity assignment, java.util.Map<String, String> subjectNamesById) {
+        String subjectId = assignment.getSubjectId();
+        if (subjectId != null && !subjectId.isBlank()) {
+            String subjectName = subjectNamesById.get(subjectId);
+            if (subjectName != null && !subjectName.isBlank()) {
+                return subjectName;
+            }
+        }
+
+        return subjectService.resolveSubjectName(null, assignment.getLegacySubject());
     }
 }
