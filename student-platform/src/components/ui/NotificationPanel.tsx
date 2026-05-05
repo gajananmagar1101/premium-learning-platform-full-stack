@@ -358,6 +358,7 @@ export function NotificationPanel() {
               <motion.div initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.985 }} transition={{ duration: 0.14 }}
                 ref={panelRef}
+                onClick={() => setOpen(false)}
                 className="fixed inset-x-2 top-14 bottom-3 z-[140] overflow-visible rounded-[2.4rem] bg-[linear-gradient(180deg,rgba(99,102,241,0.18),rgba(15,23,42,0.22)),rgba(255,255,255,0.38)] px-1 py-3 shadow-[0_28px_80px_rgba(15,23,42,0.24)] border border-white/30 backdrop-blur-[30px] sm:inset-x-auto sm:right-5 sm:top-20 sm:bottom-auto sm:w-[24rem]"
                 style={{ width: 'min(24rem, calc(100vw - 1rem))' }}
               >
@@ -368,7 +369,7 @@ export function NotificationPanel() {
                   <div className="absolute right-10 bottom-8 h-24 w-24 rounded-full bg-violet-400/20 blur-3xl" />
                 </div>
                 <div className="relative flex h-full flex-col overflow-visible">
-                  <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-1">
+                  <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
                     <div className="min-w-0">
                       <p className="text-base font-semibold text-slate-950">Notifications</p>
                       <p className="mt-0.5 text-[11px] text-slate-700">
@@ -429,6 +430,7 @@ export function NotificationPanel() {
                                     handleDismissComplete(n.id)
                                   }
                                 }}
+                                onClick={(e) => e.stopPropagation()}
                                 className="overflow-visible"
                               >
                                 <NotificationCard
