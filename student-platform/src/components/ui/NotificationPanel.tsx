@@ -49,7 +49,7 @@ const NOTIFICATION_DELETE_THRESHOLD = 78
 const INTERACTIVE_TARGET_SELECTOR = 'a, input, select, textarea, [data-notification-interactive="true"]'
 
 interface NotificationCardProps {
-  notification: AppNotification
+  notification: Notification
   expanded: boolean
   dismissing: boolean
   isAtTop?: boolean
