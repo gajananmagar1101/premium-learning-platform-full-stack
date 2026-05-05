@@ -230,7 +230,7 @@ function NotificationCard({
           >
             <ChevronDown size={16} className={cn('transition-transform duration-200', expanded && 'rotate-180')} />
           </button>
-        </div>
+        </motion.div>
       </motion.div>
     </div>
   )
