@@ -1447,7 +1447,10 @@ function StudentAssignmentsView({
       })
       .catch((error) => {
         console.error('[Assignments] Failed to save submission:', error)
-        addToast('Failed to save submission', 'error')
+        const message = axios.isAxiosError(error)
+          ? error.response?.data?.message ?? (error.request ? 'Cannot reach backend server. File might be too large or server is down.' : error.message)
+          : 'Failed to save submission'
+        addToast(message, 'error')
       })
   }
 
