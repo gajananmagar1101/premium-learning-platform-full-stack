@@ -189,12 +189,6 @@ public class AssignmentManagementService {
         );
     }
 
-    public String resolveSubjectName(AssignmentEntity assignment) {
-        return resolveSubjectName(assignment, subjectService.resolveSubjectNamesById(
-                List.of(assignment.getSubjectId())
-        ));
-    }
-
     private String resolveSubjectName(AssignmentEntity assignment, Map<String, String> subjectNamesById) {
         String subjectId = assignment.getSubjectId();
         if (subjectId != null && !subjectId.isBlank()) {
