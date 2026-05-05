@@ -116,6 +116,14 @@ function NotificationCard({
 
     if (gestureModeRef.current === 'horizontal') {
       updateDragX(deltaX)
+    } else if (gestureModeRef.current === 'vertical') {
+      if (deltaY > 34 && !expanded) {
+        onExpand()
+        pointerStartRef.current = null
+      } else if (deltaY < -34 && expanded) {
+        onCollapse()
+        pointerStartRef.current = null
+      }
     }
   }
 
@@ -132,14 +140,6 @@ function NotificationCard({
       } else {
         dragXRef.current = 0
         animate(x, 0, { type: 'spring', stiffness: 520, damping: 36, mass: 0.7 })
-      }
-    }
-
-    if (gestureModeRef.current === 'vertical' && pointerStartRef.current) {
-      if (pointerDeltaRef.current.y > 34) {
-        onExpand()
-      } else if (pointerDeltaRef.current.y < -34) {
-        onCollapse()
       }
     }
 
@@ -392,7 +392,7 @@ export function NotificationPanel() {
                     )}
                   </div>
                   <div 
-                    className="slim-scrollbar flex-1 overflow-y-auto overflow-x-visible px-2 pb-0.5 pt-2"
+                    className="slim-scrollbar flex-1 overflow-y-auto overscroll-y-contain overflow-x-visible px-2 pb-0.5 pt-2"
                     onScroll={(e) => {
                       const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
                       
