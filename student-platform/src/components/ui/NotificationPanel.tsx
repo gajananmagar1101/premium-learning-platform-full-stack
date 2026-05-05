@@ -46,7 +46,7 @@ const typeIconShell = (notification: Notification) => {
 }
 
 const NOTIFICATION_DELETE_THRESHOLD = 78
-const INTERACTIVE_TARGET_SELECTOR = 'button, a, input, select, textarea, [role="button"], [data-notification-interactive="true"]'
+const INTERACTIVE_TARGET_SELECTOR = 'a, input, select, textarea, [data-notification-interactive="true"]'
 
 function NotificationCard({
   notification,
