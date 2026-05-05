@@ -181,38 +181,39 @@ function NotificationCard({
             : 'hover:bg-white'
         )}
       >
-        <button
+        <motion.button
+          layout="position"
           type="button"
           onClick={handleOpen}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
-          <div className={cn(
+          <motion.div layout="position" className={cn(
             'flex h-11 w-11 shrink-0 self-center items-center justify-center rounded-[1.45rem]',
             typeIconShell(notification)
           )}>
             {categoryIcon(notification)}
-          </div>
-          <div className={cn('min-w-0 flex-1', !expanded && 'self-center')}>
-            <div className={cn('flex gap-2', expanded ? 'items-start' : 'items-center')}>
-              <p className={cn(
+          </motion.div>
+          <motion.div layout="position" className={cn('min-w-0 flex-1', !expanded && 'self-center')}>
+            <motion.div layout="position" className={cn('flex gap-2', expanded ? 'items-start' : 'items-center')}>
+              <motion.p layout="position" className={cn(
                 'min-w-0 flex-1 text-[13px] leading-5 text-slate-950',
                 expanded ? 'whitespace-normal break-words' : 'truncate',
                 notification.read ? 'font-bold' : 'font-extrabold'
               )}>
                 {notification.title}
-              </p>
-              <p className="shrink-0 text-[10px] text-slate-500">{notification.time}</p>
-            </div>
-            <p className={cn(
+              </motion.p>
+              <motion.p layout="position" className="shrink-0 text-[10px] text-slate-500">{notification.time}</motion.p>
+            </motion.div>
+            <motion.p layout="position" className={cn(
               'text-[11px] leading-4 text-slate-700',
               expanded ? 'mt-0.5 whitespace-pre-wrap' : 'mt-0.5 line-clamp-1'
             )}>
               {notification.message}
-            </p>
-          </div>
-        </button>
+            </motion.p>
+          </motion.div>
+        </motion.button>
 
-        <div className="flex shrink-0 self-center items-center gap-0.5 pl-0.5">
+        <motion.div layout="position" className="flex shrink-0 self-center items-center gap-0.5 pl-0.5">
           {!notification.read && <span className="h-2 w-2 rounded-full bg-accent" />}
           <button
             type="button"
@@ -354,8 +355,8 @@ export function NotificationPanel() {
                 className="fixed inset-0 z-[130] bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.22),transparent_18%),radial-gradient(circle_at_82%_18%,rgba(255,255,255,0.14),transparent_14%),radial-gradient(circle_at_24%_78%,rgba(34,197,94,0.14),transparent_18%),radial-gradient(circle_at_80%_76%,rgba(168,85,247,0.14),transparent_18%),rgba(15,23,42,0.32)] backdrop-blur-[34px] supports-[backdrop-filter]:backdrop-saturate-150"
               />
 
-              <motion.div initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.985 }} transition={{ duration: 0.14 }}
+              <motion.div initial={{ opacity: 0, scale: 0.985, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: -60 }} transition={{ duration: 0.2 }}
                 ref={panelRef}
                 onClick={() => setOpen(false)}
                 className="fixed inset-x-2 top-14 bottom-3 z-[140] overflow-visible rounded-[2.4rem] bg-[linear-gradient(180deg,rgba(99,102,241,0.18),rgba(15,23,42,0.22)),rgba(255,255,255,0.38)] px-1 py-3 shadow-[0_28px_80px_rgba(15,23,42,0.24)] border border-white/30 backdrop-blur-[30px] sm:inset-x-auto sm:right-5 sm:top-20 sm:bottom-auto sm:w-[24rem]"
@@ -382,7 +383,16 @@ export function NotificationPanel() {
                       </button>
                     )}
                   </div>
-                  <div className="slim-scrollbar flex-1 overflow-y-auto overflow-x-visible px-2 pb-0.5 pt-2">
+                  <div 
+                    className="slim-scrollbar flex-1 overflow-y-auto overflow-x-visible px-2 pb-0.5 pt-2"
+                    onScroll={(e) => {
+                      const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
+                      // If overscrolled at the bottom by more than 20px (iOS bounce), close the panel
+                      if (scrollTop + clientHeight > scrollHeight + 20) {
+                        setOpen(false)
+                      }
+                    }}
+                  >
                     {!notificationsLoading && notifications.length === 0 && (
                       <div className="rounded-[1.75rem] border border-white/70 bg-white/64 px-4 py-8 text-center backdrop-blur-xl">
                         <p className="text-sm font-medium text-slate-900">No notifications yet</p>
