@@ -212,22 +212,22 @@ function NotificationCard({
           </div>
         </button>
 
-        <div className="flex shrink-0 self-center items-center gap-0.5 pl-0.5">
+        <div className="flex shrink-0 self-stretch items-center gap-1 pl-1 pr-1">
           {!notification.read && <span className="h-2 w-2 rounded-full bg-accent" />}
           <button
             type="button"
             onPointerDown={(event) => {
               event.stopPropagation()
-              onToggleExpand()
             }}
             onClick={(event) => {
               event.stopPropagation()
+              onToggleExpand()
             }}
-            className="rounded-full p-1 text-slate-500 transition-colors hover:bg-black/5"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-black/5"
             aria-label={expanded ? 'Collapse notification' : 'Expand notification'}
             data-notification-interactive="true"
           >
-            <ChevronDown size={16} className={cn('transition-transform duration-200', expanded && 'rotate-180')} />
+            <ChevronDown size={20} className={cn('transition-transform duration-200', expanded && 'rotate-180')} />
           </button>
         </div>
       </motion.div>
