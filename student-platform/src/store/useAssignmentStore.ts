@@ -144,84 +144,183 @@ export const useAssignmentStore = create<AssignmentStoreState>((set, get) => ({
   },
 
   createAssignment: async (data) => {
-    const res = await adminAssignmentAPI.create(data)
-    const assignment = normalizeAssignment(res.data.assignment)
+    const tempId = `temp-${Date.now()}`
+    const tempAssignment: AssignmentItem = {
+      ...data,
+      id: tempId,
+      _id: tempId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      publicationStatus: data.status,
+    } as unknown as AssignmentItem
+
     set((state) => ({
-      adminAssignments: [assignment, ...state.adminAssignments],
+      adminAssignments: [tempAssignment, ...state.adminAssignments],
       adminAssignmentsLoaded: true,
     }))
+
+    try {
+      const res = await adminAssignmentAPI.create(data)
+      const assignment = normalizeAssignment(res.data.assignment)
+      set((state) => ({
+        adminAssignments: state.adminAssignments.map(a => a.id === tempId ? assignment : a),
+      }))
+    } catch (error) {
+      set((state) => ({
+        adminAssignments: state.adminAssignments.filter(a => a.id !== tempId),
+      }))
+      throw error
+    }
   },
 
   updateAssignment: async (id, data) => {
-    const res = await adminAssignmentAPI.update(id, data)
-    const assignment = normalizeAssignment(res.data.assignment)
+    const previousAssignments = get().adminAssignments
     set((state) => ({
-      adminAssignments: state.adminAssignments.map((item) => item.id === id ? assignment : item),
-      adminAssignmentsLoaded: true,
+      adminAssignments: state.adminAssignments.map((item) => 
+        item.id === id ? { ...item, ...data, publicationStatus: data.status } as AssignmentItem : item
+      ),
     }))
+
+    try {
+      const res = await adminAssignmentAPI.update(id, data)
+      const assignment = normalizeAssignment(res.data.assignment)
+      set((state) => ({
+        adminAssignments: state.adminAssignments.map((item) => item.id === id ? assignment : item),
+      }))
+    } catch (error) {
+      set({ adminAssignments: previousAssignments })
+      throw error
+    }
   },
 
   publishAssignment: async (id) => {
-    const res = await adminAssignmentAPI.publish(id)
-    const assignment = normalizeAssignment(res.data.assignment)
+    const previousAssignments = get().adminAssignments
     set((state) => ({
-      adminAssignments: state.adminAssignments.map((item) => item.id === id ? assignment : item),
-      adminAssignmentsLoaded: true,
+      adminAssignments: state.adminAssignments.map((item) => 
+        item.id === id ? { ...item, publicationStatus: 'published', status: 'published' } : item
+      ),
     }))
+
+    try {
+      const res = await adminAssignmentAPI.publish(id)
+      const assignment = normalizeAssignment(res.data.assignment)
+      set((state) => ({
+        adminAssignments: state.adminAssignments.map((item) => item.id === id ? assignment : item),
+      }))
+    } catch (error) {
+      set({ adminAssignments: previousAssignments })
+      throw error
+    }
   },
 
   deleteAssignment: async (id) => {
-    await adminAssignmentAPI.delete(id)
+    const previousAssignments = get().adminAssignments
+    const previousSubmissions = get().submissions
     set((state) => ({
       adminAssignments: state.adminAssignments.filter((item) => item.id !== id),
       submissions: state.submissions.filter((submission) => submission.assignmentId !== id),
-      adminAssignmentsLoaded: true,
-      submissionsLoaded: true,
     }))
+
+    try {
+      await adminAssignmentAPI.delete(id)
+    } catch (error) {
+      set({ 
+        adminAssignments: previousAssignments,
+        submissions: previousSubmissions 
+      })
+      throw error
+    }
   },
 
   submitAssignment: async (data) => {
-    const res = await submissionAPI.create(data)
-    const submission = normalizeAssignmentSubmission(res.data.submission)
+    const previousAssignments = get().studentAssignments
     set((state) => ({
       studentAssignments: state.studentAssignments.map((assignment) => (
         assignment.id === data.assignmentId
           ? {
               ...assignment,
-              status: submission.status,
+              status: 'submitted',
               canSubmit: false,
-              canEdit: !assignment.submissionClosed,
-              submission,
+              submission: { id: `temp-${Date.now()}`, assignmentId: data.assignmentId, studentId: 'temp', status: 'submitted', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as unknown as AssignmentSubmission,
             }
           : assignment
       )),
     }))
+
+    try {
+      const res = await submissionAPI.create(data)
+      const submission = normalizeAssignmentSubmission(res.data.submission)
+      set((state) => ({
+        studentAssignments: state.studentAssignments.map((assignment) => (
+          assignment.id === data.assignmentId
+            ? {
+                ...assignment,
+                status: submission.status,
+                canSubmit: false,
+                canEdit: !assignment.submissionClosed,
+                submission,
+              }
+            : assignment
+        )),
+      }))
+    } catch (error) {
+      set({ studentAssignments: previousAssignments })
+      throw error
+    }
   },
 
   updateSubmission: async (id, data) => {
-    const res = await submissionAPI.update(id, data)
-    const submission = normalizeAssignmentSubmission(res.data.submission)
+    const previousAssignments = get().studentAssignments
     set((state) => ({
       studentAssignments: state.studentAssignments.map((assignment) => (
         assignment.id === data.assignmentId
           ? {
               ...assignment,
-              status: submission.status,
-              canSubmit: false,
-              canEdit: !assignment.submissionClosed,
-              submission,
+              submission: { ...assignment.submission, ...data } as unknown as AssignmentSubmission,
             }
           : assignment
       )),
     }))
+
+    try {
+      const res = await submissionAPI.update(id, data)
+      const submission = normalizeAssignmentSubmission(res.data.submission)
+      set((state) => ({
+        studentAssignments: state.studentAssignments.map((assignment) => (
+          assignment.id === data.assignmentId
+            ? {
+                ...assignment,
+                status: submission.status,
+                canSubmit: false,
+                canEdit: !assignment.submissionClosed,
+                submission,
+              }
+            : assignment
+        )),
+      }))
+    } catch (error) {
+      set({ studentAssignments: previousAssignments })
+      throw error
+    }
   },
 
   gradeSubmission: async (id, marks) => {
-    const res = await submissionAPI.grade(id, { marks })
-    const submission = normalizeSubmission(res.data.submission)
+    const previousSubmissions = get().submissions
     set((state) => ({
-      submissions: state.submissions.map((item) => item.id === id ? submission : item),
-      submissionsLoaded: true,
+      submissions: state.submissions.map((item) => 
+        item.id === id ? { ...item, marks, status: 'graded' } : item
+      ),
     }))
+
+    try {
+      const res = await submissionAPI.grade(id, { marks })
+      const submission = normalizeSubmission(res.data.submission)
+      set((state) => ({
+        submissions: state.submissions.map((item) => item.id === id ? submission : item),
+      }))
+    } catch (error) {
+      set({ submissions: previousSubmissions })
+      throw error
+    }
   },
 }))

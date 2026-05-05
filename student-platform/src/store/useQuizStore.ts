@@ -158,36 +158,62 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   },
 
   createQuiz: async (input) => {
+    const tempId = `temp-${Date.now()}`
+    const now = new Date().toISOString()
+    const optimisticQuiz: Quiz = {
+      id: tempId,
+      ...normalizeQuizPayload(input),
+      questions: input.questions,
+      totalPoints: input.questions.reduce((sum, question) => sum + question.points, 0),
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    set((state) => {
+      const quizzes = [optimisticQuiz, ...state.quizzes]
+      saveFallbackState(quizzes, state.attempts)
+      return { quizzes }
+    })
+
     try {
       const res = await quizAPI.create(normalizeQuizPayload(input))
       const quiz = res.data.quiz as Quiz
       set((state) => {
-        const quizzes = [quiz, ...state.quizzes]
+        const quizzes = state.quizzes.map((q) => q.id === tempId ? quiz : q)
         saveFallbackState(quizzes, state.attempts)
         return { quizzes }
       })
       return quiz
-    } catch {
-      if (!ENABLE_LOCAL_FALLBACK) throw new Error('Failed to create quiz')
-      const now = new Date().toISOString()
-      const quiz: Quiz = {
-        id: createId(),
-        ...normalizeQuizPayload(input),
-        questions: input.questions,
-        totalPoints: input.questions.reduce((sum, question) => sum + question.points, 0),
-        createdAt: now,
-        updatedAt: now,
+    } catch (error) {
+      if (!ENABLE_LOCAL_FALLBACK) {
+        set((state) => {
+          const quizzes = state.quizzes.filter((q) => q.id !== tempId)
+          saveFallbackState(quizzes, state.attempts)
+          return { quizzes }
+        })
+        throw new Error('Failed to create quiz')
       }
-      set((state) => {
-        const quizzes = [quiz, ...state.quizzes]
-        saveFallbackState(quizzes, state.attempts)
-        return { quizzes }
-      })
-      return quiz
+      return optimisticQuiz
     }
   },
 
   updateQuiz: async (id, input) => {
+    const existing = get().quizzes.find((item) => item.id === id)
+    const optimisticQuiz: Quiz = {
+      id,
+      ...normalizeQuizPayload(input),
+      questions: input.questions,
+      totalPoints: input.questions.reduce((sum, question) => sum + question.points, 0),
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    set((state) => {
+      const quizzes = state.quizzes.map((item) => (item.id === id ? optimisticQuiz : item))
+      saveFallbackState(quizzes, state.attempts)
+      return { quizzes }
+    })
+
     try {
       const res = await quizAPI.update(id, normalizeQuizPayload(input))
       const quiz = res.data.quiz as Quiz
@@ -197,23 +223,16 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         return { quizzes }
       })
       return quiz
-    } catch {
-      if (!ENABLE_LOCAL_FALLBACK) throw new Error('Failed to update quiz')
-      const existing = get().quizzes.find((item) => item.id === id)
-      const quiz: Quiz = {
-        id,
-        ...normalizeQuizPayload(input),
-        questions: input.questions,
-        totalPoints: input.questions.reduce((sum, question) => sum + question.points, 0),
-        createdAt: existing?.createdAt ?? new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+    } catch (error) {
+      if (!ENABLE_LOCAL_FALLBACK) {
+        set((state) => {
+          const quizzes = state.quizzes.map((item) => (item.id === id ? (existing || item) : item))
+          saveFallbackState(quizzes, state.attempts)
+          return { quizzes }
+        })
+        throw new Error('Failed to update quiz')
       }
-      set((state) => {
-        const quizzes = state.quizzes.map((item) => (item.id === id ? quiz : item))
-        saveFallbackState(quizzes, state.attempts)
-        return { quizzes }
-      })
-      return quiz
+      return optimisticQuiz
     }
   },
 

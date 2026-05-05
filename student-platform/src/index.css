@@ -77,14 +77,14 @@
     scrollbar-color: rgba(148, 163, 184, 0.75) transparent;
   }
   .slim-scrollbar::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+    width: 1px;
+    height: 1px;
   }
   .slim-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
   .slim-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.72);
+    background: rgba(148, 163, 184, 0.35);
     border-radius: 9999px;
   }
   .slim-scrollbar::-webkit-scrollbar-thumb:hover {

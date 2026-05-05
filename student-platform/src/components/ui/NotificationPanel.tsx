@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { AlertTriangle, Bell, BookOpenCheck, CheckCheck, CheckCircle2, ChevronDown, CircleUserRound, ClipboardCheck, FileCheck2, FileText, Info, Send, ShieldAlert } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useUIStore } from '@/store/useUIStore'
@@ -22,27 +22,27 @@ const categoryIcon = (notification: Notification) => {
 
 const typeIconShell = (notification: Notification) => {
   if (notification.category === 'assignment') {
-    return 'bg-gradient-to-br from-indigo-200 via-blue-100 to-indigo-50 text-indigo-600 ring-1 ring-white/85 shadow-[0_10px_24px_rgba(59,130,246,0.14)]'
+    return 'bg-gradient-to-br from-indigo-200 via-blue-100 to-indigo-50 text-indigo-600 border border-white/70 shadow-[0_10px_24px_rgba(59,130,246,0.14)]'
   }
   if (notification.category === 'quiz') {
-    return 'bg-gradient-to-br from-cyan-200 via-sky-100 to-cyan-50 text-cyan-600 ring-1 ring-white/85 shadow-[0_10px_24px_rgba(6,182,212,0.14)]'
+    return 'bg-gradient-to-br from-cyan-200 via-sky-100 to-cyan-50 text-cyan-600 border border-white/70 shadow-[0_10px_24px_rgba(6,182,212,0.14)]'
   }
   if (notification.category === 'submission' || notification.category === 'quiz-submission') {
-    return 'bg-gradient-to-br from-fuchsia-200 via-rose-100 to-pink-50 text-fuchsia-600 ring-1 ring-white/85 shadow-[0_10px_24px_rgba(217,70,239,0.14)]'
+    return 'bg-gradient-to-br from-fuchsia-200 via-rose-100 to-pink-50 text-fuchsia-600 border border-white/70 shadow-[0_10px_24px_rgba(217,70,239,0.14)]'
   }
   if (notification.category === 'marks') {
-    return 'bg-gradient-to-br from-emerald-200 via-emerald-100 to-emerald-50 text-emerald-600 ring-1 ring-white/85 shadow-[0_10px_24px_rgba(16,185,129,0.14)]'
+    return 'bg-gradient-to-br from-emerald-200 via-emerald-100 to-emerald-50 text-emerald-600 border border-white/70 shadow-[0_10px_24px_rgba(16,185,129,0.14)]'
   }
   if (notification.category === 'profile') {
-    return 'bg-gradient-to-br from-violet-200 via-purple-100 to-violet-50 text-violet-600 ring-1 ring-white/85 shadow-[0_10px_24px_rgba(139,92,246,0.14)]'
+    return 'bg-gradient-to-br from-violet-200 via-purple-100 to-violet-50 text-violet-600 border border-white/70 shadow-[0_10px_24px_rgba(139,92,246,0.14)]'
   }
   if (notification.category === 'access' || notification.type === 'warning') {
-    return 'bg-gradient-to-br from-amber-200 via-orange-100 to-amber-50 text-amber-600 ring-1 ring-white/85 shadow-[0_10px_24px_rgba(245,158,11,0.14)]'
+    return 'bg-gradient-to-br from-amber-200 via-orange-100 to-amber-50 text-amber-600 border border-white/70 shadow-[0_10px_24px_rgba(245,158,11,0.14)]'
   }
   if (notification.type === 'success') {
-    return 'bg-gradient-to-br from-emerald-200 via-emerald-100 to-emerald-50 text-emerald-600 ring-1 ring-white/85 shadow-[0_10px_24px_rgba(16,185,129,0.14)]'
+    return 'bg-gradient-to-br from-emerald-200 via-emerald-100 to-emerald-50 text-emerald-600 border border-white/70 shadow-[0_10px_24px_rgba(16,185,129,0.14)]'
   }
-  return 'bg-gradient-to-br from-slate-200 via-slate-100 to-white text-slate-600 ring-1 ring-white/85 shadow-[0_10px_24px_rgba(100,116,139,0.14)]'
+  return 'bg-gradient-to-br from-slate-200 via-slate-100 to-white text-slate-600 border border-white/70 shadow-[0_10px_24px_rgba(100,116,139,0.14)]'
 }
 
 const NOTIFICATION_DELETE_THRESHOLD = 78
@@ -67,23 +67,23 @@ function NotificationCard({
   onOpen: () => void
   onDelete: (direction: number) => void
 }) {
-  const [dragX, setDragX] = useState(0)
   const dragXRef = useRef(0)
   const cardRef = useRef<HTMLDivElement>(null)
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const pointerDeltaRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const gestureModeRef = useRef<'horizontal' | 'vertical' | null>(null)
   const pointerActiveRef = useRef(false)
+  const x = useMotionValue(0)
 
   const updateDragX = (value: number) => {
     dragXRef.current = value
-    setDragX(value)
+    x.set(value)
   }
 
   useEffect(() => {
-    if (dismissing) {
-      updateDragX(0)
-    }
+    // Intentionally empty. We do not reset updateDragX(0) here because it causes a jump 
+    // when the parent starts animating the dismiss offset. Leaving x at its current dragged
+    // position allows the parent's translate animation to continue seamlessly.
   }, [dismissing])
 
   const handlePointerStart = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -91,6 +91,7 @@ function NotificationCard({
     if (target?.closest(INTERACTIVE_TARGET_SELECTOR)) {
       return
     }
+    x.stop()
     pointerActiveRef.current = true
     cardRef.current?.setPointerCapture(event.pointerId)
     pointerStartRef.current = { x: event.clientX, y: event.clientY }
@@ -110,7 +111,7 @@ function NotificationCard({
     }
 
     if (gestureModeRef.current === 'horizontal') {
-      updateDragX(Math.max(-NOTIFICATION_DELETE_THRESHOLD, Math.min(NOTIFICATION_DELETE_THRESHOLD, deltaX)))
+      updateDragX(deltaX)
     }
   }
 
@@ -125,7 +126,8 @@ function NotificationCard({
       if (Math.abs(dragXRef.current) >= NOTIFICATION_DELETE_THRESHOLD) {
         onDelete(dragXRef.current)
       } else {
-        updateDragX(0)
+        dragXRef.current = 0
+        animate(x, 0, { type: 'spring', stiffness: 520, damping: 36, mass: 0.7 })
       }
     }
 
@@ -144,7 +146,8 @@ function NotificationCard({
 
   const handleOpen = () => {
     if (Math.abs(dragXRef.current) > 8) {
-      updateDragX(0)
+      dragXRef.current = 0
+      animate(x, 0, { type: 'spring', stiffness: 520, damping: 36, mass: 0.7 })
       return
     }
     onOpen()
@@ -154,23 +157,24 @@ function NotificationCard({
     <div className="relative rounded-[2.15rem]">
       <motion.div
         ref={cardRef}
+        layout
         onPointerDown={handlePointerStart}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
         onLostPointerCapture={handlePointerEnd}
+        style={{ x }}
         animate={{
-          x: dragX,
           opacity: 1,
           scale: 1,
         }}
         transition={{
-          x: { type: 'spring', stiffness: 520, damping: 36, mass: 0.7 },
           opacity: { duration: 0.18, ease: 'easeOut' },
           scale: { duration: 0.22, ease: 'easeOut' },
+          layout: { duration: 0.3, ease: 'easeOut' }
         }}
         className={cn(
-          'relative flex w-full touch-pan-y select-none gap-2 rounded-[2.15rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-3.5 text-left shadow-[0_18px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-[transform,background-color,box-shadow,height,padding,opacity] duration-200',
+          'relative flex w-full touch-pan-y select-none gap-2 rounded-[2.15rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-3.5 text-left shadow-[0_18px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-[background-color,box-shadow,padding,opacity] duration-200',
           expanded ? 'min-h-[4.15rem] items-start py-2' : 'h-[4.5rem] items-center py-1.5',
           notification.read
             ? 'hover:bg-white'
@@ -212,9 +216,13 @@ function NotificationCard({
           {!notification.read && <span className="h-2 w-2 rounded-full bg-accent" />}
           <button
             type="button"
-            onClick={onToggleExpand}
-            onPointerDown={(event) => event.stopPropagation()}
-            onPointerUp={(event) => event.stopPropagation()}
+            onPointerDown={(event) => {
+              event.stopPropagation()
+              onToggleExpand()
+            }}
+            onClick={(event) => {
+              event.stopPropagation()
+            }}
             className="rounded-full p-1 text-slate-500 transition-colors hover:bg-black/5"
             aria-label={expanded ? 'Collapse notification' : 'Expand notification'}
             data-notification-interactive="true"
@@ -348,7 +356,7 @@ export function NotificationPanel() {
               <motion.div initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.985 }} transition={{ duration: 0.14 }}
                 ref={panelRef}
-                className="fixed inset-x-2 top-14 bottom-3 z-[140] overflow-visible rounded-[2.4rem] bg-[linear-gradient(180deg,rgba(99,102,241,0.18),rgba(15,23,42,0.22)),rgba(255,255,255,0.38)] px-1 py-3 shadow-[0_28px_80px_rgba(15,23,42,0.24)] ring-1 ring-white/45 backdrop-blur-[30px] sm:inset-x-auto sm:right-5 sm:top-20 sm:bottom-auto sm:w-[24rem]"
+                className="fixed inset-x-2 top-14 bottom-3 z-[140] overflow-visible rounded-[2.4rem] bg-[linear-gradient(180deg,rgba(99,102,241,0.18),rgba(15,23,42,0.22)),rgba(255,255,255,0.38)] px-1 py-3 shadow-[0_28px_80px_rgba(15,23,42,0.24)] border border-white/30 backdrop-blur-[30px] sm:inset-x-auto sm:right-5 sm:top-20 sm:bottom-auto sm:w-[24rem]"
                 style={{ width: 'min(24rem, calc(100vw - 1rem))' }}
               >
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
