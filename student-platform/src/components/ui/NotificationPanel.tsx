@@ -174,7 +174,7 @@ function NotificationCard({
           layout: { duration: 0.3, ease: 'easeOut' }
         }}
         className={cn(
-          'relative flex w-full touch-none select-none gap-2 rounded-[2.15rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-3.5 text-left shadow-[0_18px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-[background-color,box-shadow,padding,opacity] duration-200',
+          'relative flex w-full touch-pan-y select-none gap-2 rounded-[2.15rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-3.5 text-left shadow-[0_18px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-[background-color,box-shadow,padding,opacity] duration-200',
           expanded ? 'min-h-[4.15rem] items-start py-2' : 'h-[4.5rem] items-center py-1.5',
           notification.read
             ? 'hover:bg-white'
@@ -382,7 +382,7 @@ export function NotificationPanel() {
                       </button>
                     )}
                   </div>
-                  <div className="slim-scrollbar flex-1 overflow-y-auto overflow-x-visible px-2 pb-0.5 pt-2">
+                  <div className="slim-scrollbar flex-1 overflow-y-auto overscroll-y-contain overflow-x-visible px-2 pb-0.5 pt-2">
                     {!notificationsLoading && notifications.length === 0 && (
                       <div className="rounded-[1.75rem] border border-white/70 bg-white/64 px-4 py-8 text-center backdrop-blur-xl">
                         <p className="text-sm font-medium text-slate-900">No notifications yet</p>
