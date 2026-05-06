@@ -101,7 +101,7 @@ export function DashboardLayout() {
   }
 
   return (
-    <div className="h-screen bg-light-base dark:bg-dark-base flex overflow-hidden">
+    <div className="h-screen bg-light-base dark:bg-dark-base flex overflow-hidden touch-pan-y overscroll-x-none">
       <AnimatePresence mode="wait" initial={false} custom={slideDir}>
         <motion.div 
           key={pathname}
@@ -111,10 +111,11 @@ export function DashboardLayout() {
           initial="enter"
           animate="center"
           exit="exit"
-          transition={{ duration: 0.2, ease: "easeOut" }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
           drag={window.innerWidth < 1024 ? "x" : false}
           dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.3}
+          dragElastic={1}
+          dragSnapToOrigin={true}
           dragDirectionLock
           onDragEnd={handleDragEnd}
         >
