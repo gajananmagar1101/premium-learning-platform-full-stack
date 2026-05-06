@@ -60,15 +60,13 @@ export const useAssignmentStore = create<AssignmentStoreState>((set, get) => ({
   loading: false,
 
   fetchAdminAssignments: async () => {
-    if (get().adminAssignmentsLoaded) {
-      return
-    }
-
     if (adminAssignmentsRequest) {
       return adminAssignmentsRequest
     }
 
-    set({ loading: true })
+    if (!get().adminAssignmentsLoaded) {
+      set({ loading: true })
+    }
     adminAssignmentsRequest = adminAssignmentAPI.getAll()
       .then((res) => {
         set({
@@ -89,15 +87,13 @@ export const useAssignmentStore = create<AssignmentStoreState>((set, get) => ({
   },
 
   fetchStudentAssignments: async () => {
-    if (get().studentAssignmentsLoaded) {
-      return
-    }
-
     if (studentAssignmentsRequest) {
       return studentAssignmentsRequest
     }
 
-    set({ loading: true })
+    if (!get().studentAssignmentsLoaded) {
+      set({ loading: true })
+    }
     studentAssignmentsRequest = studentAssignmentAPI.getAll()
       .then((res) => {
         set({
@@ -118,10 +114,6 @@ export const useAssignmentStore = create<AssignmentStoreState>((set, get) => ({
   },
 
   fetchAdminSubmissions: async () => {
-    if (get().submissionsLoaded) {
-      return
-    }
-
     if (adminSubmissionsRequest) {
       return adminSubmissionsRequest
     }

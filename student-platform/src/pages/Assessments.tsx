@@ -598,8 +598,8 @@ function AdminAssignmentsView({
       return
     }
 
+    addToast('Marks saved', 'success')
     gradeSubmission(submission.id, marks)
-      .then(() => addToast('Marks saved', 'success'))
       .catch((error) => {
         console.error('[Assignments] Failed to grade submission:', error)
         addToast('Failed to save marks', 'error')
