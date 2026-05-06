@@ -117,8 +117,14 @@ function NotificationCard({
     if (gestureModeRef.current === 'horizontal') {
       updateDragX(deltaX)
     } else if (gestureModeRef.current === 'vertical') {
-      if (deltaY > 34 && !expanded) {
-        onExpand()
+      if (!isAtTop) return
+
+      if (deltaY > 34) {
+        if (!expanded) {
+          onExpand()
+        } else {
+          onCollapse()
+        }
         pointerStartRef.current = null
       } else if (deltaY < -34 && expanded) {
         onCollapse()
