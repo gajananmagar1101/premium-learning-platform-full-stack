@@ -53,8 +53,6 @@ interface NotificationCardProps {
   expanded: boolean
   dismissing: boolean
   onToggleExpand: () => void
-  onExpand: () => void
-  onCollapse: () => void
   onOpen: () => void
   onDelete: (direction: number) => void
 }
@@ -64,8 +62,6 @@ function NotificationCard({
   expanded,
   dismissing,
   onToggleExpand,
-  onExpand,
-  onCollapse,
   onOpen,
   onDelete,
 }: NotificationCardProps) {
@@ -441,8 +437,6 @@ export function NotificationPanel() {
                                   expanded={expandedNotificationId === n.id}
                                   dismissing={dismissing}
                                   onToggleExpand={() => setExpandedNotificationId((current) => current === n.id ? null : n.id)}
-                                  onExpand={() => setExpandedNotificationId(n.id)}
-                                  onCollapse={() => setExpandedNotificationId((current) => current === n.id ? null : current)}
                                   onOpen={() => handleNotificationOpen(n)}
                                   onDelete={(direction) => handleDismissStart(n.id, direction)}
                                 />
