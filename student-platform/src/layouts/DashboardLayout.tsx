@@ -2,7 +2,8 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { Navbar } from '@/components/ui/Navbar'
 import { ToastContainer } from '@/components/ui/ToastContainer'
-import { motion, AnimatePresence, PanInfo } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
+import type { PanInfo } from 'framer-motion'
 import { useAuthStore } from '@/store/useAuthStore'
 import { isStaffRole } from '@/lib/roles'
 
@@ -84,6 +85,21 @@ export function DashboardLayout() {
     }
   }
 
+  const variants = {
+    enter: (dir: number) => ({
+      opacity: 0,
+      x: dir * 30
+    }),
+    center: {
+      opacity: 1,
+      x: 0
+    },
+    exit: (dir: number) => ({
+      opacity: 0,
+      x: dir * -30
+    })
+  }
+
   return (
     <div className="h-screen bg-light-base dark:bg-dark-base flex overflow-hidden">
       <AnimatePresence mode="wait" initial={false} custom={slideDir}>
@@ -91,9 +107,10 @@ export function DashboardLayout() {
           key={pathname}
           custom={slideDir}
           className="flex-1 flex flex-col min-w-0 min-h-0 w-full"
-          initial={(dir) => ({ opacity: 0, x: dir * 30 })}
-          animate={{ opacity: 1, x: 0 }}
-          exit={(dir) => ({ opacity: 0, x: dir * -30 })}
+          variants={variants}
+          initial="enter"
+          animate="center"
+          exit="exit"
           transition={{ duration: 0.2, ease: "easeOut" }}
           drag={window.innerWidth < 1024 ? "x" : false}
           dragConstraints={{ left: 0, right: 0 }}
