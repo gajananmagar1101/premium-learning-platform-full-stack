@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Download, FileSpreadsheet, X } from 'lucide-react'
+import { FileSpreadsheet } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import type { AdminSubmission, AssignmentItem, Student, Quiz, QuizAttempt } from '@/types'
 
@@ -10,7 +10,7 @@ interface ExportReportModalProps {
   assignments: AssignmentItem[]
   quizzes: Quiz[]
   quizAttempts: QuizAttempt[]
-  students: Student[]
+  students: (Student | any)[]
 }
 
 type ReportType = 'graded' | 'pending' | 'quiz_submitted' | 'quiz_pending'

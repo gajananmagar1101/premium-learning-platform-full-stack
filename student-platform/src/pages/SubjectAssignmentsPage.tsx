@@ -488,7 +488,7 @@ function SubjectAssignmentCard({
                 <button type="button" onClick={onEdit} className="btn-ghost w-full justify-center">
                   <Pencil size={14} /> Edit
                 </button>
-                <button type="button" onClick={() => onDelete(assignment)} className="btn-ghost w-full justify-center text-red-400 hover:bg-red-500/10">
+                <button type="button" onClick={() => onDelete()} className="btn-ghost w-full justify-center text-red-400 hover:bg-red-500/10">
                   <Trash2 size={14} /> Delete
                 </button>
               </div>

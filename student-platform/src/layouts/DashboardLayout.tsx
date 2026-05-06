@@ -130,7 +130,6 @@ export function DashboardLayout() {
 
   const navigate = useNavigate()
   const role = useAuthStore(s => s.user?.role)
-  const [slideDir, setSlideDir] = useState(1)
 
   const getSwipeRoutes = () => {
     if (isStaffRole(role)) {
@@ -235,7 +234,7 @@ export function DashboardLayout() {
       }
     }
 
-    const onTouchEnd = (e: TouchEvent) => {
+    const onTouchEnd = () => {
       if (!isSwiping || !isHorizontal) {
         isSwiping = false
         isSwipingRef.current = false
