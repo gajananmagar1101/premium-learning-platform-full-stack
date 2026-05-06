@@ -52,7 +52,6 @@ interface NotificationCardProps {
   notification: Notification
   expanded: boolean
   dismissing: boolean
-  isAtTop?: boolean
   onToggleExpand: () => void
   onExpand: () => void
   onCollapse: () => void
@@ -64,7 +63,6 @@ function NotificationCard({
   notification,
   expanded,
   dismissing,
-  isAtTop,
   onToggleExpand,
   onExpand,
   onCollapse,
@@ -116,20 +114,6 @@ function NotificationCard({
 
     if (gestureModeRef.current === 'horizontal') {
       updateDragX(deltaX)
-    } else if (gestureModeRef.current === 'vertical') {
-      if (!isAtTop) return
-
-      if (deltaY > 34) {
-        if (!expanded) {
-          onExpand()
-        } else {
-          onCollapse()
-        }
-        pointerStartRef.current = null
-      } else if (deltaY < -34 && expanded) {
-        onCollapse()
-        pointerStartRef.current = null
-      }
     }
   }
 
@@ -173,10 +157,7 @@ function NotificationCard({
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
         onLostPointerCapture={handlePointerEnd}
-        style={{ 
-          x,
-          touchAction: isAtTop ? 'pan-up' : 'pan-y'
-        }}
+        style={{ x }}
         animate={{
           opacity: 1,
           scale: 1,
@@ -187,7 +168,7 @@ function NotificationCard({
           layout: { duration: 0.3, ease: 'easeOut' }
         }}
         className={cn(
-          'relative flex w-full select-none gap-2 rounded-[2.15rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-3.5 text-left shadow-[0_18px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-colors duration-200',
+          'relative flex w-full touch-pan-y select-none gap-2 rounded-[2.15rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-3.5 text-left shadow-[0_18px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-colors duration-200',
           expanded ? 'min-h-[4.15rem] items-start py-2' : 'h-[4.5rem] items-center py-1.5',
           notification.read
             ? 'hover:bg-white'
@@ -251,7 +232,6 @@ function NotificationCard({
 
 export function NotificationPanel() {
   const [open, setOpen] = useState(false)
-  const [isAtTop, setIsAtTop] = useState(true)
   const [expandedNotificationId, setExpandedNotificationId] = useState<string | null>(null)
   const [dismissingDirections, setDismissingDirections] = useState<Record<string, 1 | -1>>({})
   const [dismissDistances, setDismissDistances] = useState<Record<string, number>>({})
@@ -401,13 +381,6 @@ export function NotificationPanel() {
                     className="slim-scrollbar flex-1 overflow-y-auto overscroll-y-contain overflow-x-visible px-2 pb-0.5 pt-2"
                     onScroll={(e) => {
                       const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
-                      
-                      if (scrollTop === 0) {
-                        if (!isAtTop) setIsAtTop(true)
-                      } else {
-                        if (isAtTop) setIsAtTop(false)
-                      }
-
                       // If overscrolled at the bottom by more than 20px (iOS bounce), close the panel
                       if (scrollTop + clientHeight > scrollHeight + 20) {
                         setOpen(false)
@@ -467,7 +440,6 @@ export function NotificationPanel() {
                                   notification={n}
                                   expanded={expandedNotificationId === n.id}
                                   dismissing={dismissing}
-                                  isAtTop={isAtTop}
                                   onToggleExpand={() => setExpandedNotificationId((current) => current === n.id ? null : n.id)}
                                   onExpand={() => setExpandedNotificationId(n.id)}
                                   onCollapse={() => setExpandedNotificationId((current) => current === n.id ? null : current)}
