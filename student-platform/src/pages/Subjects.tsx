@@ -315,6 +315,7 @@ export function Subjects() {
             </div>
           )}
         </GlassCard>
+      </div>
     </div>
   )
 }
