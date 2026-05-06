@@ -578,11 +578,9 @@ function AdminAssignmentsView({
       : createAssignment(payload)
 
     closeModal()
+    addToast(editing ? 'Assignment updated' : 'Assignment created', 'success')
 
     savePromise
-      .then(() => {
-        addToast(editing ? 'Assignment updated' : 'Assignment created', 'success')
-      })
       .catch((error) => {
         console.error('[Assignments] Failed to save assignment:', error)
         const message = axios.isAxiosError(error)
@@ -1440,11 +1438,10 @@ function StudentAssignmentsView({
       : submitAssignment(payload)
 
     closeModal()
+    const isUpdate = Boolean(activeAssignment.submission?.id)
+    addToast(isUpdate ? 'Submission updated' : 'Assignment submitted', 'success')
 
     savePromise
-      .then(() => {
-        addToast(activeAssignment.submission?.id ? 'Submission updated' : 'Assignment submitted', 'success')
-      })
       .catch((error) => {
         console.error('[Assignments] Failed to save submission:', error)
         const message = axios.isAxiosError(error)
