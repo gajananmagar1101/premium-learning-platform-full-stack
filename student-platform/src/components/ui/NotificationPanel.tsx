@@ -164,11 +164,11 @@ function NotificationCard({
           layout: { duration: 0.3, ease: 'easeOut' }
         }}
         className={cn(
-          'relative flex w-full touch-pan-y select-none gap-2 rounded-[2.15rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] px-3.5 text-left shadow-[0_18px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-colors duration-200',
+          'relative flex w-full touch-pan-y select-none gap-2 rounded-[2.15rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.92))] dark:bg-[linear-gradient(180deg,rgba(30,41,59,0.95),rgba(15,23,42,0.95))] px-3.5 text-left shadow-[0_18px_34px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-colors duration-200',
           expanded ? 'min-h-[4.15rem] items-start py-2' : 'h-[4.5rem] items-center py-1.5',
           notification.read
-            ? 'hover:bg-white'
-            : 'hover:bg-white'
+            ? 'hover:bg-white dark:hover:bg-slate-800'
+            : 'hover:bg-white dark:hover:bg-slate-800'
         )}
       >
         <motion.button
@@ -186,16 +186,16 @@ function NotificationCard({
           <motion.div layout="position" className={cn('min-w-0 flex-1', !expanded && 'self-center')}>
             <motion.div layout="position" className={cn('flex gap-2', expanded ? 'items-start' : 'items-center')}>
               <motion.p layout="position" className={cn(
-                'min-w-0 flex-1 text-[13px] leading-5 text-slate-950',
+                'min-w-0 flex-1 text-[13px] leading-5 text-slate-950 dark:text-slate-100',
                 expanded ? 'whitespace-normal break-words' : 'truncate',
                 notification.read ? 'font-bold' : 'font-extrabold'
               )}>
                 {notification.title}
               </motion.p>
-              <motion.p layout="position" className="shrink-0 text-[10px] text-slate-500">{notification.time}</motion.p>
+              <motion.p layout="position" className="shrink-0 text-[10px] text-slate-500 dark:text-slate-400">{notification.time}</motion.p>
             </motion.div>
             <motion.p layout="position" className={cn(
-              'text-[11px] leading-4 text-slate-700',
+              'text-[11px] leading-4 text-slate-700 dark:text-slate-300',
               expanded ? 'mt-0.5 whitespace-pre-wrap' : 'mt-0.5 line-clamp-1'
             )}>
               {notification.message}
@@ -214,7 +214,7 @@ function NotificationCard({
             onClick={(event) => {
               event.stopPropagation()
             }}
-            className="rounded-full p-1 text-slate-500 transition-colors hover:bg-black/5"
+            className="rounded-full p-1 text-slate-500 dark:text-slate-400 transition-colors hover:bg-black/5 dark:hover:bg-white/10"
             aria-label={expanded ? 'Collapse notification' : 'Expand notification'}
             data-notification-interactive="true"
           >
@@ -349,7 +349,7 @@ export function NotificationPanel() {
                 exit={{ opacity: 0, scale: 0.96, y: -60 }} transition={{ duration: 0.2 }}
                 ref={panelRef}
                 onClick={() => setOpen(false)}
-                className="fixed inset-x-2 top-14 bottom-3 z-[140] overflow-visible rounded-[2.4rem] bg-[linear-gradient(180deg,rgba(99,102,241,0.18),rgba(15,23,42,0.22)),rgba(255,255,255,0.38)] px-1 py-3 shadow-[0_28px_80px_rgba(15,23,42,0.24)] border border-white/30 backdrop-blur-[30px] sm:inset-x-auto sm:right-5 sm:top-20 sm:bottom-auto sm:w-[24rem]"
+                className="fixed inset-x-2 top-14 bottom-3 z-[140] overflow-visible rounded-[2.4rem] bg-[linear-gradient(180deg,rgba(99,102,241,0.18),rgba(15,23,42,0.22)),rgba(255,255,255,0.38)] dark:bg-[linear-gradient(180deg,rgba(99,102,241,0.18),rgba(15,23,42,0.22)),rgba(15,23,42,0.8)] px-1 py-3 shadow-[0_28px_80px_rgba(15,23,42,0.24)] border border-white/30 dark:border-white/10 backdrop-blur-[30px] sm:inset-x-auto sm:right-5 sm:top-20 sm:bottom-auto sm:w-[24rem]"
                 style={{ width: 'min(24rem, calc(100vw - 1rem))' }}
               >
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -361,14 +361,14 @@ export function NotificationPanel() {
                 <div className="relative flex h-full flex-col overflow-visible">
                   <div className="flex items-start justify-between gap-3 px-1 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
                     <div className="min-w-0">
-                      <p className="text-base font-semibold text-slate-950">Notifications</p>
-                      <p className="mt-0.5 text-[11px] text-slate-700">
+                      <p className="text-base font-semibold text-slate-950 dark:text-slate-100">Notifications</p>
+                      <p className="mt-0.5 text-[11px] text-slate-700 dark:text-slate-300">
                         {unread > 0 ? `${unread} unread update${unread === 1 ? '' : 's'}` : 'All caught up'}
                       </p>
                     </div>
                     {unread > 0 && (
                       <button onClick={markAllRead}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/80 bg-white/72 px-2.5 py-1 text-[11px] font-semibold text-slate-800 transition-colors hover:bg-white">
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/80 dark:border-white/20 bg-white/72 dark:bg-slate-800/80 px-2.5 py-1 text-[11px] font-semibold text-slate-800 dark:text-slate-100 transition-colors hover:bg-white dark:hover:bg-slate-700">
                         <CheckCheck size={12} /> Mark all read
                       </button>
                     )}
@@ -384,16 +384,16 @@ export function NotificationPanel() {
                     }}
                   >
                     {!notificationsLoading && notifications.length === 0 && (
-                      <div className="rounded-[1.75rem] border border-white/70 bg-white/64 px-4 py-8 text-center backdrop-blur-xl">
-                        <p className="text-sm font-medium text-slate-900">No notifications yet</p>
-                        <p className="mt-1 text-xs text-slate-600">
+                      <div className="rounded-[1.75rem] border border-white/70 dark:border-white/10 bg-white/64 dark:bg-slate-800/60 px-4 py-8 text-center backdrop-blur-xl">
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">No notifications yet</p>
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
                           Your updates will appear here for this account.
                         </p>
                       </div>
                     )}
                     {notificationsLoading && (
-                      <div className="rounded-[1.75rem] border border-white/70 bg-white/64 px-4 py-8 text-center backdrop-blur-xl">
-                        <p className="text-sm text-slate-600">Loading notifications...</p>
+                      <div className="rounded-[1.75rem] border border-white/70 dark:border-white/10 bg-white/64 dark:bg-slate-800/60 px-4 py-8 text-center backdrop-blur-xl">
+                        <p className="text-sm text-slate-600 dark:text-slate-400">Loading notifications...</p>
                       </div>
                     )}
                     {notifications.length > 0 && (

@@ -181,7 +181,6 @@ function AdminQuizzesView({
   const { confirm } = useConfirm()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Quiz | null>(null)
-  const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null)
   const [search, setSearch] = useState(initialSearch)
   const [recentSubmissionSearch, setRecentSubmissionSearch] = useState(initialAttemptSearch)
   const [yearFilter, setYearFilter] = useState<'all' | string>('all')
@@ -861,22 +860,18 @@ function AdminQuizzesView({
       })
   }
 
-  const handleDeleteQuiz = async () => {
-    if (!quizToDelete) return
-    
+  const handleDeleteQuiz = async (quiz: Quiz) => {
     if (!(await confirm({
       title: 'Delete Quiz',
-      message: `Are you sure you want to delete "${quizToDelete.title}"? This will also delete all student attempts and results for this quiz. This action cannot be undone.`,
+      message: `Are you sure you want to delete "${quiz.title}"? This will also delete all student attempts and results for this quiz. This action cannot be undone.`,
       confirmText: 'Delete Quiz'
     }))) {
-      setQuizToDelete(null)
       return
     }
 
     try {
-      await deleteQuiz(quizToDelete.id)
+      await deleteQuiz(quiz.id)
       addToast('Quiz deleted', 'success')
-      setQuizToDelete(null)
     } catch (error) {
       console.error('[Quizzes] Failed to delete quiz:', error)
       addToast('Failed to delete quiz', 'error')
@@ -903,21 +898,7 @@ function AdminQuizzesView({
     }
   }
 
-  const quizDeleteModal = (
-    <Modal open={Boolean(quizToDelete)} onClose={() => setQuizToDelete(null)} title="Delete Quiz">
-      <div className="space-y-4">
-        <p className="text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
-          Delete <span className="font-semibold">{quizToDelete?.title}</span>? Related attempts will also be removed.
-        </p>
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={() => setQuizToDelete(null)} className="btn-ghost">Cancel</button>
-          <button type="button" onClick={handleDeleteQuiz} className="inline-flex items-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white">
-            <Trash2 size={14} /> Delete Quiz
-          </button>
-        </div>
-      </div>
-    </Modal>
-  )
+
 
   if (isSubjectRoute) {
     return (
@@ -927,7 +908,7 @@ function AdminQuizzesView({
           attempts={visibleAttempts}
           students={students}
           onEdit={openEdit}
-          onDelete={setQuizToDelete}
+          onDelete={handleDeleteQuiz}
           onPublish={handlePublishQuiz}
           onTemplate={cloneAsTemplate}
         />
@@ -1075,7 +1056,15 @@ function AdminQuizzesView({
                             <button
                               type="button"
                               disabled={questions.length === 1}
-                              onClick={() => setQuestions((current) => current.filter((item) => item.id !== question.id))}
+                              onClick={async () => {
+                                if (await confirm({
+                                  title: 'Remove Question',
+                                  message: `Are you sure you want to remove Question ${questionIndex + 1}?`,
+                                  confirmText: 'Remove'
+                                })) {
+                                  setQuestions((current) => current.filter((item) => item.id !== question.id))
+                                }
+                              }}
                               className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               <Trash2 size={12} /> Remove
@@ -1156,7 +1145,7 @@ function AdminQuizzesView({
             </div>
           </div>
         )}
-        {quizDeleteModal}
+
       </>
     )
   }
@@ -1709,7 +1698,7 @@ function AdminQuizzesView({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setQuizToDelete(quiz)}
+                          onClick={() => void handleDeleteQuiz(quiz)}
                           className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
                         >
                           <Trash2 size={13} /> Delete
@@ -2184,7 +2173,7 @@ function AdminQuizzesView({
         </div>
       )}
 
-      {quizDeleteModal}
+
     </div>
   )
 }

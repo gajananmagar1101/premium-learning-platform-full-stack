@@ -8,6 +8,7 @@ import { GlassCard } from '@/components/ui/GlassCard'
 import { Modal } from '@/components/ui/Modal'
 import { formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
 import { subjectAPI } from '@/lib/services'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useUIStore } from '@/store/useUIStore'
 import type { AssignmentItem, SubjectOption } from '@/types'
@@ -66,6 +67,7 @@ export function SubjectAssignmentsPage() {
   const [subjectPrefillName, setSubjectPrefillName] = useState('')
   const targetCardRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
+  const { confirm } = useConfirm()
   const { adminAssignments, fetchAdminAssignments, updateAssignment, deleteAssignment } = useAssignmentStore()
   const addToast = useUIStore((state) => state.addToast)
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<AssignmentFormData>()
@@ -197,9 +199,17 @@ export function SubjectAssignmentsPage() {
     closeModal()
   }
 
-  const handleDelete = async (assignmentId: string) => {
+  const handleDelete = async (assignment: AssignmentItem) => {
+    if (!(await confirm({
+      title: 'Delete Assignment',
+      message: `Are you sure you want to delete "${assignment.title}"?\n\nThis action cannot be undone.`,
+      confirmText: 'Delete Assignment'
+    }))) {
+      return
+    }
+
     try {
-      await deleteAssignment(assignmentId)
+      await deleteAssignment(assignment.id)
       addToast('Assignment deleted', 'info')
     } catch (error) {
       console.error('[SubjectAssignmentsPage] Failed to delete assignment:', error)
@@ -279,7 +289,7 @@ export function SubjectAssignmentsPage() {
                 targetCardRefs.current[assignment.id] = element
               }}
               onEdit={() => openEdit(assignment)}
-              onDelete={() => handleDelete(assignment.id)}
+              onDelete={() => handleDelete(assignment)}
             />
           ))}
         </div>
@@ -478,7 +488,7 @@ function SubjectAssignmentCard({
                 <button type="button" onClick={onEdit} className="btn-ghost w-full justify-center">
                   <Pencil size={14} /> Edit
                 </button>
-                <button type="button" onClick={onDelete} className="btn-ghost w-full justify-center text-red-400 hover:bg-red-500/10">
+                <button type="button" onClick={() => onDelete(assignment)} className="btn-ghost w-full justify-center text-red-400 hover:bg-red-500/10">
                   <Trash2 size={14} /> Delete
                 </button>
               </div>

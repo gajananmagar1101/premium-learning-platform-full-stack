@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -92,6 +92,25 @@ export function Navbar({ title }: NavbarProps) {
     logout()
     navigate('/login')
   }
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const activeElement = document.querySelector('.nav-switch-link.is-active') as HTMLElement
+      const container = document.querySelector('.mobile-nav-row') as HTMLElement
+      if (activeElement && container) {
+        let offsetLeft = activeElement.offsetLeft
+        let parent = activeElement.offsetParent as HTMLElement
+        while (parent && parent !== container && container.contains(parent)) {
+          offsetLeft += parent.offsetLeft
+          parent = parent.offsetParent as HTMLElement
+        }
+        
+        const scrollLeft = offsetLeft - (container.clientWidth / 2) + (activeElement.clientWidth / 2)
+        container.scrollTo({ left: scrollLeft, behavior: 'smooth' })
+      }
+    }, 50)
+    return () => clearTimeout(timeout)
+  }, [location.pathname])
 
   return (
     <header className="top-navbar sticky top-0 z-20 border-b border-white/45 bg-white/75 shadow-[0_4px_12px_rgba(15,23,42,0.055)] backdrop-blur-xl dark:border-white/10 dark:bg-[#071225]/95 dark:shadow-[0_4px_12px_rgba(0,0,0,0.13)]">

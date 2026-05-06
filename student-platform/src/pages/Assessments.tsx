@@ -100,7 +100,6 @@ function AdminAssignmentsView({
   const [submissionYearFilter, setSubmissionYearFilter] = useState<'all' | string>('all')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<AssignmentItem | null>(null)
-  const [assignmentToDelete, setAssignmentToDelete] = useState<AssignmentItem | null>(null)
   const { confirm } = useConfirm()
   const [gradeInputs, setGradeInputs] = useState<Record<string, string>>({})
   const [questionFileName, setQuestionFileName] = useState<string | null>(null)
@@ -542,21 +541,18 @@ function AdminAssignmentsView({
     setModalOpen(true)
   }
 
-  const handleDeleteAssignment = async () => {
-    if (!assignmentToDelete) return
+  const handleDeleteAssignment = async (assignment: AssignmentItem) => {
     if (!(await confirm({
       title: 'Delete Assignment',
-      message: `Are you sure you want to delete "${assignmentToDelete.title}"? This will also delete all student submissions for this assignment. This action cannot be undone.`,
+      message: `Are you sure you want to delete "${assignment.title}"? This will also delete all student submissions for this assignment. This action cannot be undone.`,
       confirmText: 'Delete Assignment'
     }))) {
-      setAssignmentToDelete(null)
       return
     }
 
     try {
-      await deleteAssignment(assignmentToDelete.id)
+      await deleteAssignment(assignment.id)
       addToast('Assignment deleted', 'success')
-      setAssignmentToDelete(null)
     } catch (error) {
       console.error('[Assignments] Failed to delete assignment:', error)
       addToast('Failed to delete assignment', 'error')
@@ -776,7 +772,7 @@ function AdminAssignmentsView({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setAssignmentToDelete(assignment)}
+                        onClick={() => void handleDeleteAssignment(assignment)}
                         className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
                       >
                         <Trash2 size={13} /> Delete
@@ -1297,33 +1293,6 @@ function AdminAssignmentsView({
             </button>
           </div>
         </form>
-      </Modal>
-
-      <Modal
-        open={Boolean(assignmentToDelete)}
-        onClose={() => setAssignmentToDelete(null)}
-        title="Delete Assignment"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
-            Delete <span className="font-semibold">{assignmentToDelete?.title}</span> for {assignmentToDelete ? formatClassLabel(assignmentToDelete.className) : 'this cohort'}?
-          </p>
-          <div className="rounded-2xl border border-red-200 bg-red-50/70 px-4 py-3 text-sm text-red-600">
-            This will also remove related submissions from the current admin view.
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setAssignmentToDelete(null)} className="btn-ghost">
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleDeleteAssignment}
-              className="inline-flex items-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600"
-            >
-              <Trash2 size={14} /> Delete Assignment
-            </button>
-          </div>
-        </div>
       </Modal>
     </div>
   )

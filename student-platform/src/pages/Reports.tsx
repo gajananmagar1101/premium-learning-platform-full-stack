@@ -21,8 +21,9 @@ import {
 import { motion } from 'framer-motion'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { useStudentStore } from '@/store/useStudentStore'
-import { adminAssignmentAPI, submissionAPI } from '@/lib/services'
-import type { AdminSubmission } from '@/types'
+import { adminAssignmentAPI, submissionAPI, quizAPI } from '@/lib/services'
+import { ExportReportModal } from '@/components/ui/ExportReportModal'
+import type { AdminSubmission, AssignmentItem, Quiz, QuizAttempt } from '@/types'
 
 const gradeColor = ['#10B981', '#4F46E5', '#F59E0B', '#EF4444']
 
@@ -31,19 +32,29 @@ const monthKey = (value: string) => new Date(value).toLocaleString([], { month: 
 export function Reports() {
   const { students, fetchStudents } = useStudentStore()
   const [submissions, setSubmissions] = useState<AdminSubmission[]>([])
+  const [assignments, setAssignments] = useState<AssignmentItem[]>([])
+  const [quizzes, setQuizzes] = useState<Quiz[]>([])
+  const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([])
   const [assignmentCount, setAssignmentCount] = useState(0)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
   useEffect(() => {
     fetchStudents()
 
     const load = async () => {
       try {
-        const [submissionsRes, assignmentsRes] = await Promise.all([
+        const [submissionsRes, assignmentsRes, quizzesRes, attemptsRes] = await Promise.all([
           submissionAPI.getAllForAdmin(),
           adminAssignmentAPI.getAll(),
+          quizAPI.getAll(),
+          quizAPI.getAttempts(),
         ])
+        const assignmentsData = assignmentsRes.data.assignments ?? []
         setSubmissions(submissionsRes.data.submissions ?? [])
-        setAssignmentCount((assignmentsRes.data.assignments ?? []).length)
+        setAssignments(assignmentsData)
+        setQuizzes(quizzesRes.data.quizzes ?? [])
+        setQuizAttempts(attemptsRes.data.attempts ?? [])
+        setAssignmentCount(assignmentsData.length)
       } catch (error) {
         console.error('[Reports] Failed to load report data:', error)
       }
@@ -170,26 +181,7 @@ export function Reports() {
   ]
 
   const exportReport = () => {
-    const lines = [
-      ['Learner', 'Assignment', 'Subject', 'Marks', 'Total Marks', 'Status', 'Updated At'],
-      ...submissions.map((submission) => [
-        submission.studentName,
-        submission.assignmentTitle,
-        submission.subject,
-        String(submission.marks ?? ''),
-        String(submission.totalMarks),
-        submission.status,
-        submission.updatedAt,
-      ]),
-    ]
-    const csv = lines.map((line) => line.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'report.csv'
-    link.click()
-    URL.revokeObjectURL(url)
+    setIsExportModalOpen(true)
   }
 
   return (
@@ -312,6 +304,16 @@ export function Reports() {
           </ResponsiveContainer>
         )}
       </GlassCard>
+
+      <ExportReportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        submissions={submissions}
+        assignments={assignments}
+        quizzes={quizzes}
+        quizAttempts={quizAttempts}
+        students={students}
+      />
     </div>
   )
 }

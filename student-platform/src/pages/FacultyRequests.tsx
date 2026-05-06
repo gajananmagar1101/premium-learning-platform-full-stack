@@ -27,7 +27,6 @@ export function FacultyRequests() {
   const [error, setError] = useState<string | null>(null)
   const [blockUntilByFaculty, setBlockUntilByFaculty] = useState<Record<string, string>>({})
   const [blockReasons, setBlockReasons] = useState<Record<string, string>>({})
-  const [facultyToDelete, setFacultyToDelete] = useState<FacultyMember | null>(null)
 
   const loadData = async () => {
     setLoading(true)
@@ -128,15 +127,20 @@ export function FacultyRequests() {
     }
   }
 
-  const handleDeleteFaculty = async () => {
-    if (!facultyToDelete) return
+  const handleDeleteFaculty = async (facultyMember: FacultyMember) => {
+    if (!(await confirm({
+      title: 'Delete Faculty Account',
+      message: `Are you sure you want to delete ${facultyMember.name}'s account?\n\nThis action cannot be undone.`,
+      confirmText: 'Delete account'
+    }))) {
+      return
+    }
 
-    setProcessingId(facultyToDelete.id)
+    setProcessingId(facultyMember.id)
     setError(null)
     try {
-      await facultyRequestAPI.delete(facultyToDelete.id)
-      setFaculty((current) => current.filter((item) => item.id !== facultyToDelete.id))
-      setFacultyToDelete(null)
+      await facultyRequestAPI.delete(facultyMember.id)
+      setFaculty((current) => current.filter((item) => item.id !== facultyMember.id))
     } catch (err) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
         ?? 'Could not delete faculty account.'
@@ -363,7 +367,7 @@ export function FacultyRequests() {
                     <button
                       type="button"
                       disabled={processingId === member.id}
-                      onClick={() => setFacultyToDelete(member)}
+                      onClick={() => void handleDeleteFaculty(member)}
                       className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-60 sm:col-span-2"
                     >
                       <Trash2 size={16} />
@@ -377,32 +381,6 @@ export function FacultyRequests() {
         )}
       </GlassCard>
 
-      <Modal
-        open={Boolean(facultyToDelete)}
-        onClose={() => setFacultyToDelete(null)}
-        title="Delete Faculty Account"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
-            Are you sure you want to delete {facultyToDelete?.name}'s account?
-          </p>
-          <div className="rounded-2xl border border-red-200 bg-red-50/70 px-4 py-3 text-sm text-red-600">
-            This action cannot be undone.
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setFacultyToDelete(null)} className="btn-ghost">
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleDeleteFaculty()}
-              className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600"
-            >
-              Delete account
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   )
 }
