@@ -3,7 +3,6 @@ import { ArrowLeft, Ban, Clock3, RefreshCw, ShieldAlert, Trash2, Unlock, UserX }
 import { motion } from 'framer-motion'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { GlassCard } from '@/components/ui/GlassCard'
-import { Modal } from '@/components/ui/Modal'
 import { useStudentStore } from '@/store/useStudentStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useUIStore } from '@/store/useUIStore'

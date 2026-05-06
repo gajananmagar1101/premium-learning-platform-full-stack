@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { AlertTriangle, Trash2 } from 'lucide-react'
 
@@ -56,7 +57,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   return (
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
-      <Modal open={isOpen} onClose={handleClose} maxWidth="sm">
+      <Modal open={isOpen} onClose={handleClose} title={options?.title ?? 'Confirm'}>
         {options && (
           <div className="p-2 sm:p-4 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500 dark:bg-red-500/20">

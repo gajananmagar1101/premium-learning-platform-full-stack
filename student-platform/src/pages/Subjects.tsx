@@ -45,7 +45,6 @@ export function Subjects() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const { confirm } = useConfirm()
-  const [deletingSubjectId, setDeletingSubjectId] = useState<string | null>(null)
 
   const {
     register,
@@ -174,7 +173,6 @@ export function Subjects() {
       return
     }
 
-    setDeletingSubjectId(subject.id)
     try {
       await subjectAPI.delete(subject.id)
       subjectAPI.clearYearCache(subject.yearId)
@@ -185,8 +183,6 @@ export function Subjects() {
       const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
         ?? 'Failed to remove subject'
       addToast(message, 'error')
-    } finally {
-      setDeletingSubjectId(null)
     }
   }
 
