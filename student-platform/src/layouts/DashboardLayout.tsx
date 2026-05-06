@@ -1,8 +1,8 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useRef } from 'react'
+import { useState } from 'react'
 import { Navbar } from '@/components/ui/Navbar'
 import { ToastContainer } from '@/components/ui/ToastContainer'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, PanInfo } from 'framer-motion'
 import { useAuthStore } from '@/store/useAuthStore'
 import { isStaffRole } from '@/lib/roles'
 
@@ -43,7 +43,7 @@ export function DashboardLayout() {
 
   const navigate = useNavigate()
   const role = useAuthStore(s => s.user?.role)
-  const touchStartRef = useRef<{ x: number, y: number } | null>(null)
+  const [slideDir, setSlideDir] = useState(1)
 
   const getSwipeRoutes = () => {
     if (isStaffRole(role)) {
@@ -52,21 +52,13 @@ export function DashboardLayout() {
     return ['/student-dashboard', '/assessments', '/quizzes', '/student-performance']
   }
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-  }
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartRef.current) return
-    const endX = e.changedTouches[0].clientX
-    const endY = e.changedTouches[0].clientY
-    const deltaX = endX - touchStartRef.current.x
-    const deltaY = endY - touchStartRef.current.y
-    touchStartRef.current = null
-
+  const handleDragEnd = (e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (window.innerWidth >= 1024) return
 
-    if (Math.abs(deltaX) > 100 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+    const deltaX = info.offset.x
+    const deltaY = info.offset.y
+
+    if (Math.abs(deltaX) > 75 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
       let node = e.target as HTMLElement | null
       while (node && node !== e.currentTarget) {
         if (node.scrollWidth > node.clientWidth) {
@@ -83,8 +75,10 @@ export function DashboardLayout() {
 
       const currentIndex = swipeRoutes.indexOf(pathname)
       if (deltaX < 0 && currentIndex < swipeRoutes.length - 1) {
+        setSlideDir(1)
         navigate(swipeRoutes[currentIndex + 1])
       } else if (deltaX > 0 && currentIndex > 0) {
+        setSlideDir(-1)
         navigate(swipeRoutes[currentIndex - 1])
       }
     }
@@ -92,23 +86,29 @@ export function DashboardLayout() {
 
   return (
     <div className="h-screen bg-light-base dark:bg-dark-base flex overflow-hidden">
-      <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        <Navbar title={title} />
-        <main 
-          className="portal-scroll-region slim-scrollbar flex-1 overflow-x-hidden overflow-y-auto p-2.5 sm:p-3.5 lg:p-5"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+      <AnimatePresence mode="wait" initial={false} custom={slideDir}>
+        <motion.div 
+          key={pathname}
+          custom={slideDir}
+          className="flex-1 flex flex-col min-w-0 min-h-0 w-full"
+          initial={(dir) => ({ opacity: 0, x: dir * 30 })}
+          animate={{ opacity: 1, x: 0 }}
+          exit={(dir) => ({ opacity: 0, x: dir * -30 })}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          drag={window.innerWidth < 1024 ? "x" : false}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.3}
+          dragDirectionLock
+          onDragEnd={handleDragEnd}
         >
-          <AnimatePresence mode="wait">
-            <motion.div key={pathname}
-              className="min-w-0 min-h-full pb-4"
-              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }}>
+          <Navbar title={title} />
+          <main className="portal-scroll-region slim-scrollbar flex-1 overflow-x-hidden overflow-y-auto p-2.5 sm:p-3.5 lg:p-5">
+            <div className="min-w-0 min-h-full pb-4">
               <Outlet />
-            </motion.div>
-          </AnimatePresence>
-        </main>
-      </div>
+            </div>
+          </main>
+        </motion.div>
+      </AnimatePresence>
       <ToastContainer />
     </div>
   )
