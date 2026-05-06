@@ -14,6 +14,7 @@ import { isStaffRole } from '@/lib/roles'
 import { useUIStore } from '@/store/useUIStore'
 import { useAssignmentStore } from '@/store/useAssignmentStore'
 import { useStudentStore } from '@/store/useStudentStore'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import { academicYearSortValue, btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
 import type { AdminSubmission, AssignmentItem, AssignmentStatus, StudentAssignmentItem, SubjectOption } from '@/types'
 
@@ -100,6 +101,7 @@ function AdminAssignmentsView({
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<AssignmentItem | null>(null)
   const [assignmentToDelete, setAssignmentToDelete] = useState<AssignmentItem | null>(null)
+  const { confirm } = useConfirm()
   const [gradeInputs, setGradeInputs] = useState<Record<string, string>>({})
   const [questionFileName, setQuestionFileName] = useState<string | null>(null)
   const [questionFileContent, setQuestionFileContent] = useState<string | null>(null)
@@ -542,6 +544,15 @@ function AdminAssignmentsView({
 
   const handleDeleteAssignment = async () => {
     if (!assignmentToDelete) return
+    if (!(await confirm({
+      title: 'Delete Assignment',
+      message: `Are you sure you want to delete "${assignmentToDelete.title}"? This will also delete all student submissions for this assignment. This action cannot be undone.`,
+      confirmText: 'Delete Assignment'
+    }))) {
+      setAssignmentToDelete(null)
+      return
+    }
+
     try {
       await deleteAssignment(assignmentToDelete.id)
       addToast('Assignment deleted', 'success')

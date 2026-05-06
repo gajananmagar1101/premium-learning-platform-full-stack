@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { useUIStore } from '@/store/useUIStore'
 import { studentAPI } from '@/lib/services'
 import { formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import type { DBStudent } from '@/types'
 
 const avatarColors = [
@@ -36,8 +37,8 @@ export function ClassStudentsPage() {
   const user = useAuthStore((state) => state.user)
   const { students, loading, error, fetchStudents, removeStudent, updateStudent } = useStudentStore()
   const addToast = useUIStore((state) => state.addToast)
+  const { confirm } = useConfirm()
   const [search, setSearch] = useState('')
-  const [studentToDelete, setStudentToDelete] = useState<DBStudent | null>(null)
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [blockUntilByStudent, setBlockUntilByStudent] = useState<Record<string, string>>({})
   const [blockReasonByStudent, setBlockReasonByStudent] = useState<Record<string, string>>({})
@@ -86,20 +87,22 @@ export function ClassStudentsPage() {
     [grade, search, students]
   )
 
-  const openDeleteConfirmation = (student: DBStudent, e: React.MouseEvent) => {
+  const handleDelete = async (student: DBStudent, e: React.MouseEvent) => {
     e.stopPropagation()
-    setStudentToDelete(student)
-  }
+    const studentId = student._id ?? student.id
+    
+    if (!(await confirm({
+      title: 'Delete Learner Account',
+      message: `Are you sure you want to delete ${student.name}'s account? Their grades and related data may also be removed. This action cannot be undone.`,
+      confirmText: 'Delete Learner'
+    }))) {
+      return
+    }
 
-  const handleDelete = async () => {
-    if (!studentToDelete) return
-
-    const studentId = studentToDelete._id ?? studentToDelete.id
     try {
       await studentAPI.delete(studentId)
       removeStudent(studentId)
       addToast('Learner deleted successfully', 'info')
-      setStudentToDelete(null)
     } catch {
       addToast('Failed to delete learner', 'error')
     }
@@ -302,7 +305,7 @@ export function ClassStudentsPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={(event) => openDeleteConfirmation(student, event)}
+                          onClick={(event) => void handleDelete(student, event)}
                           className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
                         >
                           <Trash2 size={13} />
@@ -319,32 +322,6 @@ export function ClassStudentsPage() {
         </div>
       )}
 
-      <Modal
-        open={Boolean(studentToDelete)}
-        onClose={() => setStudentToDelete(null)}
-        title="Delete Learner Account"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-light-ink-secondary dark:text-dark-ink-secondary">
-            Are you sure you want to delete {studentToDelete?.name}'s account? Their grades and related data may also be removed.
-          </p>
-          <div className="rounded-2xl border border-red-200 bg-red-50/70 px-4 py-3 text-sm text-red-600">
-            This action cannot be undone.
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setStudentToDelete(null)} className="btn-ghost">
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600"
-            >
-              Delete Learner
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
   )
 }

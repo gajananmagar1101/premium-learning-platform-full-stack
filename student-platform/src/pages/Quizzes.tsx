@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 import { isStaffRole } from '@/lib/roles'
 import { useQuizStore } from '@/store/useQuizStore'
 import { useUIStore } from '@/store/useUIStore'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import { quizAPI, studentAPI, subjectAPI } from '@/lib/services'
 import { academicYearSortValue, btechYearOptions, formatAcademicYearLabel, normalizeAcademicYear } from '@/lib/btech'
 import type { AiGeneratedQuizQuestion, AiQuizStatus, Quiz, QuizAttempt, QuizQuestion, SubjectOption } from '@/types'
@@ -177,6 +178,7 @@ function AdminQuizzesView({
   const { pathname } = useLocation()
   const { quizzes, attempts, fetchQuizzes, fetchAttempts, createQuiz, updateQuiz, deleteQuiz } = useQuizStore()
   const addToast = useUIStore((state) => state.addToast)
+  const { confirm } = useConfirm()
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Quiz | null>(null)
   const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null)
@@ -861,6 +863,16 @@ function AdminQuizzesView({
 
   const handleDeleteQuiz = async () => {
     if (!quizToDelete) return
+    
+    if (!(await confirm({
+      title: 'Delete Quiz',
+      message: `Are you sure you want to delete "${quizToDelete.title}"? This will also delete all student attempts and results for this quiz. This action cannot be undone.`,
+      confirmText: 'Delete Quiz'
+    }))) {
+      setQuizToDelete(null)
+      return
+    }
+
     try {
       await deleteQuiz(quizToDelete.id)
       addToast('Quiz deleted', 'success')

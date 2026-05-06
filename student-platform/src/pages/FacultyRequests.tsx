@@ -3,6 +3,7 @@ import { Ban, CheckCircle2, Clock3, ShieldAlert, Trash2, Unlock, UserCheck } fro
 import { useSearchParams } from 'react-router-dom'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Modal } from '@/components/ui/Modal'
+import { useConfirm } from '@/contexts/ConfirmContext'
 import { facultyRequestAPI } from '@/lib/services'
 import type { FacultyMember, FacultyRegistrationRequest } from '@/types'
 
@@ -18,6 +19,7 @@ const toLocalDateTimeValue = (isoText?: string | null) => {
 
 export function FacultyRequests() {
   const [searchParams] = useSearchParams()
+  const { confirm } = useConfirm()
   const [requests, setRequests] = useState<FacultyRegistrationRequest[]>([])
   const [faculty, setFaculty] = useState<FacultyMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -66,16 +68,26 @@ export function FacultyRequests() {
     void loadData()
   }, [])
 
-  const handleRequestAction = async (requestId: string, action: 'approve' | 'reject') => {
-    setProcessingId(requestId)
+  const handleRequestAction = async (request: FacultyRegistrationRequest, action: 'approve' | 'reject') => {
+    if (action === 'reject') {
+      if (!(await confirm({
+        title: 'Reject Request',
+        message: `Are you sure you want to reject the faculty request from ${request.name}?`,
+        confirmText: 'Reject Request'
+      }))) {
+        return
+      }
+    }
+
+    setProcessingId(request.id)
     setError(null)
     try {
       if (action === 'approve') {
-        await facultyRequestAPI.approve(requestId)
+        await facultyRequestAPI.approve(request.id)
         await loadData()
       } else {
-        await facultyRequestAPI.reject(requestId)
-        setRequests((current) => current.filter((request) => request.id !== requestId))
+        await facultyRequestAPI.reject(request.id)
+        setRequests((current) => current.filter((r) => r.id !== request.id))
       }
     } catch (err) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -236,7 +248,7 @@ export function FacultyRequests() {
                     <button
                       type="button"
                       disabled={processingId === request.id}
-                      onClick={() => void handleRequestAction(request.id, 'approve')}
+                      onClick={() => void handleRequestAction(request, 'approve')}
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60"
                     >
                       <CheckCircle2 size={16} />
@@ -245,7 +257,7 @@ export function FacultyRequests() {
                     <button
                       type="button"
                       disabled={processingId === request.id}
-                      onClick={() => void handleRequestAction(request.id, 'reject')}
+                      onClick={() => void handleRequestAction(request, 'reject')}
                       className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
                     >
                       <Ban size={16} />

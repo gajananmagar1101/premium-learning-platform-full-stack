@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect } from 'react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useUIStore } from '@/store/useUIStore'
 import { getHomeRouteForRole, isStaffRole } from '@/lib/roles'
+import { ConfirmProvider } from '@/contexts/ConfirmContext'
 
 const DashboardLayout = lazy(() => import('@/layouts/DashboardLayout').then((module) => ({ default: module.DashboardLayout })))
 const Login = lazy(() => import('@/pages/Login').then((module) => ({ default: module.Login })))
@@ -171,44 +172,46 @@ export default function App() {
   }, [fetchNotifications, user])
 
   return (
-    <BrowserRouter>
-      <ScrollRestorationManager />
-      <Suspense fallback={<AppShellFallback />}>
-        <Routes>
-          <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
-          <Route path="/login/admin" element={<GuestRoute><AdminLogin /></GuestRoute>} />
-          <Route path="/login/student" element={<GuestRoute><StudentLogin /></GuestRoute>} />
-          <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
-          <Route path="/verify-email" element={<GuestRoute><VerifyEmail /></GuestRoute>} />
-          <Route path="/account-blocked" element={<ProtectedRoute><BlockedAccountPage /></ProtectedRoute>} />
+    <ConfirmProvider>
+      <BrowserRouter>
+        <ScrollRestorationManager />
+        <Suspense fallback={<AppShellFallback />}>
+          <Routes>
+            <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+            <Route path="/login/admin" element={<GuestRoute><AdminLogin /></GuestRoute>} />
+            <Route path="/login/student" element={<GuestRoute><StudentLogin /></GuestRoute>} />
+            <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
+            <Route path="/verify-email" element={<GuestRoute><VerifyEmail /></GuestRoute>} />
+            <Route path="/account-blocked" element={<ProtectedRoute><BlockedAccountPage /></ProtectedRoute>} />
 
-          <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route path="/dashboard" element={<ProtectedRoute staffOnly><Dashboard /></ProtectedRoute>} />
-            <Route path="/assessments" element={<Assessments />} />
-            <Route path="/quizzes" element={<Quizzes />} />
-            <Route path="/quizzes/create" element={<Quizzes />} />
-            <Route path="/quizzes/subject" element={<ProtectedRoute staffOnly><Quizzes /></ProtectedRoute>} />
-            <Route path="/quizzes/library/subject" element={<Quizzes />} />
-            <Route path="/quizzes/attempt/:quizId" element={<Quizzes />} />
-            <Route path="/assessments/subject" element={<ProtectedRoute staffOnly><SubjectAssignmentsPage /></ProtectedRoute>} />
-            <Route path="/students" element={<ProtectedRoute staffOnly><Students /></ProtectedRoute>} />
-            <Route path="/subjects" element={<ProtectedRoute staffOnly><Subjects /></ProtectedRoute>} />
-            <Route path="/students/class" element={<ProtectedRoute staffOnly><ClassStudentsPage /></ProtectedRoute>} />
-            <Route path="/students/profile/:studentId" element={<ProtectedRoute staffOnly><StudentProfilePage /></ProtectedRoute>} />
-            <Route path="/students/profile/:studentId/:section" element={<ProtectedRoute staffOnly><StudentProfileDetailPage /></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute staffOnly><Reports /></ProtectedRoute>} />
-            <Route path="/faculty" element={<ProtectedRoute adminOnly><FacultyRequests /></ProtectedRoute>} />
-            <Route path="/faculty-requests" element={<Navigate to="/faculty" replace />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/student-performance" element={<StudentPerformancePage />} />
-            <Route path="/student-performance/:section" element={<StudentPerformanceHistoryPage />} />
-            <Route path="/student-dashboard" element={<StudentDashboard />} />
-            <Route path="/student-planner" element={<StudentPlannerPage />} />
-          </Route>
+            <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route path="/dashboard" element={<ProtectedRoute staffOnly><Dashboard /></ProtectedRoute>} />
+              <Route path="/assessments" element={<Assessments />} />
+              <Route path="/quizzes" element={<Quizzes />} />
+              <Route path="/quizzes/create" element={<Quizzes />} />
+              <Route path="/quizzes/subject" element={<ProtectedRoute staffOnly><Quizzes /></ProtectedRoute>} />
+              <Route path="/quizzes/library/subject" element={<Quizzes />} />
+              <Route path="/quizzes/attempt/:quizId" element={<Quizzes />} />
+              <Route path="/assessments/subject" element={<ProtectedRoute staffOnly><SubjectAssignmentsPage /></ProtectedRoute>} />
+              <Route path="/students" element={<ProtectedRoute staffOnly><Students /></ProtectedRoute>} />
+              <Route path="/subjects" element={<ProtectedRoute staffOnly><Subjects /></ProtectedRoute>} />
+              <Route path="/students/class" element={<ProtectedRoute staffOnly><ClassStudentsPage /></ProtectedRoute>} />
+              <Route path="/students/profile/:studentId" element={<ProtectedRoute staffOnly><StudentProfilePage /></ProtectedRoute>} />
+              <Route path="/students/profile/:studentId/:section" element={<ProtectedRoute staffOnly><StudentProfileDetailPage /></ProtectedRoute>} />
+              <Route path="/reports" element={<ProtectedRoute staffOnly><Reports /></ProtectedRoute>} />
+              <Route path="/faculty" element={<ProtectedRoute adminOnly><FacultyRequests /></ProtectedRoute>} />
+              <Route path="/faculty-requests" element={<Navigate to="/faculty" replace />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/student-performance" element={<StudentPerformancePage />} />
+              <Route path="/student-performance/:section" element={<StudentPerformanceHistoryPage />} />
+              <Route path="/student-dashboard" element={<StudentDashboard />} />
+              <Route path="/student-planner" element={<StudentPlannerPage />} />
+            </Route>
 
-          <Route path="*" element={<Navigate to={user ? getHomeRouteForRole(user.role) : '/login'} replace />} />
-        </Routes>
-      </Suspense>
-    </BrowserRouter>
+            <Route path="*" element={<Navigate to={user ? getHomeRouteForRole(user.role) : '/login'} replace />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </ConfirmProvider>
   )
 }
